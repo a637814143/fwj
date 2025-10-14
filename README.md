@@ -30,17 +30,18 @@
    ./gradlew bootRun
    ```
 
-   服务默认在 `http://localhost:8080` 启动，API 基础路径为 `/api/houses`。
+   服务默认在 `http://localhost:8080` 启动，API 基础路径为 `/api`。
 
 ### 主要 API
 
-| 方法 | 路径               | 说明             |
-| ---- | ------------------ | ---------------- |
-| GET  | `/api/houses`      | 查询全部房源     |
-| GET  | `/api/houses/{id}` | 查询指定房源     |
-| POST | `/api/houses`      | 新增房源         |
-| PUT  | `/api/houses/{id}` | 更新指定房源     |
-| DELETE | `/api/houses/{id}` | 删除指定房源   |
+| 方法 | 路径                 | 说明                     |
+| ---- | -------------------- | ------------------------ |
+| POST | `/api/auth/login`    | 根据角色执行登录         |
+| GET  | `/api/houses`        | 查询全部房源             |
+| GET  | `/api/houses/{id}`   | 查询指定房源             |
+| POST | `/api/houses`        | 新增房源（登录后使用）   |
+| PUT  | `/api/houses/{id}`   | 更新指定房源（登录后使用） |
+| DELETE | `/api/houses/{id}` | 删除指定房源（登录后使用） |
 
 > POST/PUT 请求示例
 >
@@ -73,7 +74,17 @@
 
    默认监听 `http://localhost:5173`，已配置代理将 `/api` 请求转发到 `http://localhost:8080`。
 
-3. 如果后端部署在其他地址，可通过创建 `.env` 文件覆盖 `VITE_API_BASE_URL`：
+3. 登录演示账号：
+
+   | 角色         | 用户名       | 密码       |
+   | ------------ | ------------ | ---------- |
+   | 房东         | `landlord01` | `owner123` |
+   | 买家         | `buyer01`    | `buyer123` |
+   | 系统管理员   | `admin`      | `admin123` |
+
+   选择对应角色并输入账号信息后，即可在前端完成登录并进入房源管理界面。
+
+4. 如果后端部署在其他地址，可通过创建 `.env` 文件覆盖 `VITE_API_BASE_URL`：
 
    ```bash
    echo "VITE_API_BASE_URL=https://your-server/api" > .env.local

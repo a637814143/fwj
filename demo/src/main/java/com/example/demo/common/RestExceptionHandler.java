@@ -1,5 +1,6 @@
 package com.example.demo.common;
 
+import com.example.demo.auth.InvalidCredentialsException;
 import com.example.demo.house.SecondHandHouseNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -27,5 +28,10 @@ public class RestExceptionHandler {
                 errors.put(error.getField(), error.getDefaultMessage()));
         detail.setProperty("errors", errors);
         return detail;
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 }

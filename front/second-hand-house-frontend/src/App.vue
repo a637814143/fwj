@@ -2,32 +2,44 @@
   <div class="app">
     <header class="header">
       <h1>二手房屋管理系统</h1>
-      <p>通过下方表单新增或编辑房源，并在列表中管理数据。</p>
+      <p>请选择角色登录后管理房源信息。</p>
+      <div v-if="currentUser" class="session">
+        <span>
+          当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
+        </span>
+        <button type="button" class="logout" @click="handleLogout">退出登录</button>
+      </div>
     </header>
 
-    <section v-if="messages.error" class="alert">
-      <strong>提示：</strong> {{ messages.error }}
+    <section v-if="!currentUser" class="login-section">
+      <RoleLogin :api-base-url="apiBaseUrl" @login-success="handleLoginSuccess" />
     </section>
 
-    <main class="content">
-      <section class="form-section">
-        <HouseForm
-          :initial-house="selectedHouse"
-          :loading="loading"
-          @submit="handleSubmit"
-          @cancel="handleCancel"
-        />
+    <template v-else>
+      <section v-if="messages.error" class="alert">
+        <strong>提示：</strong> {{ messages.error }}
       </section>
 
-      <section class="list-section">
-        <HouseList
-          :houses="houses"
-          :loading="loading"
-          @edit="handleEdit"
-          @remove="handleRemove"
-        />
-      </section>
-    </main>
+      <main class="content">
+        <section class="form-section">
+          <HouseForm
+            :initial-house="selectedHouse"
+            :loading="loading"
+            @submit="handleSubmit"
+            @cancel="handleCancel"
+          />
+        </section>
+
+        <section class="list-section">
+          <HouseList
+            :houses="houses"
+            :loading="loading"
+            @edit="handleEdit"
+            @remove="handleRemove"
+          />
+        </section>
+      </main>
+    </template>
 
     <footer class="footer">
       <small>后端接口地址：{{ apiBaseUrl }}</small>
@@ -36,21 +48,29 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
+import RoleLogin from './components/RoleLogin.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
 const loading = ref(false);
 const selectedHouse = ref(null);
+const currentUser = ref(null);
 const messages = reactive({ error: '' });
 
 const client = axios.create({
   baseURL: apiBaseUrl,
   headers: { 'Content-Type': 'application/json' }
 });
+
+const roleLabels = {
+  LANDLORD: '房东',
+  BUYER: '买家',
+  ADMIN: '系统管理员'
+};
 
 const fetchHouses = async () => {
   loading.value = true;
@@ -121,7 +141,17 @@ const handleRemove = async (house) => {
   }
 };
 
-onMounted(fetchHouses);
+const handleLoginSuccess = (user) => {
+  currentUser.value = user;
+  fetchHouses();
+};
+
+const handleLogout = () => {
+  currentUser.value = null;
+  houses.value = [];
+  selectedHouse.value = null;
+  messages.error = '';
+};
 </script>
 
 <style scoped>
@@ -141,11 +171,43 @@ onMounted(fetchHouses);
   padding: 1.5rem;
   border-radius: 1rem;
   box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
+  display: grid;
+  gap: 1rem;
 }
 
 .header h1 {
   margin: 0 0 0.5rem;
   font-size: 2rem;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.logout {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.logout:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.login-section {
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .content {

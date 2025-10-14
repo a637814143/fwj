@@ -26,6 +26,7 @@
           <HouseForm
             :initial-house="selectedHouse"
             :loading="loading"
+            :can-manage="canManageHouses"
             @submit="handleSubmit"
             @cancel="handleCancel"
           />
@@ -35,6 +36,7 @@
           <HouseList
             :houses="houses"
             :loading="loading"
+            :can-manage="canManageHouses"
             @edit="handleEdit"
             @remove="handleRemove"
           />
@@ -49,7 +51,7 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
@@ -61,6 +63,7 @@ const loading = ref(false);
 const selectedHouse = ref(null);
 const currentUser = ref(null);
 const messages = reactive({ error: '', success: '' });
+const storageKey = 'secondhand-house-current-user';
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -72,6 +75,10 @@ const roleLabels = {
   BUYER: '买家',
   ADMIN: '系统管理员'
 };
+
+const canManageHouses = computed(
+  () => currentUser.value && ['LANDLORD', 'ADMIN'].includes(currentUser.value.role)
+);
 
 const fetchHouses = async () => {
   loading.value = true;
@@ -89,7 +96,19 @@ const fetchHouses = async () => {
   }
 };
 
+const guardReadOnly = () => {
+  if (!canManageHouses.value) {
+    messages.error = '当前角色仅支持浏览房源，如需维护房源请使用房东或系统管理员账号。';
+    return false;
+  }
+  return true;
+};
+
 const handleSubmit = async (payload) => {
+  if (!guardReadOnly()) {
+    return;
+  }
+
   loading.value = true;
   messages.error = '';
 
@@ -126,6 +145,10 @@ const handleCancel = () => {
 };
 
 const handleRemove = async (house) => {
+  if (!guardReadOnly()) {
+    return;
+  }
+
   if (!confirm(`确定要删除房源：${house.title} 吗？`)) {
     return;
   }
@@ -146,6 +169,11 @@ const handleLoginSuccess = (user) => {
   currentUser.value = user;
   messages.success = user.message ?? '';
   messages.error = '';
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(user));
+  } catch (error) {
+    console.warn('无法持久化登录状态：', error);
+  }
   fetchHouses();
 };
 
@@ -155,7 +183,23 @@ const handleLogout = () => {
   selectedHouse.value = null;
   messages.error = '';
   messages.success = '';
+  localStorage.removeItem(storageKey);
 };
+
+onMounted(() => {
+  try {
+    const cached = localStorage.getItem(storageKey);
+    if (cached) {
+      const user = JSON.parse(cached);
+      currentUser.value = user;
+      messages.success = '已恢复上次的登录状态。';
+      fetchHouses();
+    }
+  } catch (error) {
+    console.warn('恢复登录状态失败：', error);
+    localStorage.removeItem(storageKey);
+  }
+});
 </script>
 
 <style scoped>

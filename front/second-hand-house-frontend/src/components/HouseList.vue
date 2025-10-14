@@ -6,7 +6,9 @@
     </div>
 
     <div v-if="loading" class="loading">数据加载中...</div>
-    <div v-else-if="houses.length === 0" class="empty">暂未添加房源，请先通过表单添加。</div>
+    <div v-else-if="houses.length === 0" class="empty">
+      {{ canManage ? '暂未添加房源，请先通过表单添加。' : '暂未发布房源，稍后再来看看吧。' }}
+    </div>
 
     <div v-else class="table-wrapper">
       <table>
@@ -19,7 +21,8 @@
             <th>挂牌日期</th>
             <th>卖家</th>
             <th>联系方式</th>
-            <th>操作</th>
+            <th v-if="canManage">操作</th>
+            <th v-else>权限</th>
           </tr>
         </thead>
         <tbody>
@@ -34,10 +37,11 @@
             <td>{{ formatDate(house.listingDate) }}</td>
             <td>{{ house.sellerName }}</td>
             <td>{{ house.contactNumber }}</td>
-            <td class="actions">
-              <button class="btn small" @click="$emit('edit', house)">编辑</button>
-              <button class="btn small danger" @click="$emit('remove', house)">删除</button>
+            <td v-if="canManage" class="actions">
+              <button class="btn small" :disabled="!canManage" @click="handleEdit(house)">编辑</button>
+              <button class="btn small danger" :disabled="!canManage" @click="handleRemove(house)">删除</button>
             </td>
+            <td v-else class="actions muted">仅支持浏览</td>
           </tr>
         </tbody>
       </table>
@@ -56,10 +60,16 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  canManage: {
+    type: Boolean,
+    default: true
   }
 });
 
-const { houses, loading } = toRefs(props);
+const emit = defineEmits(['edit', 'remove']);
+
+const { houses, loading, canManage } = toRefs(props);
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
@@ -76,6 +86,20 @@ const formatDate = (value) => {
     return '-';
   }
   return new Date(value).toLocaleDateString('zh-CN');
+};
+
+const handleEdit = (house) => {
+  if (!canManage.value) {
+    return;
+  }
+  emit('edit', house);
+};
+
+const handleRemove = (house) => {
+  if (!canManage.value) {
+    return;
+  }
+  emit('remove', house);
 };
 </script>
 
@@ -140,6 +164,11 @@ tbody tr:hover {
   gap: 0.5rem;
 }
 
+.actions.muted {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
 .btn.small {
   padding: 0.4rem 0.8rem;
   border-radius: 0.65rem;
@@ -150,5 +179,12 @@ tbody tr:hover {
 
 .btn.small.danger {
   background: #ef4444;
+}
+
+.btn.small:disabled,
+.btn.small.danger:disabled {
+  background: #cbd5f5;
+  color: #475569;
+  cursor: not-allowed;
 }
 </style>

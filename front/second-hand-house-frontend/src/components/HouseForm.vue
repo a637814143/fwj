@@ -1,54 +1,106 @@
 <template>
   <form class="house-form" @submit.prevent="submitForm">
     <h2>{{ isEditing ? '编辑房源' : '新增房源' }}</h2>
+    <p v-if="!canManage" class="notice">当前角色仅支持浏览房源，如需发布或维护房源请使用房东或系统管理员账号。</p>
 
     <div class="form-grid">
       <label>
         标题
-        <input v-model.trim="form.title" type="text" required placeholder="请输入房源标题" />
+        <input
+          v-model.trim="form.title"
+          type="text"
+          required
+          placeholder="请输入房源标题"
+          :disabled="!canManage || loading"
+        />
       </label>
 
       <label>
         地址
-        <input v-model.trim="form.address" type="text" required placeholder="请输入房源地址" />
+        <input
+          v-model.trim="form.address"
+          type="text"
+          required
+          placeholder="请输入房源地址"
+          :disabled="!canManage || loading"
+        />
       </label>
 
       <label>
         价格（万元）
-        <input v-model.number="form.price" type="number" min="0" step="0.01" required placeholder="例如 200" />
+        <input
+          v-model.number="form.price"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          placeholder="例如 200"
+          :disabled="!canManage || loading"
+        />
       </label>
 
       <label>
         面积（㎡）
-        <input v-model.number="form.area" type="number" min="0" step="0.01" required placeholder="例如 89" />
+        <input
+          v-model.number="form.area"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          placeholder="例如 89"
+          :disabled="!canManage || loading"
+        />
       </label>
 
       <label>
         卖家姓名
-        <input v-model.trim="form.sellerName" type="text" required placeholder="请输入卖家姓名" />
+        <input
+          v-model.trim="form.sellerName"
+          type="text"
+          required
+          placeholder="请输入卖家姓名"
+          :disabled="!canManage || loading"
+        />
       </label>
 
       <label>
         联系方式
-        <input v-model.trim="form.contactNumber" type="text" required placeholder="请输入联系方式" />
+        <input
+          v-model.trim="form.contactNumber"
+          type="text"
+          required
+          placeholder="请输入联系方式"
+          :disabled="!canManage || loading"
+        />
       </label>
 
       <label>
         挂牌日期
-        <input v-model="form.listingDate" type="date" required />
+        <input v-model="form.listingDate" type="date" required :disabled="!canManage || loading" />
       </label>
     </div>
 
     <label class="description">
       房源描述
-      <textarea v-model.trim="form.description" rows="3" placeholder="补充房源亮点或其他信息"></textarea>
+      <textarea
+        v-model.trim="form.description"
+        rows="3"
+        placeholder="补充房源亮点或其他信息"
+        :disabled="!canManage || loading"
+      ></textarea>
     </label>
 
     <div class="actions">
-      <button class="btn primary" type="submit" :disabled="loading">
+      <button class="btn primary" type="submit" :disabled="loading || !canManage">
         {{ loading ? '提交中...' : isEditing ? '保存修改' : '添加房源' }}
       </button>
-      <button v-if="isEditing" class="btn secondary" type="button" @click="cancelEdit" :disabled="loading">
+      <button
+        v-if="isEditing"
+        class="btn secondary"
+        type="button"
+        @click="cancelEdit"
+        :disabled="loading || !canManage"
+      >
         取消编辑
       </button>
     </div>
@@ -66,6 +118,10 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  canManage: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -85,6 +141,7 @@ const emptyForm = () => ({
 const form = reactive(emptyForm());
 
 const isEditing = computed(() => Boolean(props.initialHouse));
+const canManage = computed(() => props.canManage);
 
 watch(
   () => props.initialHouse,
@@ -108,6 +165,9 @@ watch(
 );
 
 const submitForm = () => {
+  if (!canManage.value) {
+    return;
+  }
   emit('submit', { ...form });
   if (!isEditing.value) {
     Object.assign(form, emptyForm());
@@ -115,6 +175,9 @@ const submitForm = () => {
 };
 
 const cancelEdit = () => {
+  if (!canManage.value) {
+    return;
+  }
   emit('cancel');
   Object.assign(form, emptyForm());
 };
@@ -130,6 +193,16 @@ const cancelEdit = () => {
 .house-form h2 {
   margin: 0;
   color: #1e293b;
+}
+
+.notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-left: 4px solid #2563eb;
+  border-radius: 0.75rem;
+  color: #1d4ed8;
+  font-size: 0.95rem;
 }
 
 .form-grid {

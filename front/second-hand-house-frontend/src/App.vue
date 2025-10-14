@@ -2,13 +2,14 @@
   <div class="app">
     <header class="header">
       <h1>二手房屋管理系统</h1>
-      <p>请选择角色登录后管理房源信息。</p>
+      <p>请先登录或注册账号后再管理房源信息。</p>
       <div v-if="currentUser" class="session">
         <span>
           当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
         </span>
         <button type="button" class="logout" @click="handleLogout">退出登录</button>
       </div>
+      <p v-if="messages.success" class="success">{{ messages.success }}</p>
     </header>
 
     <section v-if="!currentUser" class="login-section">
@@ -59,7 +60,7 @@ const houses = ref([]);
 const loading = ref(false);
 const selectedHouse = ref(null);
 const currentUser = ref(null);
-const messages = reactive({ error: '' });
+const messages = reactive({ error: '', success: '' });
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -143,6 +144,8 @@ const handleRemove = async (house) => {
 
 const handleLoginSuccess = (user) => {
   currentUser.value = user;
+  messages.success = user.message ?? '';
+  messages.error = '';
   fetchHouses();
 };
 
@@ -151,6 +154,7 @@ const handleLogout = () => {
   houses.value = [];
   selectedHouse.value = null;
   messages.error = '';
+  messages.success = '';
 };
 </script>
 
@@ -205,47 +209,44 @@ const handleLogout = () => {
 }
 
 .login-section {
-  max-width: 600px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.5rem;
-}
-
-.form-section,
-.list-section {
-  background: #ffffff;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  display: flex;
+  justify-content: center;
 }
 
 .alert {
   background: #fee2e2;
-  border: 1px solid #f87171;
-  color: #b91c1c;
-  padding: 1rem 1.25rem;
+  border-left: 4px solid #ef4444;
   border-radius: 0.75rem;
+  color: #991b1b;
+  padding: 1rem 1.5rem;
+}
+
+.success {
+  background: rgba(34, 197, 94, 0.15);
+  border-left: 4px solid #22c55e;
+  border-radius: 0.75rem;
+  color: #f0fdf4;
+  margin: 0;
+  padding: 0.75rem 1rem;
+}
+
+.content {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.form-section,
+.list-section {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
+  padding: 1.5rem;
 }
 
 .footer {
   text-align: center;
-  color: #475569;
-  font-size: 0.9rem;
-  padding: 1rem 0;
-}
-
-@media (max-width: 768px) {
-  .app {
-    padding: 1rem;
-  }
-
-  .header {
-    text-align: center;
-  }
+  color: #6b7280;
+  padding: 1.5rem 0 0.5rem;
 }
 </style>

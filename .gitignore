@@ -1,2 +1,7 @@
 demo/.idea/
+demo/.gradle/
+demo/build/
 front/node_modules/
+front/second-hand-house-frontend/node_modules/
+front/second-hand-house-frontend/dist/
+.DS_Store

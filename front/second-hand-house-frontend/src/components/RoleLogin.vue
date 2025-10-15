@@ -138,7 +138,7 @@ const tabs = [
 ];
 
 const roles = [
-  { value: 'LANDLORD', label: '房东' },
+  { value: 'SELLER', label: '卖家' },
   { value: 'BUYER', label: '买家' },
   { value: 'ADMIN', label: '系统管理员' }
 ];

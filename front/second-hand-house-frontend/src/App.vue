@@ -27,6 +27,7 @@
             :initial-house="selectedHouse"
             :loading="loading"
             :can-manage="canManageHouses"
+            :current-user="currentUser"
             @submit="handleSubmit"
             @cancel="handleCancel"
           />
@@ -37,11 +38,29 @@
             :houses="houses"
             :loading="loading"
             :can-manage="canManageHouses"
+            :current-user="currentUser"
+            :orders-loading="ordersLoading"
             @edit="handleEdit"
             @remove="handleRemove"
+            @purchase="handlePurchase"
           />
         </section>
       </main>
+
+      <section class="wallet-order-section">
+        <WalletPanel
+          :wallet="wallet"
+          :loading="walletLoading"
+          :current-user="currentUser"
+          @top-up="handleTopUp"
+        />
+        <OrderHistory
+          :orders="orders"
+          :loading="ordersLoading"
+          :current-user="currentUser"
+          @request-return="handleRequestReturn"
+        />
+      </section>
     </template>
 
     <footer class="footer">
@@ -56,12 +75,18 @@ import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
 import RoleLogin from './components/RoleLogin.vue';
+import WalletPanel from './components/WalletPanel.vue';
+import OrderHistory from './components/OrderHistory.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
 const loading = ref(false);
 const selectedHouse = ref(null);
 const currentUser = ref(null);
+const wallet = ref(null);
+const walletLoading = ref(false);
+const orders = ref([]);
+const ordersLoading = ref(false);
 const messages = reactive({ error: '', success: '' });
 const storageKey = 'secondhand-house-current-user';
 
@@ -71,13 +96,16 @@ const client = axios.create({
 });
 
 const roleLabels = {
-  LANDLORD: '房东',
+  SELLER: '卖家',
   BUYER: '买家',
   ADMIN: '系统管理员'
 };
 
+const isSeller = computed(() => currentUser.value?.role === 'SELLER');
+const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
+
 const canManageHouses = computed(
-  () => currentUser.value && ['LANDLORD', 'ADMIN'].includes(currentUser.value.role)
+  () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
 );
 
 const fetchHouses = async () => {
@@ -96,12 +124,66 @@ const fetchHouses = async () => {
   }
 };
 
+const fetchWallet = async ({ silent = false } = {}) => {
+  if (!currentUser.value) {
+    wallet.value = null;
+    return;
+  }
+  if (!silent) {
+    walletLoading.value = true;
+  }
+  try {
+    const { data } = await client.get(`/wallets/${currentUser.value.username}`);
+    wallet.value = data;
+  } catch (error) {
+    const detail = error.response?.data?.detail ?? '加载钱包信息失败。';
+    messages.error = detail;
+  } finally {
+    if (!silent) {
+      walletLoading.value = false;
+    }
+  }
+};
+
+const fetchOrders = async ({ silent = false } = {}) => {
+  if (!currentUser.value) {
+    orders.value = [];
+    return;
+  }
+  if (!silent) {
+    ordersLoading.value = true;
+  }
+  try {
+    const { data } = await client.get(`/orders/by-user/${currentUser.value.username}`);
+    orders.value = data;
+  } catch (error) {
+    const detail = error.response?.data?.detail ?? '加载订单信息失败。';
+    messages.error = detail;
+  } finally {
+    if (!silent) {
+      ordersLoading.value = false;
+    }
+  }
+};
+
 const guardReadOnly = () => {
   if (!canManageHouses.value) {
-    messages.error = '当前角色仅支持浏览房源，如需维护房源请使用房东或系统管理员账号。';
+    messages.error = '当前角色仅支持浏览房源，如需维护房源请使用卖家或系统管理员账号。';
+    messages.success = '';
     return false;
   }
   return true;
+};
+
+const normalizeHousePayload = (payload) => {
+  const result = { ...payload };
+  if (isSeller.value) {
+    result.sellerUsername = currentUser.value.username;
+    if (!result.sellerName) {
+      result.sellerName = currentUser.value.displayName ?? '';
+    }
+  }
+  return result;
 };
 
 const handleSubmit = async (payload) => {
@@ -111,16 +193,20 @@ const handleSubmit = async (payload) => {
 
   loading.value = true;
   messages.error = '';
+  messages.success = '';
+  const requestPayload = normalizeHousePayload(payload);
 
   try {
     if (selectedHouse.value) {
-      const { data } = await client.put(`/houses/${selectedHouse.value.id}`, payload);
+      const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
       houses.value = houses.value.map((house) =>
         house.id === data.id ? data : house
       );
+      messages.success = `房源《${data.title}》已更新。`;
     } else {
-      const { data } = await client.post('/houses', payload);
+      const { data } = await client.post('/houses', requestPayload);
       houses.value = [...houses.value, data];
+      messages.success = `已新增房源《${data.title}》。`;
     }
     selectedHouse.value = null;
   } catch (error) {
@@ -138,6 +224,7 @@ const handleSubmit = async (payload) => {
 
 const handleEdit = (house) => {
   selectedHouse.value = { ...house };
+  messages.error = '';
 };
 
 const handleCancel = () => {
@@ -155,13 +242,104 @@ const handleRemove = async (house) => {
 
   loading.value = true;
   messages.error = '';
+  messages.success = '';
   try {
     await client.delete(`/houses/${house.id}`);
     houses.value = houses.value.filter((item) => item.id !== house.id);
+    messages.success = `已删除房源《${house.title}》。`;
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '删除房源失败。';
   } finally {
     loading.value = false;
+  }
+};
+
+const handlePurchase = async (house) => {
+  if (!isBuyer.value) {
+    messages.error = '只有买家角色可以发起支付。';
+    messages.success = '';
+    return;
+  }
+  ordersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post('/orders', {
+      houseId: house.id,
+      buyerUsername: currentUser.value.username
+    });
+    messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ${Number(data.amount).toFixed(2)} 万元。`;
+    await fetchWallet({ silent: true });
+    await fetchOrders({ silent: true });
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '支付失败，请稍后再试。';
+    }
+  } finally {
+    ordersLoading.value = false;
+  }
+};
+
+const handleTopUp = async ({ amount, reference }) => {
+  if (!currentUser.value) {
+    messages.error = '请先登录后再使用钱包功能。';
+    messages.success = '';
+    return;
+  }
+  walletLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post(`/wallets/${currentUser.value.username}/top-up`, {
+      amount,
+      reference
+    });
+    wallet.value = data;
+    messages.success = '钱包充值成功。';
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '钱包充值失败。';
+    }
+  } finally {
+    walletLoading.value = false;
+  }
+};
+
+const handleRequestReturn = async ({ orderId, reason }) => {
+  if (!currentUser.value) {
+    messages.error = '请先登录后再申请退换。';
+    messages.success = '';
+    return;
+  }
+  ordersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post(`/orders/${orderId}/return`, {
+      requesterUsername: currentUser.value.username,
+      reason
+    });
+    messages.success = `订单《${data.houseTitle}》已退换成功。`;
+    await fetchWallet({ silent: true });
+    await fetchOrders({ silent: true });
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '退换请求失败。';
+    }
+  } finally {
+    ordersLoading.value = false;
   }
 };
 
@@ -175,12 +353,18 @@ const handleLoginSuccess = (user) => {
     console.warn('无法持久化登录状态：', error);
   }
   fetchHouses();
+  fetchWallet();
+  fetchOrders();
 };
 
 const handleLogout = () => {
   currentUser.value = null;
   houses.value = [];
   selectedHouse.value = null;
+  wallet.value = null;
+  orders.value = [];
+  walletLoading.value = false;
+  ordersLoading.value = false;
   messages.error = '';
   messages.success = '';
   localStorage.removeItem(storageKey);
@@ -194,11 +378,15 @@ onMounted(() => {
       currentUser.value = user;
       messages.success = '已恢复上次的登录状态。';
       fetchHouses();
+      fetchWallet();
+      fetchOrders();
+      return;
     }
   } catch (error) {
     console.warn('恢复登录状态失败：', error);
     localStorage.removeItem(storageKey);
   }
+  fetchHouses();
 });
 </script>
 
@@ -275,6 +463,12 @@ onMounted(() => {
 }
 
 .content {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.wallet-order-section {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

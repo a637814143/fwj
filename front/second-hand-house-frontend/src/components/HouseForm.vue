@@ -1,7 +1,7 @@
 <template>
   <form class="house-form" @submit.prevent="submitForm">
     <h2>{{ isEditing ? '编辑房源' : '新增房源' }}</h2>
-    <p v-if="!canManage" class="notice">当前角色仅支持浏览房源，如需发布或维护房源请使用房东或系统管理员账号。</p>
+    <p v-if="!canManage" class="notice">当前角色仅支持浏览房源，如需发布或维护房源请使用卖家或系统管理员账号。</p>
 
     <div class="form-grid">
       <label>
@@ -49,6 +49,17 @@
           required
           placeholder="例如 89"
           :disabled="!canManage || loading"
+        />
+      </label>
+
+      <label>
+        卖家账号
+        <input
+          v-model.trim="form.sellerUsername"
+          type="text"
+          required
+          placeholder="请输入卖家账号"
+          :disabled="!canManage || loading || disableSellerAccount"
         />
       </label>
 
@@ -122,6 +133,10 @@ const props = defineProps({
   canManage: {
     type: Boolean,
     default: true
+  },
+  currentUser: {
+    type: Object,
+    default: null
   }
 });
 
@@ -133,7 +148,8 @@ const emptyForm = () => ({
   price: '',
   area: '',
   description: '',
-  sellerName: '',
+  sellerUsername: props.currentUser?.role === 'SELLER' ? props.currentUser.username ?? '' : '',
+  sellerName: props.currentUser?.role === 'SELLER' ? props.currentUser.displayName ?? '' : '',
   contactNumber: '',
   listingDate: ''
 });
@@ -142,6 +158,7 @@ const form = reactive(emptyForm());
 
 const isEditing = computed(() => Boolean(props.initialHouse));
 const canManage = computed(() => props.canManage);
+const disableSellerAccount = computed(() => props.currentUser?.role === 'SELLER');
 
 watch(
   () => props.initialHouse,
@@ -153,6 +170,7 @@ watch(
         price: house.price ?? '',
         area: house.area ?? '',
         description: house.description ?? '',
+        sellerUsername: house.sellerUsername ?? '',
         sellerName: house.sellerName ?? '',
         contactNumber: house.contactNumber ?? '',
         listingDate: house.listingDate ?? ''
@@ -162,6 +180,15 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => props.currentUser,
+  () => {
+    if (!props.initialHouse) {
+      Object.assign(form, emptyForm());
+    }
+  }
 );
 
 const submitForm = () => {

@@ -36,6 +36,9 @@ public class SecondHandHouse {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "seller_username", nullable = false, length = 50)
+    private String sellerUsername;
+
     @Column(name = "seller_name", nullable = false)
     private String sellerName;
 
@@ -113,6 +116,14 @@ public class SecondHandHouse {
 
     public String getSellerName() {
         return sellerName;
+    }
+
+    public String getSellerUsername() {
+        return sellerUsername;
+    }
+
+    public void setSellerUsername(String sellerUsername) {
+        this.sellerUsername = sellerUsername;
     }
 
     public void setSellerName(String sellerName) {

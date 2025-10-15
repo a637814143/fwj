@@ -22,6 +22,7 @@
             <th>卖家账号</th>
             <th>卖家姓名</th>
             <th>联系方式</th>
+            <th>房源图片</th>
             <th v-if="canManage || isBuyer">操作</th>
             <th v-else>权限</th>
           </tr>
@@ -39,9 +40,38 @@
             <td>{{ house.sellerUsername || '-' }}</td>
             <td>{{ house.sellerName }}</td>
             <td>{{ house.contactNumber }}</td>
+            <td>
+              <div v-if="house.imageUrls && house.imageUrls.length" class="thumbnails">
+                <img
+                  v-for="(url, index) in house.imageUrls"
+                  :key="index"
+                  :src="url"
+                  :alt="`房源图片${index + 1}`"
+                  loading="lazy"
+                />
+              </div>
+              <span v-else class="muted">暂未提供</span>
+            </td>
             <td v-if="canManage" class="actions">
-              <button class="btn small" :disabled="!canManage" @click="handleEdit(house)">编辑</button>
-              <button class="btn small danger" :disabled="!canManage" @click="handleRemove(house)">删除</button>
+              <template v-if="canEditHouse(house) || canDeleteHouse(house)">
+                <button
+                  v-if="canEditHouse(house)"
+                  class="btn small"
+                  :disabled="!canEditHouse(house)"
+                  @click="handleEdit(house)"
+                >
+                  编辑
+                </button>
+                <button
+                  v-if="canDeleteHouse(house)"
+                  class="btn small danger"
+                  :disabled="!canDeleteHouse(house)"
+                  @click="handleRemove(house)"
+                >
+                  删除
+                </button>
+              </template>
+              <span v-else class="muted">仅限发布者维护</span>
             </td>
             <td v-else-if="isBuyer" class="actions">
               <button class="btn small" :disabled="purchaseDisabled" @click="handlePurchase(house)">
@@ -87,6 +117,8 @@ const emit = defineEmits(['edit', 'remove', 'purchase']);
 const { houses, loading, canManage } = toRefs(props);
 
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
+const isAdmin = computed(() => props.currentUser?.role === 'ADMIN');
+const isSeller = computed(() => props.currentUser?.role === 'SELLER');
 const purchaseDisabled = computed(() => props.ordersLoading || loading.value);
 
 const formatNumber = (value) => {
@@ -107,14 +139,14 @@ const formatDate = (value) => {
 };
 
 const handleEdit = (house) => {
-  if (!canManage.value) {
+  if (!canEditHouse(house)) {
     return;
   }
   emit('edit', house);
 };
 
 const handleRemove = (house) => {
-  if (!canManage.value) {
+  if (!canDeleteHouse(house)) {
     return;
   }
   emit('remove', house);
@@ -125,6 +157,26 @@ const handlePurchase = (house) => {
     return;
   }
   emit('purchase', house);
+};
+
+const canEditHouse = (house) => {
+  if (!canManage.value) {
+    return false;
+  }
+  if (isAdmin.value) {
+    return true;
+  }
+  return isSeller.value && props.currentUser?.username === house.sellerUsername;
+};
+
+const canDeleteHouse = (house) => {
+  if (!canManage.value) {
+    return false;
+  }
+  if (isAdmin.value) {
+    return true;
+  }
+  return isSeller.value && props.currentUser?.username === house.sellerUsername;
 };
 </script>
 
@@ -184,6 +236,21 @@ tbody tr:hover {
   font-size: 0.85rem;
 }
 
+.thumbnails {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.thumbnails img {
+  width: 72px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;
@@ -192,6 +259,11 @@ tbody tr:hover {
 .actions.muted {
   color: #94a3b8;
   font-size: 0.9rem;
+}
+
+.muted {
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 
 .btn.small {

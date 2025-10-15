@@ -1,5 +1,6 @@
 package com.example.demo.common;
 
+import com.example.demo.auth.DuplicateUsernameException;
 import com.example.demo.auth.InvalidCredentialsException;
 import com.example.demo.house.SecondHandHouseNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -33,5 +34,10 @@ public class RestExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateUsernameException.class)
+    public ProblemDetail handleDuplicateUsername(DuplicateUsernameException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 }

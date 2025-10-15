@@ -1,24 +1,24 @@
 <template>
-  <div class="role-login">
-    <div class="role-tabs" role="tablist">
+  <div class="auth-panel">
+    <div class="mode-toggle" role="tablist">
       <button
-        v-for="role in roles"
-        :key="role.value"
-        :class="['role-tab', { active: role.value === selectedRole }]"
+        v-for="tab in tabs"
+        :key="tab.value"
+        :class="['mode-tab', { active: tab.value === mode }]"
         type="button"
         role="tab"
-        @click="changeRole(role.value)"
+        @click="switchMode(tab.value)"
       >
-        {{ role.label }}登录
+        {{ tab.label }}
       </button>
     </div>
 
-    <form class="login-form" @submit.prevent="submit">
+    <form v-if="mode === 'login'" class="form" @submit.prevent="submitLogin">
       <div class="field">
-        <label for="username">用户名</label>
+        <label for="login-username">用户名</label>
         <input
-          id="username"
-          v-model.trim="form.username"
+          id="login-username"
+          v-model.trim="loginForm.username"
           type="text"
           placeholder="请输入用户名"
           :disabled="loading"
@@ -27,10 +27,10 @@
       </div>
 
       <div class="field">
-        <label for="password">密码</label>
+        <label for="login-password">密码</label>
         <input
-          id="password"
-          v-model.trim="form.password"
+          id="login-password"
+          v-model.trim="loginForm.password"
           type="password"
           placeholder="请输入密码"
           :disabled="loading"
@@ -38,10 +38,82 @@
         />
       </div>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="loginError" class="error">{{ loginError }}</p>
 
       <button class="submit" type="submit" :disabled="loading">
         {{ loading ? '登录中...' : '登录' }}
+      </button>
+    </form>
+
+    <form v-else class="form" @submit.prevent="submitRegister">
+      <div class="field">
+        <label for="register-username">用户名</label>
+        <input
+          id="register-username"
+          v-model.trim="registerForm.username"
+          type="text"
+          placeholder="请输入用户名"
+          :disabled="loading"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label for="register-display-name">昵称</label>
+        <input
+          id="register-display-name"
+          v-model.trim="registerForm.displayName"
+          type="text"
+          placeholder="请输入昵称"
+          :disabled="loading"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label for="register-password">密码</label>
+        <input
+          id="register-password"
+          v-model.trim="registerForm.password"
+          type="password"
+          placeholder="请输入密码（至少6位）"
+          :disabled="loading"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label for="register-confirm">确认密码</label>
+        <input
+          id="register-confirm"
+          v-model.trim="registerForm.confirm"
+          type="password"
+          placeholder="请再次输入密码"
+          :disabled="loading"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <span class="label">选择角色</span>
+        <div class="roles">
+          <label v-for="role in roles" :key="role.value" class="role-option">
+            <input
+              v-model="registerForm.role"
+              type="radio"
+              name="register-role"
+              :value="role.value"
+              :disabled="loading"
+            />
+            <span>{{ role.label }}</span>
+          </label>
+        </div>
+      </div>
+
+      <p v-if="registerError" class="error">{{ registerError }}</p>
+
+      <button class="submit" type="submit" :disabled="loading">
+        {{ loading ? '注册中...' : '注册并登录' }}
       </button>
     </form>
   </div>
@@ -60,52 +132,114 @@ const props = defineProps({
 
 const emit = defineEmits(['login-success']);
 
+const tabs = [
+  { value: 'login', label: '账号登录' },
+  { value: 'register', label: '注册新账号' }
+];
+
 const roles = [
   { value: 'LANDLORD', label: '房东' },
   { value: 'BUYER', label: '买家' },
   { value: 'ADMIN', label: '系统管理员' }
 ];
 
-const selectedRole = ref('LANDLORD');
-const form = reactive({ username: '', password: '' });
+const mode = ref('login');
 const loading = ref(false);
-const error = ref('');
+const loginError = ref('');
+const registerError = ref('');
 
-const resetForm = () => {
-  form.username = '';
-  form.password = '';
-  error.value = '';
+const loginForm = reactive({ username: '', password: '' });
+const registerForm = reactive({
+  username: '',
+  password: '',
+  confirm: '',
+  displayName: '',
+  role: roles[0].value
+});
+
+const client = axios.create({
+  baseURL: props.apiBaseUrl,
+  headers: { 'Content-Type': 'application/json' }
+});
+
+const resetForms = () => {
+  loginForm.username = '';
+  loginForm.password = '';
+  registerForm.username = '';
+  registerForm.password = '';
+  registerForm.confirm = '';
+  registerForm.displayName = '';
+  registerForm.role = roles[0].value;
 };
 
-const changeRole = (role) => {
-  selectedRole.value = role;
-  resetForm();
+const switchMode = (value) => {
+  mode.value = value;
+  loading.value = false;
+  loginError.value = '';
+  registerError.value = '';
+  resetForms();
 };
 
-const submit = async () => {
-  if (!form.username || !form.password) {
-    error.value = '请输入完整的用户名和密码';
+const submitLogin = async () => {
+  if (!loginForm.username || !loginForm.password) {
+    loginError.value = '请输入用户名和密码';
     return;
   }
 
   loading.value = true;
-  error.value = '';
+  loginError.value = '';
 
   try {
-    const { data } = await axios.post(`${props.apiBaseUrl}/auth/login`, {
-      role: selectedRole.value,
-      username: form.username,
-      password: form.password
+    const { data } = await client.post('/auth/login', {
+      username: loginForm.username,
+      password: loginForm.password
     });
     emit('login-success', data);
-    resetForm();
+    resetForms();
   } catch (err) {
     const detail = err.response?.data;
     if (detail?.errors) {
       const firstError = Object.values(detail.errors)[0];
-      error.value = Array.isArray(firstError) ? firstError[0] : firstError;
+      loginError.value = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      error.value = detail?.detail ?? '登录失败，请稍后再试。';
+      loginError.value = detail?.detail ?? '登录失败，请稍后再试。';
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+const submitRegister = async () => {
+  if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName) {
+    registerError.value = '请完整填写注册信息';
+    return;
+  }
+
+  if (registerForm.password !== registerForm.confirm) {
+    registerError.value = '两次输入的密码不一致';
+    return;
+  }
+
+  loading.value = true;
+  registerError.value = '';
+
+  try {
+    const { data } = await client.post('/auth/register', {
+      username: registerForm.username,
+      password: registerForm.password,
+      displayName: registerForm.displayName,
+      role: registerForm.role
+    });
+    emit('login-success', data);
+    resetForms();
+    switchMode('login');
+  } catch (err) {
+    const detail = err.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      registerError.value = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      registerError.value = detail?.detail ?? '注册失败，请稍后再试。';
     }
   } finally {
     loading.value = false;
@@ -114,7 +248,7 @@ const submit = async () => {
 </script>
 
 <style scoped>
-.role-login {
+.auth-panel {
   background: #ffffff;
   border-radius: 1rem;
   padding: 1.5rem;
@@ -123,13 +257,13 @@ const submit = async () => {
   gap: 1.5rem;
 }
 
-.role-tabs {
+.mode-toggle {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.role-tab {
+.mode-tab {
   background: #f3f4f6;
   border: none;
   border-radius: 9999px;
@@ -140,20 +274,20 @@ const submit = async () => {
   transition: all 0.2s ease;
 }
 
-.role-tab:hover,
-.role-tab:focus {
+.mode-tab:hover,
+.mode-tab:focus {
   outline: none;
   background: #e0e7ff;
   color: #1d4ed8;
 }
 
-.role-tab.active {
+.mode-tab.active {
   background: linear-gradient(135deg, #6366f1, #4f46e5);
   color: #ffffff;
   box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
 }
 
-.login-form {
+.form {
   display: grid;
   gap: 1rem;
 }
@@ -163,6 +297,7 @@ const submit = async () => {
   gap: 0.5rem;
 }
 
+.label,
 label {
   font-weight: 600;
   color: #374151;
@@ -180,6 +315,22 @@ input:focus {
   outline: none;
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.roles {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.role-option {
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 9999px;
+  color: #374151;
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
 }
 
 .error {
@@ -201,11 +352,11 @@ input:focus {
 
 .submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 15px 35px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 12px 25px rgba(37, 99, 235, 0.25);
 }
 
 .submit:disabled {
-  background: #93c5fd;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 </style>

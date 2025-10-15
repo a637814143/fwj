@@ -1,47 +1,71 @@
 package com.example.demo.auth;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
-import java.util.Map;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
 
-    private final Map<UserRole, Map<String, String>> credentialStore = new HashMap<>();
-    private final Map<UserRole, Map<String, String>> displayNames = new HashMap<>();
+    private final UserAccountRepository userAccountRepository;
 
-    public AuthService() {
-        register(UserRole.LANDLORD, "landlord01", "owner123", "房东小李");
-        register(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
-        register(UserRole.ADMIN, "admin", "admin123", "系统管理员");
+    public AuthService(UserAccountRepository userAccountRepository) {
+        this.userAccountRepository = userAccountRepository;
     }
 
+    @PostConstruct
+    public void preloadDemoUsers() {
+        if (userAccountRepository.count() == 0) {
+            createUser(UserRole.LANDLORD, "landlord01", "owner123", "房东小李");
+            createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
+            createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        Map<String, String> userPasswords = credentialStore.get(request.getRole());
-        if (userPasswords == null) {
+        UserAccount account = userAccountRepository
+                .findByUsername(request.getUsername())
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (!account.getPassword().equals(request.getPassword())) {
             throw new InvalidCredentialsException();
         }
 
-        String expectedPassword = userPasswords.get(request.getUsername());
-        if (expectedPassword == null || !expectedPassword.equals(request.getPassword())) {
-            throw new InvalidCredentialsException();
+        return toResponse(account, String.format("%s，欢迎登录系统！", account.getDisplayName()));
+    }
+
+    @Transactional
+    public LoginResponse register(RegisterRequest request) {
+        if (userAccountRepository.existsByUsername(request.getUsername())) {
+            throw new DuplicateUsernameException(request.getUsername());
         }
 
-        String displayName = displayNames
-                .getOrDefault(request.getRole(), Map.of())
-                .getOrDefault(request.getUsername(), request.getUsername());
-
-        return new LoginResponse(
+        UserAccount account = createUser(
                 request.getRole(),
                 request.getUsername(),
-                displayName,
-                String.format("%s，欢迎登录系统！", displayName)
+                request.getPassword(),
+                request.getDisplayName()
         );
+
+        return toResponse(account, "注册成功，已为您自动登录。");
     }
 
-    private void register(UserRole role, String username, String password, String displayName) {
-        credentialStore.computeIfAbsent(role, key -> new HashMap<>()).put(username, password);
-        displayNames.computeIfAbsent(role, key -> new HashMap<>()).put(username, displayName);
+    private UserAccount createUser(UserRole role, String username, String password, String displayName) {
+        UserAccount account = new UserAccount();
+        account.setRole(role);
+        account.setUsername(username);
+        account.setPassword(password);
+        account.setDisplayName(displayName);
+        return userAccountRepository.save(account);
+    }
+
+    private LoginResponse toResponse(UserAccount account, String message) {
+        return new LoginResponse(
+                account.getRole(),
+                account.getUsername(),
+                account.getDisplayName(),
+                message
+        );
     }
 }

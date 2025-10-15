@@ -83,3 +83,24 @@ CREATE TABLE IF NOT EXISTS house_orders (
     CONSTRAINT fk_house_order_buyer FOREIGN KEY (buyer_id) REFERENCES user_accounts(id),
     CONSTRAINT fk_house_order_seller FOREIGN KEY (seller_id) REFERENCES user_accounts(id)
 );
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    buyer_id BIGINT NOT NULL,
+    seller_id BIGINT NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_conversation_buyer FOREIGN KEY (buyer_id) REFERENCES user_accounts(id),
+    CONSTRAINT fk_conversation_seller FOREIGN KEY (seller_id) REFERENCES user_accounts(id),
+    CONSTRAINT uk_conversations_participants UNIQUE (buyer_id, seller_id)
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id BIGINT NOT NULL,
+    sender_id BIGINT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_conversation_message_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    CONSTRAINT fk_conversation_message_sender FOREIGN KEY (sender_id) REFERENCES user_accounts(id)
+);

@@ -74,6 +74,7 @@
               <span v-else class="muted">仅限发布者维护</span>
             </td>
             <td v-else-if="isBuyer" class="actions">
+              <button class="btn small secondary" @click="handleContactSeller(house)">联系卖家</button>
               <button class="btn small" :disabled="purchaseDisabled" @click="handlePurchase(house)">
                 {{ purchaseDisabled ? '处理中...' : '立即购买' }}
               </button>
@@ -112,7 +113,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['edit', 'remove', 'purchase']);
+const emit = defineEmits(['edit', 'remove', 'purchase', 'contact-seller']);
 
 const { houses, loading, canManage } = toRefs(props);
 
@@ -157,6 +158,16 @@ const handlePurchase = (house) => {
     return;
   }
   emit('purchase', house);
+};
+
+const handleContactSeller = (house) => {
+  if (!house?.sellerUsername) {
+    return;
+  }
+  emit('contact-seller', {
+    sellerUsername: house.sellerUsername,
+    sellerName: house.sellerName
+  });
 };
 
 const canEditHouse = (house) => {
@@ -272,6 +283,12 @@ tbody tr:hover {
   border: none;
   background: #2563eb;
   color: #fff;
+}
+
+.btn.small.secondary {
+  background: #f1f5f9;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 
 .btn.small.danger {

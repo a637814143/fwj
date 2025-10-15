@@ -12,7 +12,17 @@
           </span>
           <span class="reputation">信誉分：{{ currentUser.reputationScore ?? '—' }}</span>
         </div>
-        <button type="button" class="logout" @click="handleLogout">退出登录</button>
+        <div class="session-actions">
+          <button
+            v-if="canUseMessaging"
+            type="button"
+            class="messages-trigger"
+            @click="openConversationPanel"
+          >
+            消息中心
+          </button>
+          <button type="button" class="logout" @click="handleLogout">退出登录</button>
+        </div>
       </div>
       <p v-if="messages.success" class="success">{{ messages.success }}</p>
     </header>
@@ -52,6 +62,7 @@
           @search="handleFilterSearch"
           @reserve="handleReserve"
           @purchase="handlePurchase"
+          @contact-seller="handleContactSeller"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -72,6 +83,7 @@
             @edit="handleEdit"
             @remove="handleRemove"
             @purchase="handlePurchase"
+            @contact-seller="handleContactSeller"
           />
         </div>
 
@@ -102,6 +114,22 @@
       </main>
     </template>
 
+    <ConversationPanel
+      :visible="conversationPanelVisible"
+      :conversations="conversations"
+      :active-conversation-id="activeConversationId"
+      :messages="conversationMessages"
+      :loading-conversations="conversationListLoading"
+      :loading-messages="conversationMessagesLoading"
+      :sending-message="conversationSending"
+      :current-user="currentUser"
+      :error="conversationError"
+      @close="conversationPanelVisible = false"
+      @refresh-conversations="loadConversations()"
+      @select-conversation="handleSelectConversation"
+      @send-message="handleSendConversationMessage"
+    />
+
     <footer class="footer">
       <small>后端接口地址：{{ apiBaseUrl }}</small>
     </footer>
@@ -118,6 +146,7 @@ import WalletPanel from './components/WalletPanel.vue';
 import OrderHistory from './components/OrderHistory.vue';
 import HouseExplorer from './components/HouseExplorer.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
+import ConversationPanel from './components/ConversationPanel.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -135,6 +164,14 @@ const recommendations = reactive({ sellers: [], buyers: [] });
 const adminUsers = ref([]);
 const adminReputation = ref(null);
 const adminLoading = ref(false);
+const conversationPanelVisible = ref(false);
+const conversations = ref([]);
+const activeConversationId = ref(null);
+const conversationMessages = ref([]);
+const conversationListLoading = ref(false);
+const conversationMessagesLoading = ref(false);
+const conversationSending = ref(false);
+const conversationError = ref('');
 const activeTab = ref('home');
 const houseFilters = reactive({
   keyword: '',
@@ -159,6 +196,7 @@ const roleLabels = {
 const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
+const canUseMessaging = computed(() => currentUser.value && ['BUYER', 'SELLER'].includes(currentUser.value.role));
 
 const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
@@ -291,6 +329,143 @@ const fetchOrders = async ({ silent = false } = {}) => {
     if (!silent) {
       ordersLoading.value = false;
     }
+  }
+};
+
+const resetConversationState = () => {
+  conversations.value = [];
+  activeConversationId.value = null;
+  conversationMessages.value = [];
+  conversationPanelVisible.value = false;
+  conversationListLoading.value = false;
+  conversationMessagesLoading.value = false;
+  conversationSending.value = false;
+  conversationError.value = '';
+};
+
+const loadConversations = async ({ silent = false } = {}) => {
+  if (!currentUser.value || !canUseMessaging.value) {
+    resetConversationState();
+    return;
+  }
+  const previousId = activeConversationId.value;
+  if (!silent) {
+    conversationListLoading.value = true;
+  }
+  conversationError.value = '';
+  try {
+    const { data } = await client.get('/conversations', {
+      params: { username: currentUser.value.username }
+    });
+    const list = Array.isArray(data) ? data : [];
+    conversations.value = list;
+    if (activeConversationId.value && !list.some((item) => item.id === activeConversationId.value)) {
+      activeConversationId.value = list.length > 0 ? list[0].id : null;
+    }
+    if (!activeConversationId.value) {
+      conversationMessages.value = [];
+    } else if (previousId !== activeConversationId.value && conversationPanelVisible.value) {
+      await loadConversationMessages(activeConversationId.value, { silent: true });
+    }
+  } catch (error) {
+    conversationError.value = error.response?.data?.detail ?? '加载对话失败。';
+  } finally {
+    if (!silent) {
+      conversationListLoading.value = false;
+    }
+  }
+};
+
+const loadConversationMessages = async (conversationId, { silent = false } = {}) => {
+  if (!conversationId || !currentUser.value) {
+    conversationMessages.value = [];
+    return;
+  }
+  if (!silent) {
+    conversationMessagesLoading.value = true;
+  }
+  conversationError.value = '';
+  try {
+    const { data } = await client.get(`/conversations/${conversationId}/messages`, {
+      params: { requester: currentUser.value.username }
+    });
+    conversationMessages.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    conversationError.value = error.response?.data?.detail ?? '加载消息失败。';
+  } finally {
+    if (!silent) {
+      conversationMessagesLoading.value = false;
+    }
+  }
+};
+
+const openConversationPanel = async () => {
+  if (!currentUser.value || !canUseMessaging.value) {
+    messages.error = '当前角色暂不支持对话功能。';
+    return;
+  }
+  conversationPanelVisible.value = true;
+  conversationError.value = '';
+  await loadConversations({ silent: true });
+  if (!activeConversationId.value && conversations.value.length > 0) {
+    activeConversationId.value = conversations.value[0].id;
+  }
+  if (activeConversationId.value) {
+    await loadConversationMessages(activeConversationId.value, { silent: true });
+  }
+};
+
+const handleSelectConversation = async (conversationId) => {
+  activeConversationId.value = conversationId;
+  if (!conversationId) {
+    conversationMessages.value = [];
+    return;
+  }
+  await loadConversationMessages(conversationId);
+};
+
+const handleSendConversationMessage = async ({ conversationId, content }) => {
+  if (!conversationId || !currentUser.value) {
+    return;
+  }
+  conversationSending.value = true;
+  conversationError.value = '';
+  try {
+    await client.post(`/conversations/${conversationId}/messages`, {
+      senderUsername: currentUser.value.username,
+      content
+    });
+    await Promise.all([
+      loadConversationMessages(conversationId, { silent: true }),
+      loadConversations({ silent: true })
+    ]);
+  } catch (error) {
+    conversationError.value = error.response?.data?.detail ?? '发送消息失败。';
+  } finally {
+    conversationSending.value = false;
+  }
+};
+
+const handleContactSeller = async ({ sellerUsername }) => {
+  if (!isBuyer.value || !currentUser.value) {
+    messages.error = '只有买家可以主动联系卖家。';
+    messages.success = '';
+    return;
+  }
+  conversationPanelVisible.value = true;
+  conversationError.value = '';
+  try {
+    const { data } = await client.post('/conversations', {
+      buyerUsername: currentUser.value.username,
+      sellerUsername
+    });
+    activeConversationId.value = data.id;
+    await Promise.all([
+      loadConversationMessages(data.id),
+      loadConversations({ silent: true })
+    ]);
+  } catch (error) {
+    conversationError.value = error.response?.data?.detail ?? '创建对话失败，请稍后再试。';
   }
 };
 
@@ -602,6 +777,7 @@ const loadAdminData = async () => {
 
 const handleLoginSuccess = (user) => {
   currentUser.value = user;
+  resetConversationState();
   const reputationText = user.reputationScore != null ? ` 当前信誉分：${user.reputationScore}` : '';
   messages.success = `${user.message ?? '登录成功。'}${reputationText}`;
   messages.error = '';
@@ -611,6 +787,9 @@ const handleLoginSuccess = (user) => {
   fetchWallet();
   fetchOrders();
   loadRecommendations({ silent: false });
+  if (user.role === 'BUYER' || user.role === 'SELLER') {
+    loadConversations({ silent: true });
+  }
   if (user.role === 'ADMIN') {
     loadAdminData();
   }
@@ -633,6 +812,7 @@ const handleLogout = () => {
   messages.success = '';
   activeTab.value = 'home';
   localStorage.removeItem(storageKey);
+  resetConversationState();
   fetchHouses();
   loadRecommendations();
 };
@@ -645,6 +825,11 @@ watch(
     } else {
       adminUsers.value = [];
       adminReputation.value = null;
+    }
+    if (role === 'BUYER' || role === 'SELLER') {
+      loadConversations({ silent: true });
+    } else {
+      resetConversationState();
     }
   }
 );
@@ -714,6 +899,13 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.session-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .identity {
   display: flex;
   flex-direction: column;
@@ -725,7 +917,8 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.logout {
+.logout,
+.messages-trigger {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 999px;
@@ -736,7 +929,8 @@ onMounted(() => {
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.logout:hover {
+.logout:hover,
+.messages-trigger:hover {
   background: rgba(255, 255, 255, 0.35);
   transform: translateY(-1px);
 }

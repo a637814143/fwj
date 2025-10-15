@@ -46,4 +46,10 @@ public class HouseOrderController {
                                             @Valid @RequestBody OrderReturnRequest request) {
         return houseOrderService.requestReturn(orderId, request);
     }
+
+    @PostMapping("/{orderId}/viewing")
+    public HouseOrderResponse scheduleViewing(@PathVariable Long orderId,
+                                              @Valid @RequestBody ViewingScheduleRequest request) {
+        return houseOrderService.scheduleViewing(orderId, request);
+    }
 }

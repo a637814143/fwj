@@ -11,6 +11,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     Optional<Conversation> findByBuyer_UsernameAndSeller_Username(String buyerUsername, String sellerUsername);
 
+    List<Conversation> findByBuyer_UsernameOrSeller_Username(String buyerUsername, String sellerUsername);
+
     @Query("""
             select c from Conversation c
             where c.buyer.username = :username

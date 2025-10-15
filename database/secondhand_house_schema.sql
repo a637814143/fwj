@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS house_orders (
     amount DECIMAL(18,2) NOT NULL,
     status VARCHAR(20) NOT NULL,
     return_reason VARCHAR(255),
+    viewing_time DATETIME(6) NULL,
+    viewing_message VARCHAR(255) NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     CONSTRAINT fk_house_order_house FOREIGN KEY (house_id) REFERENCES second_hand_houses(id),

@@ -1,8 +1,9 @@
 package com.example.demo.house;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface SecondHandHouseRepository extends JpaRepository<SecondHandHouse, Long> {
+public interface SecondHandHouseRepository extends JpaRepository<SecondHandHouse, Long>, JpaSpecificationExecutor<SecondHandHouse> {
 }

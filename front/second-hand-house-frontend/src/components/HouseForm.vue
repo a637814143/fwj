@@ -101,6 +101,40 @@
       ></textarea>
     </label>
 
+    <div class="image-section">
+      <div class="image-header">
+        <span>房源图片链接</span>
+        <small>支持粘贴网络图片地址，最多 10 张。</small>
+      </div>
+      <div class="image-inputs">
+        <div class="image-input-row" v-for="(image, index) in form.imageUrls" :key="index">
+          <input
+            v-model.trim="form.imageUrls[index]"
+            type="url"
+            placeholder="https://example.com/house.jpg"
+            :disabled="!canManage || loading"
+          />
+          <button
+            v-if="form.imageUrls.length > 1"
+            type="button"
+            class="btn tertiary"
+            @click="removeImageField(index)"
+            :disabled="!canManage || loading"
+          >
+            移除
+          </button>
+        </div>
+        <button
+          type="button"
+          class="btn secondary"
+          @click="addImageField"
+          :disabled="!canManage || loading || form.imageUrls.length >= 10"
+        >
+          添加图片
+        </button>
+      </div>
+    </div>
+
     <div class="actions">
       <button class="btn primary" type="submit" :disabled="loading || !canManage">
         {{ loading ? '提交中...' : isEditing ? '保存修改' : '添加房源' }}
@@ -151,7 +185,8 @@ const emptyForm = () => ({
   sellerUsername: props.currentUser?.role === 'SELLER' ? props.currentUser.username ?? '' : '',
   sellerName: props.currentUser?.role === 'SELLER' ? props.currentUser.displayName ?? '' : '',
   contactNumber: '',
-  listingDate: ''
+  listingDate: '',
+  imageUrls: ['']
 });
 
 const form = reactive(emptyForm());
@@ -173,7 +208,8 @@ watch(
         sellerUsername: house.sellerUsername ?? '',
         sellerName: house.sellerName ?? '',
         contactNumber: house.contactNumber ?? '',
-        listingDate: house.listingDate ?? ''
+        listingDate: house.listingDate ?? '',
+        imageUrls: Array.isArray(house.imageUrls) && house.imageUrls.length > 0 ? [...house.imageUrls] : ['']
       });
     } else {
       Object.assign(form, emptyForm());
@@ -195,7 +231,14 @@ const submitForm = () => {
   if (!canManage.value) {
     return;
   }
-  emit('submit', { ...form });
+  const payload = {
+    ...form,
+    imageUrls: form.imageUrls
+      .map((url) => url?.trim())
+      .filter((url) => url)
+  };
+  emit('submit', payload);
+  form.imageUrls = payload.imageUrls.length > 0 ? [...payload.imageUrls] : [''];
   if (!isEditing.value) {
     Object.assign(form, emptyForm());
   }
@@ -207,6 +250,21 @@ const cancelEdit = () => {
   }
   emit('cancel');
   Object.assign(form, emptyForm());
+};
+
+const addImageField = () => {
+  if (form.imageUrls.length >= 10) {
+    return;
+  }
+  form.imageUrls.push('');
+};
+
+const removeImageField = (index) => {
+  if (form.imageUrls.length <= 1) {
+    form.imageUrls[0] = '';
+    return;
+  }
+  form.imageUrls.splice(index, 1);
 };
 </script>
 
@@ -298,5 +356,44 @@ textarea {
 .btn.secondary {
   background: #e2e8f0;
   color: #1e293b;
+}
+
+.btn.tertiary {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.image-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.image-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.image-header small {
+  font-weight: 400;
+  color: #64748b;
+}
+
+.image-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.image-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.image-input-row input {
+  flex: 1;
 }
 </style>

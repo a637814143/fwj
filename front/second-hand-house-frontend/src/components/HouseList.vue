@@ -22,6 +22,7 @@
             <th>卖家账号</th>
             <th>卖家姓名</th>
             <th>联系方式</th>
+            <th>图片</th>
             <th v-if="canManage || isBuyer">操作</th>
             <th v-else>权限</th>
           </tr>
@@ -39,13 +40,35 @@
             <td>{{ house.sellerUsername || '-' }}</td>
             <td>{{ house.sellerName }}</td>
             <td>{{ house.contactNumber }}</td>
+            <td>
+              <div v-if="Array.isArray(house.imageUrls) && house.imageUrls.length" class="image-thumbs">
+                <img
+                  v-for="(image, index) in house.imageUrls"
+                  :key="index"
+                  :src="image"
+                  :alt="`${house.title} 图片 ${index + 1}`"
+                  loading="lazy"
+                  @error="handleImageError($event)"
+                />
+              </div>
+              <span v-else class="muted">暂无</span>
+            </td>
             <td v-if="canManage" class="actions">
               <button class="btn small" :disabled="!canManage" @click="handleEdit(house)">编辑</button>
               <button class="btn small danger" :disabled="!canManage" @click="handleRemove(house)">删除</button>
+              <button class="btn small secondary" :disabled="!canManage" @click="handleViewReviews(house)">
+                查看评价
+              </button>
             </td>
             <td v-else-if="isBuyer" class="actions">
               <button class="btn small" :disabled="purchaseDisabled" @click="handlePurchase(house)">
                 {{ purchaseDisabled ? '处理中...' : '立即购买' }}
+              </button>
+              <button class="btn small secondary" :disabled="purchaseDisabled" @click="handleViewReviews(house)">
+                查看评价
+              </button>
+              <button class="btn small outline" :disabled="purchaseDisabled" @click="handleReview(house)">
+                我要评价
               </button>
             </td>
             <td v-else class="actions muted">仅支持浏览</td>
@@ -82,7 +105,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['edit', 'remove', 'purchase']);
+const emit = defineEmits(['edit', 'remove', 'purchase', 'view-reviews', 'review']);
 
 const { houses, loading, canManage } = toRefs(props);
 
@@ -125,6 +148,18 @@ const handlePurchase = (house) => {
     return;
   }
   emit('purchase', house);
+};
+
+const handleViewReviews = (house) => {
+  emit('view-reviews', house);
+};
+
+const handleReview = (house) => {
+  emit('review', house);
+};
+
+const handleImageError = (event) => {
+  event.target.classList.add('broken');
 };
 </script>
 
@@ -206,10 +241,47 @@ tbody tr:hover {
   background: #ef4444;
 }
 
+.btn.small.secondary {
+  background: #475569;
+}
+
+.btn.small.outline {
+  background: #fff;
+  border: 1px solid #2563eb;
+  color: #2563eb;
+}
+
 .btn.small:disabled,
-.btn.small.danger:disabled {
+.btn.small.danger:disabled,
+.btn.small.secondary:disabled,
+.btn.small.outline:disabled {
   background: #cbd5f5;
   color: #475569;
   cursor: not-allowed;
+}
+
+.image-thumbs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.image-thumbs img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.image-thumbs img.broken {
+  opacity: 0.4;
+  object-fit: contain;
+}
+
+.muted {
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 </style>

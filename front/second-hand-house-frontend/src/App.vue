@@ -21,6 +21,15 @@
         <strong>提示：</strong> {{ messages.error }}
       </section>
 
+      <section class="filters-section">
+        <HouseFilters
+          v-model="filters"
+          :loading="loading"
+          @submit="handleFilterSubmit"
+          @reset="handleFilterReset"
+        />
+      </section>
+
       <main class="content">
         <section class="form-section">
           <HouseForm
@@ -43,9 +52,23 @@
             @edit="handleEdit"
             @remove="handleRemove"
             @purchase="handlePurchase"
+            @view-reviews="handleViewReviews"
+            @review="handleReview"
           />
         </section>
       </main>
+
+      <section class="reviews-section">
+        <HouseReviews
+          :house="selectedReviewHouse"
+          :reviews="houseReviews"
+          :loading="reviewsLoading"
+          :submitting="reviewSubmitting"
+          :current-user="currentUser"
+          @submit-review="handleSubmitReview"
+          @refresh="handleRefreshReviews"
+        />
+      </section>
 
       <section class="wallet-order-section">
         <WalletPanel
@@ -72,8 +95,10 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import axios from 'axios';
+import HouseFilters from './components/HouseFilters.vue';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
+import HouseReviews from './components/HouseReviews.vue';
 import RoleLogin from './components/RoleLogin.vue';
 import WalletPanel from './components/WalletPanel.vue';
 import OrderHistory from './components/OrderHistory.vue';
@@ -82,13 +107,28 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/a
 const houses = ref([]);
 const loading = ref(false);
 const selectedHouse = ref(null);
+const selectedReviewHouse = ref(null);
 const currentUser = ref(null);
 const wallet = ref(null);
 const walletLoading = ref(false);
 const orders = ref([]);
 const ordersLoading = ref(false);
+const houseReviews = ref([]);
+const reviewsLoading = ref(false);
+const reviewSubmitting = ref(false);
 const messages = reactive({ error: '', success: '' });
 const storageKey = 'secondhand-house-current-user';
+
+const filters = reactive({
+  keyword: '',
+  sellerUsername: '',
+  minPrice: '',
+  maxPrice: '',
+  minArea: '',
+  maxArea: '',
+  listedFrom: '',
+  listedTo: ''
+});
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -108,15 +148,35 @@ const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
 );
 
+const buildHouseQuery = () => {
+  const params = {};
+  if (filters.keyword) params.keyword = filters.keyword;
+  if (filters.sellerUsername) params.sellerUsername = filters.sellerUsername;
+  if (filters.minPrice !== '' && filters.minPrice != null) params.minPrice = filters.minPrice;
+  if (filters.maxPrice !== '' && filters.maxPrice != null) params.maxPrice = filters.maxPrice;
+  if (filters.minArea !== '' && filters.minArea != null) params.minArea = filters.minArea;
+  if (filters.maxArea !== '' && filters.maxArea != null) params.maxArea = filters.maxArea;
+  if (filters.listedFrom) params.listedFrom = filters.listedFrom;
+  if (filters.listedTo) params.listedTo = filters.listedTo;
+  return params;
+};
+
 const fetchHouses = async () => {
   loading.value = true;
   messages.error = '';
   try {
-    const { data } = await client.get('/houses');
+    const { data } = await client.get('/houses', { params: buildHouseQuery() });
     houses.value = data.map((house) => ({
       ...house,
-      listingDate: house.listingDate ?? ''
+      listingDate: house.listingDate ?? '',
+      imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : []
     }));
+    if (selectedReviewHouse.value) {
+      const refreshed = houses.value.find((item) => item.id === selectedReviewHouse.value.id);
+      if (refreshed) {
+        selectedReviewHouse.value = refreshed;
+      }
+    }
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '加载房源数据失败，请检查后端服务。';
   } finally {
@@ -182,6 +242,13 @@ const normalizeHousePayload = (payload) => {
     if (!result.sellerName) {
       result.sellerName = currentUser.value.displayName ?? '';
     }
+  }
+  if (Array.isArray(result.imageUrls)) {
+    result.imageUrls = result.imageUrls
+      .map((url) => (url == null ? '' : String(url).trim()))
+      .filter((url) => url);
+  } else {
+    result.imageUrls = [];
   }
   return result;
 };
@@ -361,6 +428,10 @@ const handleLogout = () => {
   currentUser.value = null;
   houses.value = [];
   selectedHouse.value = null;
+  selectedReviewHouse.value = null;
+  houseReviews.value = [];
+  reviewsLoading.value = false;
+  reviewSubmitting.value = false;
   wallet.value = null;
   orders.value = [];
   walletLoading.value = false;
@@ -368,6 +439,90 @@ const handleLogout = () => {
   messages.error = '';
   messages.success = '';
   localStorage.removeItem(storageKey);
+};
+
+const handleFilterSubmit = () => {
+  fetchHouses();
+};
+
+const handleFilterReset = () => {
+  fetchHouses();
+};
+
+const fetchHouseReviews = async (house, { silent = false } = {}) => {
+  if (!house?.id) {
+    return;
+  }
+  if (!silent) {
+    reviewsLoading.value = true;
+  }
+  messages.error = '';
+  try {
+    const { data } = await client.get(`/houses/${house.id}/reviews`);
+    houseReviews.value = data;
+  } catch (error) {
+    const detail = error.response?.data?.detail ?? '加载评价失败。';
+    messages.error = detail;
+  } finally {
+    if (!silent) {
+      reviewsLoading.value = false;
+    }
+  }
+};
+
+const handleViewReviews = (house) => {
+  selectedReviewHouse.value = house;
+  fetchHouseReviews(house);
+};
+
+const handleReview = (house) => {
+  if (!isBuyer.value) {
+    messages.error = '登录买家账号后才可以评价房源。';
+    messages.success = '';
+    return;
+  }
+  selectedReviewHouse.value = house;
+  fetchHouseReviews(house);
+};
+
+const handleSubmitReview = async ({ rating, comment }) => {
+  if (!isBuyer.value) {
+    messages.error = '只有买家可以提交评价。';
+    return;
+  }
+  if (!selectedReviewHouse.value) {
+    messages.error = '请先选择需要评价的房源。';
+    return;
+  }
+  reviewSubmitting.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post(`/houses/${selectedReviewHouse.value.id}/reviews`, {
+      buyerUsername: currentUser.value.username,
+      buyerDisplayName: currentUser.value.displayName ?? currentUser.value.username,
+      rating,
+      comment
+    });
+    houseReviews.value = [data, ...houseReviews.value];
+    messages.success = '评价提交成功。';
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '提交评价失败，请稍后再试。';
+    }
+  } finally {
+    reviewSubmitting.value = false;
+  }
+};
+
+const handleRefreshReviews = () => {
+  if (selectedReviewHouse.value) {
+    fetchHouseReviews(selectedReviewHouse.value);
+  }
 };
 
 onMounted(() => {
@@ -466,6 +621,13 @@ onMounted(() => {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.filters-section,
+.reviews-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .wallet-order-section {

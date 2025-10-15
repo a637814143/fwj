@@ -42,6 +42,7 @@ public class SecondHandHouseService {
         existing.setSellerName(updatedHouse.getSellerName());
         existing.setContactNumber(updatedHouse.getContactNumber());
         existing.setListingDate(updatedHouse.getListingDate());
+        existing.setImageUrls(updatedHouse.getImageUrls());
         return repository.save(existing);
     }
 

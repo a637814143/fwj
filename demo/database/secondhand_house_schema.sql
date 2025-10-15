@@ -15,3 +15,12 @@ CREATE TABLE IF NOT EXISTS second_hand_houses (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 );
+
+CREATE TABLE IF NOT EXISTS second_hand_house_images (
+    house_id BIGINT NOT NULL,
+    sort_order INT NOT NULL,
+    image_data LONGTEXT NOT NULL,
+    PRIMARY KEY (house_id, sort_order),
+    CONSTRAINT fk_second_hand_house_images_house FOREIGN KEY (house_id)
+        REFERENCES second_hand_houses(id) ON DELETE CASCADE
+);

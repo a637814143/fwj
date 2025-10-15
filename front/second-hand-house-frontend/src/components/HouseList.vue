@@ -29,8 +29,13 @@
         <tbody>
           <tr v-for="house in houses" :key="house.id">
             <td>
-              <strong>{{ house.title }}</strong>
+              <button class="title-button" type="button" @click="openDetail(house)">
+                <strong>{{ house.title }}</strong>
+              </button>
               <p class="description" v-if="house.description">{{ house.description }}</p>
+              <p v-if="house.imageUrls?.length" class="image-count">
+                {{ house.imageUrls.length }} 张图片 · 点击标题查看
+              </p>
             </td>
             <td>{{ house.address }}</td>
             <td>{{ formatNumber(house.price) }}</td>
@@ -40,11 +45,11 @@
             <td>{{ house.sellerName }}</td>
             <td>{{ house.contactNumber }}</td>
             <td v-if="canManage" class="actions">
-              <button class="btn small" :disabled="!canManage" @click="handleEdit(house)">编辑</button>
-              <button class="btn small danger" :disabled="!canManage" @click="handleRemove(house)">删除</button>
+              <button class="btn small" :disabled="!canManage" @click.stop="handleEdit(house)">编辑</button>
+              <button class="btn small danger" :disabled="!canManage" @click.stop="handleRemove(house)">删除</button>
             </td>
             <td v-else-if="isBuyer" class="actions">
-              <button class="btn small" :disabled="purchaseDisabled" @click="handlePurchase(house)">
+              <button class="btn small" :disabled="purchaseDisabled" @click.stop="handlePurchase(house)">
                 {{ purchaseDisabled ? '处理中...' : '立即购买' }}
               </button>
             </td>
@@ -53,11 +58,14 @@
         </tbody>
       </table>
     </div>
+
+    <HouseDetailModal v-if="detailHouse" :house="detailHouse" @close="closeDetail" />
   </div>
 </template>
 
 <script setup>
-import { computed, toRefs } from 'vue';
+import { computed, ref, toRefs } from 'vue';
+import HouseDetailModal from './HouseDetailModal.vue';
 
 const props = defineProps({
   houses: {
@@ -88,6 +96,7 @@ const { houses, loading, canManage } = toRefs(props);
 
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const purchaseDisabled = computed(() => props.ordersLoading || loading.value);
+const detailHouse = ref(null);
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
@@ -125,6 +134,17 @@ const handlePurchase = (house) => {
     return;
   }
   emit('purchase', house);
+};
+
+const openDetail = (house) => {
+  detailHouse.value = {
+    ...house,
+    imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
+  };
+};
+
+const closeDetail = () => {
+  detailHouse.value = null;
 };
 </script>
 
@@ -178,10 +198,42 @@ tbody tr:hover {
   background: #f1f5f9;
 }
 
+.title-button {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.title-button strong {
+  font-size: 1rem;
+}
+
+.title-button:hover,
+.title-button:focus {
+  text-decoration: underline;
+}
+
 .description {
   margin: 0.35rem 0 0;
   color: #64748b;
   font-size: 0.85rem;
+}
+
+.image-count {
+  margin: 0.25rem 0 0;
+  color: #0f172a;
+  font-size: 0.8rem;
+  background: #e0f2fe;
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
 }
 
 .actions {
@@ -200,6 +252,7 @@ tbody tr:hover {
   border: none;
   background: #2563eb;
   color: #fff;
+  cursor: pointer;
 }
 
 .btn.small.danger {

@@ -108,15 +108,25 @@ const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
 );
 
+const normalizeHouseResponse = (house) => ({
+  ...house,
+  listingDate: house?.listingDate ?? '',
+  imageUrls: Array.isArray(house?.imageUrls) ? [...house.imageUrls] : []
+});
+
+const sanitizeImages = (images) =>
+  Array.isArray(images)
+    ? images
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item)
+    : [];
+
 const fetchHouses = async () => {
   loading.value = true;
   messages.error = '';
   try {
     const { data } = await client.get('/houses');
-    houses.value = data.map((house) => ({
-      ...house,
-      listingDate: house.listingDate ?? ''
-    }));
+    houses.value = data.map((house) => normalizeHouseResponse(house));
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '加载房源数据失败，请检查后端服务。';
   } finally {
@@ -183,6 +193,7 @@ const normalizeHousePayload = (payload) => {
       result.sellerName = currentUser.value.displayName ?? '';
     }
   }
+  result.imageUrls = sanitizeImages(payload.imageUrls);
   return result;
 };
 
@@ -199,14 +210,16 @@ const handleSubmit = async (payload) => {
   try {
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
+      const normalized = normalizeHouseResponse(data);
       houses.value = houses.value.map((house) =>
-        house.id === data.id ? data : house
+        house.id === normalized.id ? normalized : house
       );
-      messages.success = `房源《${data.title}》已更新。`;
+      messages.success = `房源《${normalized.title}》已更新。`;
     } else {
       const { data } = await client.post('/houses', requestPayload);
-      houses.value = [...houses.value, data];
-      messages.success = `已新增房源《${data.title}》。`;
+      const normalized = normalizeHouseResponse(data);
+      houses.value = [...houses.value, normalized];
+      messages.success = `已新增房源《${normalized.title}》。`;
     }
     selectedHouse.value = null;
   } catch (error) {
@@ -223,7 +236,7 @@ const handleSubmit = async (payload) => {
 };
 
 const handleEdit = (house) => {
-  selectedHouse.value = { ...house };
+  selectedHouse.value = normalizeHouseResponse(house);
   messages.error = '';
 };
 

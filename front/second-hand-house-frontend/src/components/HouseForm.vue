@@ -101,8 +101,40 @@
       ></textarea>
     </label>
 
+    <section class="image-section">
+      <div class="image-section__header">
+        <span class="section-title">房源图片</span>
+        <span class="image-helper">最多 {{ MAX_IMAGES }} 张，建议尺寸 4:3</span>
+      </div>
+      <input
+        class="upload-input"
+        type="file"
+        accept="image/*"
+        multiple
+        :disabled="!canManage || loading || imageUploading || !canUploadMore"
+        @change="handleImageUpload"
+      />
+      <p v-if="imageUploadError" class="image-error">{{ imageUploadError }}</p>
+      <p v-else class="image-hint">
+        {{ imageUploading ? '图片处理中，请稍候…' : `还可上传 ${remainingSlots} 张图片。` }}
+      </p>
+      <ul v-if="form.imageUrls.length" class="image-preview">
+        <li v-for="(image, index) in form.imageUrls" :key="`${index}-${image.length}`" class="image-preview__item">
+          <img :src="image" :alt="`房源图片 ${index + 1}`" loading="lazy" />
+          <button
+            type="button"
+            class="remove-btn"
+            :disabled="!canManage || loading"
+            @click="removeImage(index)"
+          >
+            移除
+          </button>
+        </li>
+      </ul>
+    </section>
+
     <div class="actions">
-      <button class="btn primary" type="submit" :disabled="loading || !canManage">
+      <button class="btn primary" type="submit" :disabled="loading || !canManage || imageUploading">
         {{ loading ? '提交中...' : isEditing ? '保存修改' : '添加房源' }}
       </button>
       <button
@@ -119,7 +151,9 @@
 </template>
 
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
+
+const MAX_IMAGES = 5;
 
 const props = defineProps({
   initialHouse: {
@@ -151,14 +185,25 @@ const emptyForm = () => ({
   sellerUsername: props.currentUser?.role === 'SELLER' ? props.currentUser.username ?? '' : '',
   sellerName: props.currentUser?.role === 'SELLER' ? props.currentUser.displayName ?? '' : '',
   contactNumber: '',
-  listingDate: ''
+  listingDate: '',
+  imageUrls: []
 });
 
 const form = reactive(emptyForm());
 
 const isEditing = computed(() => Boolean(props.initialHouse));
 const canManage = computed(() => props.canManage);
+const loading = computed(() => props.loading);
 const disableSellerAccount = computed(() => props.currentUser?.role === 'SELLER');
+const imageUploadError = ref('');
+const imageUploading = ref(false);
+const remainingSlots = computed(() => Math.max(0, MAX_IMAGES - form.imageUrls.length));
+const canUploadMore = computed(() => remainingSlots.value > 0);
+
+const resetForm = () => {
+  Object.assign(form, emptyForm());
+  imageUploadError.value = '';
+};
 
 watch(
   () => props.initialHouse,
@@ -173,10 +218,12 @@ watch(
         sellerUsername: house.sellerUsername ?? '',
         sellerName: house.sellerName ?? '',
         contactNumber: house.contactNumber ?? '',
-        listingDate: house.listingDate ?? ''
+        listingDate: house.listingDate ?? '',
+        imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
       });
+      imageUploadError.value = '';
     } else {
-      Object.assign(form, emptyForm());
+      resetForm();
     }
   },
   { immediate: true }
@@ -186,18 +233,68 @@ watch(
   () => props.currentUser,
   () => {
     if (!props.initialHouse) {
-      Object.assign(form, emptyForm());
+      resetForm();
     }
   }
 );
 
-const submitForm = () => {
-  if (!canManage.value) {
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (event) => reject(event);
+    reader.readAsDataURL(file);
+  });
+
+const handleImageUpload = async (event) => {
+  const input = event.target;
+  if (!canManage.value || loading.value) {
+    input.value = '';
     return;
   }
-  emit('submit', { ...form });
+
+  const files = Array.from(input.files ?? []);
+  if (!files.length) {
+    input.value = '';
+    return;
+  }
+
+  if (!canUploadMore.value) {
+    imageUploadError.value = `最多只能上传 ${MAX_IMAGES} 张图片`;
+    input.value = '';
+    return;
+  }
+
+  const filesToProcess = files.slice(0, remainingSlots.value);
+  imageUploading.value = true;
+  imageUploadError.value = '';
+
+  try {
+    const images = await Promise.all(filesToProcess.map((file) => readFileAsDataUrl(file)));
+    form.imageUrls.push(...images);
+  } catch (error) {
+    console.error('图片读取失败：', error);
+    imageUploadError.value = '读取图片失败，请重试。';
+  } finally {
+    imageUploading.value = false;
+    input.value = '';
+  }
+};
+
+const removeImage = (index) => {
+  if (!canManage.value || loading.value) {
+    return;
+  }
+  form.imageUrls.splice(index, 1);
+};
+
+const submitForm = () => {
+  if (!canManage.value || imageUploading.value) {
+    return;
+  }
+  emit('submit', { ...form, imageUrls: [...form.imageUrls] });
   if (!isEditing.value) {
-    Object.assign(form, emptyForm());
+    resetForm();
   }
 };
 
@@ -206,7 +303,7 @@ const cancelEdit = () => {
     return;
   }
   emit('cancel');
-  Object.assign(form, emptyForm());
+  resetForm();
 };
 </script>
 
@@ -264,6 +361,99 @@ textarea:focus {
 
 textarea {
   resize: vertical;
+}
+
+.image-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: #f8fafc;
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.image-section__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.section-title {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.image-helper {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.upload-input {
+  padding: 0.6rem;
+  border-radius: 0.65rem;
+  border: 1px dashed #94a3b8;
+  background: #fff;
+  cursor: pointer;
+}
+
+.upload-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.image-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.image-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #dc2626;
+}
+
+.image-preview {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+}
+
+.image-preview__item {
+  position: relative;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  background: #fff;
+}
+
+.image-preview__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(220, 38, 38, 0.9);
+  color: #fff;
+  cursor: pointer;
+}
+
+.remove-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .actions {

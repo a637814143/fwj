@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record SecondHandHouseRequest(
         @NotBlank(message = "标题不能为空") String title,
@@ -18,7 +19,8 @@ public record SecondHandHouseRequest(
         @NotBlank(message = "卖家账号不能为空") @Size(max = 50, message = "卖家账号长度不能超过50个字符") String sellerUsername,
         @NotBlank(message = "卖家姓名不能为空") String sellerName,
         @NotBlank(message = "联系方式不能为空") String contactNumber,
-        @NotNull @PastOrPresent(message = "挂牌日期不能是未来日期") LocalDate listingDate
+        @NotNull @PastOrPresent(message = "挂牌日期不能是未来日期") LocalDate listingDate,
+        @Size(max = 5, message = "房源图片最多上传5张") List<@NotBlank(message = "图片地址不能为空") String> imageUrls
 ) {
     public SecondHandHouse toEntity() {
         SecondHandHouse house = new SecondHandHouse();
@@ -31,6 +33,7 @@ public record SecondHandHouseRequest(
         house.setSellerName(sellerName);
         house.setContactNumber(contactNumber);
         house.setListingDate(listingDate);
+        house.setImageUrls(imageUrls);
         return house;
     }
 }

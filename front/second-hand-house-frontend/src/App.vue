@@ -115,7 +115,8 @@ const fetchHouses = async () => {
     const { data } = await client.get('/houses');
     houses.value = data.map((house) => ({
       ...house,
-      listingDate: house.listingDate ?? ''
+      listingDate: house.listingDate ?? '',
+      imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : []
     }));
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '加载房源数据失败，请检查后端服务。';
@@ -177,6 +178,9 @@ const guardReadOnly = () => {
 
 const normalizeHousePayload = (payload) => {
   const result = { ...payload };
+  result.imageUrls = Array.isArray(result.imageUrls)
+    ? result.imageUrls.map((url) => (url ?? '').trim()).filter((url) => url.length > 0)
+    : [];
   if (isSeller.value) {
     result.sellerUsername = currentUser.value.username;
     if (!result.sellerName) {
@@ -200,12 +204,25 @@ const handleSubmit = async (payload) => {
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
       houses.value = houses.value.map((house) =>
-        house.id === data.id ? data : house
+        house.id === data.id
+          ? {
+              ...data,
+              listingDate: data.listingDate ?? '',
+              imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : []
+            }
+          : house
       );
       messages.success = `房源《${data.title}》已更新。`;
     } else {
       const { data } = await client.post('/houses', requestPayload);
-      houses.value = [...houses.value, data];
+      houses.value = [
+        ...houses.value,
+        {
+          ...data,
+          listingDate: data.listingDate ?? '',
+          imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : []
+        }
+      ];
       messages.success = `已新增房源《${data.title}》。`;
     }
     selectedHouse.value = null;
@@ -223,7 +240,14 @@ const handleSubmit = async (payload) => {
 };
 
 const handleEdit = (house) => {
-  selectedHouse.value = { ...house };
+  if (isSeller.value && currentUser.value.username !== house.sellerUsername) {
+    messages.error = '卖家只能编辑自己发布的房源。';
+    return;
+  }
+  selectedHouse.value = {
+    ...house,
+    imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
+  };
   messages.error = '';
 };
 
@@ -236,6 +260,11 @@ const handleRemove = async (house) => {
     return;
   }
 
+  if (isSeller.value && currentUser.value.username !== house.sellerUsername) {
+    messages.error = '卖家只能删除自己发布的房源。';
+    return;
+  }
+
   if (!confirm(`确定要删除房源：${house.title} 吗？`)) {
     return;
   }
@@ -244,7 +273,9 @@ const handleRemove = async (house) => {
   messages.error = '';
   messages.success = '';
   try {
-    await client.delete(`/houses/${house.id}`);
+    await client.delete(`/houses/${house.id}`, {
+      params: { requester: currentUser.value.username }
+    });
     houses.value = houses.value.filter((item) => item.id !== house.id);
     messages.success = `已删除房源《${house.title}》。`;
   } catch (error) {
@@ -257,6 +288,11 @@ const handleRemove = async (house) => {
 const handlePurchase = async (house) => {
   if (!isBuyer.value) {
     messages.error = '只有买家角色可以发起支付。';
+    messages.success = '';
+    return;
+  }
+  if (isSeller.value && currentUser.value.username === house.sellerUsername) {
+    messages.error = '不能购买自己发布的房源。';
     messages.success = '';
     return;
   }

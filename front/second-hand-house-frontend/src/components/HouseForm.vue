@@ -101,6 +101,39 @@
       ></textarea>
     </label>
 
+    <section class="images-section">
+      <div class="images-header">
+        <h3>房源图片</h3>
+        <button
+          type="button"
+          class="btn add-image"
+          @click="addImageField"
+          :disabled="!canManage || loading"
+        >
+          添加图片链接
+        </button>
+      </div>
+      <p class="hint">支持填写多张图片的网络链接，提交前会自动忽略空白链接。</p>
+      <div class="image-inputs">
+        <div v-for="(image, index) in form.imageUrls" :key="index" class="image-input">
+          <input
+            v-model.trim="form.imageUrls[index]"
+            type="url"
+            placeholder="例如：https://example.com/house.jpg"
+            :disabled="!canManage || loading"
+          />
+          <button
+            type="button"
+            class="btn remove-image"
+            @click="removeImageField(index)"
+            :disabled="!canManage || loading || form.imageUrls.length === 1"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+    </section>
+
     <div class="actions">
       <button class="btn primary" type="submit" :disabled="loading || !canManage">
         {{ loading ? '提交中...' : isEditing ? '保存修改' : '添加房源' }}
@@ -142,6 +175,11 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel']);
 
+const createInitialImages = (images = []) => {
+  const list = Array.isArray(images) && images.length > 0 ? [...images] : [''];
+  return list;
+};
+
 const emptyForm = () => ({
   title: '',
   address: '',
@@ -151,7 +189,8 @@ const emptyForm = () => ({
   sellerUsername: props.currentUser?.role === 'SELLER' ? props.currentUser.username ?? '' : '',
   sellerName: props.currentUser?.role === 'SELLER' ? props.currentUser.displayName ?? '' : '',
   contactNumber: '',
-  listingDate: ''
+  listingDate: '',
+  imageUrls: createInitialImages()
 });
 
 const form = reactive(emptyForm());
@@ -173,7 +212,8 @@ watch(
         sellerUsername: house.sellerUsername ?? '',
         sellerName: house.sellerName ?? '',
         contactNumber: house.contactNumber ?? '',
-        listingDate: house.listingDate ?? ''
+        listingDate: house.listingDate ?? '',
+        imageUrls: createInitialImages(house.imageUrls ?? [])
       });
     } else {
       Object.assign(form, emptyForm());
@@ -195,7 +235,13 @@ const submitForm = () => {
   if (!canManage.value) {
     return;
   }
-  emit('submit', { ...form });
+  const payload = {
+    ...form,
+    imageUrls: form.imageUrls
+      .map((url) => url?.trim())
+      .filter((url) => url && url.length > 0)
+  };
+  emit('submit', payload);
   if (!isEditing.value) {
     Object.assign(form, emptyForm());
   }
@@ -207,6 +253,20 @@ const cancelEdit = () => {
   }
   emit('cancel');
   Object.assign(form, emptyForm());
+};
+
+const addImageField = () => {
+  if (!canManage.value) {
+    return;
+  }
+  form.imageUrls.push('');
+};
+
+const removeImageField = (index) => {
+  if (!canManage.value || form.imageUrls.length === 1) {
+    return;
+  }
+  form.imageUrls.splice(index, 1);
 };
 </script>
 
@@ -266,6 +326,50 @@ textarea {
   resize: vertical;
 }
 
+.images-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px dashed #cbd5f5;
+  border-radius: 0.75rem;
+  background: #f9fbff;
+}
+
+.images-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.images-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.image-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.image-input {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.image-input input {
+  flex: 1;
+}
+
 .actions {
   display: flex;
   gap: 1rem;
@@ -298,5 +402,17 @@ textarea {
 .btn.secondary {
   background: #e2e8f0;
   color: #1e293b;
+}
+
+.btn.add-image {
+  padding: 0.4rem 0.8rem;
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn.remove-image {
+  padding: 0.4rem 0.8rem;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 </style>

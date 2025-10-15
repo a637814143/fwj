@@ -97,6 +97,7 @@
         </div>
         <footer class="card-actions">
           <template v-if="canOperate">
+            <button type="button" class="contact" @click="contactSeller(house)">联系卖家</button>
             <button
               class="reserve"
               :disabled="reservationDisabled()"
@@ -161,7 +162,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['search', 'reserve', 'purchase']);
+const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller']);
 
 const localFilters = reactive({
   keyword: '',
@@ -200,6 +201,16 @@ watch(
 
 const submitFilters = () => {
   emit('search', { ...localFilters });
+};
+
+const contactSeller = (house) => {
+  if (!house?.sellerUsername) {
+    return;
+  }
+  emit('contact-seller', {
+    sellerUsername: house.sellerUsername,
+    sellerName: house.sellerName
+  });
 };
 
 const resetFilters = () => {
@@ -496,6 +507,17 @@ const reservationDisabled = () => {
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contact {
+  background: #f8fafc;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.contact:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
 }
 
 .card-actions button:disabled {

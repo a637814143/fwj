@@ -37,21 +37,10 @@ public class ConversationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无法与自己发起对话");
         }
 
-        UserAccount buyer = userAccountRepository.findByUsername(buyerUsername)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "买家账号不存在"));
-        if (buyer.getRole() != UserRole.BUYER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "只有买家角色可以主动发起对话");
-        }
+        UserAccount buyer = requireBuyerAccount(buyerUsername);
+        UserAccount seller = requireSellerAccount(sellerUsername);
 
-        UserAccount seller = userAccountRepository.findByUsername(sellerUsername)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
-        if (seller.getRole() != UserRole.SELLER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是合法的卖家角色");
-        }
-
-        Conversation conversation = conversationRepository
-                .findByBuyer_UsernameAndSeller_Username(buyerUsername, sellerUsername)
-                .orElseGet(() -> conversationRepository.save(new Conversation(buyer, seller)));
+        Conversation conversation = getOrCreateConversation(buyer, seller);
 
         if (StringUtils.hasText(initialMessage)) {
             sendMessageInternal(conversation, buyer, initialMessage);
@@ -60,6 +49,31 @@ public class ConversationService {
         Conversation persisted = conversationRepository.findById(conversation.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "会话不存在"));
         return toView(persisted);
+    }
+
+    public ConversationMessageView sendMessageBetween(String buyerUsername,
+                                                      String sellerUsername,
+                                                      String senderUsername,
+                                                      String content) {
+        if (!StringUtils.hasText(buyerUsername) || !StringUtils.hasText(sellerUsername) || !StringUtils.hasText(senderUsername)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "发送消息时参数不完整");
+        }
+
+        UserAccount buyer = requireBuyerAccount(buyerUsername);
+        UserAccount seller = requireSellerAccount(sellerUsername);
+        Conversation conversation = getOrCreateConversation(buyer, seller);
+
+        UserAccount sender;
+        if (buyerUsername.equals(senderUsername)) {
+            sender = buyer;
+        } else if (sellerUsername.equals(senderUsername)) {
+            sender = seller;
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "发送方必须是会话参与者");
+        }
+
+        ConversationMessage message = sendMessageInternal(conversation, sender, content);
+        return toMessageView(message);
     }
 
     @Transactional(readOnly = true)
@@ -108,6 +122,30 @@ public class ConversationService {
         conversation.setUpdatedAt(saved.getCreatedAt() == null ? OffsetDateTime.now() : saved.getCreatedAt());
         conversationRepository.save(conversation);
         return saved;
+    }
+
+    private Conversation getOrCreateConversation(UserAccount buyer, UserAccount seller) {
+        return conversationRepository
+                .findByBuyer_UsernameAndSeller_Username(buyer.getUsername(), seller.getUsername())
+                .orElseGet(() -> conversationRepository.save(new Conversation(buyer, seller)));
+    }
+
+    private UserAccount requireBuyerAccount(String username) {
+        UserAccount buyer = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "买家账号不存在"));
+        if (buyer.getRole() != UserRole.BUYER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是买家角色");
+        }
+        return buyer;
+    }
+
+    private UserAccount requireSellerAccount(String username) {
+        UserAccount seller = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
+        if (seller.getRole() != UserRole.SELLER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是卖家角色");
+        }
+        return seller;
     }
 
     private UserAccount getParticipant(Conversation conversation, String username) {

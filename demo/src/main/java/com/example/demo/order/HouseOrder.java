@@ -48,6 +48,12 @@ public class HouseOrder {
     @Column(name = "return_reason", length = 255)
     private String returnReason;
 
+    @Column(name = "viewing_time")
+    private OffsetDateTime viewingTime;
+
+    @Column(name = "viewing_message", length = 255)
+    private String viewingMessage;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -104,6 +110,22 @@ public class HouseOrder {
 
     public void setReturnReason(String returnReason) {
         this.returnReason = returnReason;
+    }
+
+    public OffsetDateTime getViewingTime() {
+        return viewingTime;
+    }
+
+    public void setViewingTime(OffsetDateTime viewingTime) {
+        this.viewingTime = viewingTime;
+    }
+
+    public String getViewingMessage() {
+        return viewingMessage;
+    }
+
+    public void setViewingMessage(String viewingMessage) {
+        this.viewingMessage = viewingMessage;
     }
 
     public OffsetDateTime getCreatedAt() {

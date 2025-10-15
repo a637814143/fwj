@@ -2,6 +2,7 @@ package com.example.demo.order;
 
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
+import com.example.demo.conversation.ConversationService;
 import com.example.demo.house.SecondHandHouse;
 import com.example.demo.house.SecondHandHouseRepository;
 import com.example.demo.wallet.WalletService;
@@ -15,6 +16,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 @Service
 @Transactional
@@ -24,15 +28,18 @@ public class HouseOrderService {
     private final SecondHandHouseRepository houseRepository;
     private final UserAccountRepository userAccountRepository;
     private final WalletService walletService;
+    private final ConversationService conversationService;
 
     public HouseOrderService(HouseOrderRepository orderRepository,
                              SecondHandHouseRepository houseRepository,
                              UserAccountRepository userAccountRepository,
-                             WalletService walletService) {
+                             WalletService walletService,
+                             ConversationService conversationService) {
         this.orderRepository = orderRepository;
         this.houseRepository = houseRepository;
         this.userAccountRepository = userAccountRepository;
         this.walletService = walletService;
+        this.conversationService = conversationService;
     }
 
     @Transactional(readOnly = true)
@@ -96,6 +103,51 @@ public class HouseOrderService {
         buyer.increaseReputation(1);
         userAccountRepository.save(seller);
         userAccountRepository.save(buyer);
+
+        conversationService.sendMessageBetween(
+                buyer.getUsername(),
+                seller.getUsername(),
+                buyer.getUsername(),
+                "我已经预定，可以预约时间看房"
+        );
+
+        return HouseOrderResponse.fromEntity(order);
+    }
+
+    public HouseOrderResponse scheduleViewing(Long orderId, @Valid ViewingScheduleRequest request) {
+        HouseOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
+
+        if (!order.getSeller().getUsername().equals(request.sellerUsername())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅房源所属卖家可以预约看房时间");
+        }
+
+        if (order.getStatus() != OrderStatus.RESERVED && order.getStatus() != OrderStatus.PAID) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前订单状态不支持预约看房");
+        }
+
+        ensureNotBlacklisted(order.getSeller(), "卖家账号已被加入黑名单，无法预约看房");
+        ensureNotBlacklisted(order.getBuyer(), "买家账号已被加入黑名单，无法接受预约");
+
+        OffsetDateTime viewingTime = parseViewingTime(request.viewingTime());
+        String viewingMessage = normalizeMessage(request.message());
+
+        order.setViewingTime(viewingTime);
+        order.setViewingMessage(viewingMessage);
+        order = orderRepository.save(order);
+
+        String formattedTime = viewingTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        StringBuilder content = new StringBuilder("看房预约时间：").append(formattedTime);
+        if (viewingMessage != null) {
+            content.append("，备注：").append(viewingMessage);
+        }
+
+        conversationService.sendMessageBetween(
+                order.getBuyer().getUsername(),
+                order.getSeller().getUsername(),
+                order.getSeller().getUsername(),
+                content.toString()
+        );
 
         return HouseOrderResponse.fromEntity(order);
     }
@@ -169,6 +221,22 @@ public class HouseOrderService {
         if (account.isBlacklisted()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
         }
+    }
+
+    private OffsetDateTime parseViewingTime(String viewingTime) {
+        try {
+            return OffsetDateTime.parse(viewingTime);
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预约时间格式不正确，应为ISO 8601时间格式", ex);
+        }
+    }
+
+    private String normalizeMessage(String message) {
+        if (message == null) {
+            return null;
+        }
+        String trimmed = message.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void handleExistingReservation(HouseOrder reservation, UserAccount currentBuyer, UserAccount seller) {

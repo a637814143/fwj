@@ -10,4 +10,6 @@ import java.util.List;
 public interface SecondHandHouseRepository extends JpaRepository<SecondHandHouse, Long> {
 
     List<SecondHandHouse> findByListingDateBefore(LocalDate listingDate);
+
+    List<SecondHandHouse> findBySellerUsername(String sellerUsername);
 }

@@ -3,6 +3,11 @@ package com.example.demo.admin;
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
 import com.example.demo.auth.UserRole;
+import com.example.demo.conversation.ConversationRepository;
+import com.example.demo.house.SecondHandHouseRepository;
+import com.example.demo.order.HouseOrderRepository;
+import com.example.demo.wallet.UserWalletRepository;
+import com.example.demo.wallet.WalletTransactionRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -12,6 +17,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,9 +31,24 @@ import java.util.List;
 public class UserAdminController {
 
     private final UserAccountRepository userAccountRepository;
+    private final HouseOrderRepository houseOrderRepository;
+    private final SecondHandHouseRepository secondHandHouseRepository;
+    private final ConversationRepository conversationRepository;
+    private final UserWalletRepository userWalletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
 
-    public UserAdminController(UserAccountRepository userAccountRepository) {
+    public UserAdminController(UserAccountRepository userAccountRepository,
+                               HouseOrderRepository houseOrderRepository,
+                               SecondHandHouseRepository secondHandHouseRepository,
+                               ConversationRepository conversationRepository,
+                               UserWalletRepository userWalletRepository,
+                               WalletTransactionRepository walletTransactionRepository) {
         this.userAccountRepository = userAccountRepository;
+        this.houseOrderRepository = houseOrderRepository;
+        this.secondHandHouseRepository = secondHandHouseRepository;
+        this.conversationRepository = conversationRepository;
+        this.userWalletRepository = userWalletRepository;
+        this.walletTransactionRepository = walletTransactionRepository;
     }
 
     @GetMapping("/users")
@@ -56,18 +78,37 @@ public class UserAdminController {
     @GetMapping("/reputations")
     public ReputationOverview reputationOverview(@RequestParam("requester") String requesterUsername) {
         requireAdmin(requesterUsername);
-        List<UserAccountView> sellers = userAccountRepository
-                .findByRoleOrderByReputationScoreDesc(UserRole.SELLER)
-                .stream()
-                .map(UserAccountView::fromEntity)
-                .toList();
-        List<UserAccountView> buyers = userAccountRepository
-                .findByRoleOrderByReputationScoreDesc(UserRole.BUYER)
-                .stream()
-                .map(UserAccountView::fromEntity)
-                .toList();
-        long blacklistedCount = userAccountRepository.countByBlacklistedTrue();
-        return new ReputationOverview(sellers, buyers, blacklistedCount);
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "信誉系统正在维护中，暂时无法访问");
+    }
+
+    @DeleteMapping("/users/{username}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(@PathVariable("username") String username,
+                           @RequestParam("requester") String requesterUsername) {
+        requireAdmin(requesterUsername);
+        UserAccount account = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "目标账号不存在"));
+        if (account.getRole() == UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不允许删除管理员账号");
+        }
+
+        conversationRepository.deleteAll(
+                conversationRepository.findByBuyer_UsernameOrSeller_Username(username, username)
+        );
+        houseOrderRepository.deleteAll(
+                houseOrderRepository.findByBuyer_UsernameOrSeller_UsernameOrderByCreatedAtDesc(username, username)
+        );
+
+        userWalletRepository.findByUserAccount(account).ifPresent(wallet -> {
+            walletTransactionRepository.deleteByWallet(wallet);
+            userWalletRepository.delete(wallet);
+        });
+
+        if (account.getRole() == UserRole.SELLER) {
+            secondHandHouseRepository.deleteAll(secondHandHouseRepository.findBySellerUsername(username));
+        }
+
+        userAccountRepository.delete(account);
     }
 
     private UserAccount requireAdmin(String requesterUsername) {

@@ -14,6 +14,8 @@ public record HouseOrderResponse(
         BigDecimal amount,
         OrderStatus status,
         String returnReason,
+        OffsetDateTime viewingTime,
+        String viewingMessage,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
@@ -29,6 +31,8 @@ public record HouseOrderResponse(
                 order.getAmount(),
                 order.getStatus(),
                 order.getReturnReason(),
+                order.getViewingTime(),
+                order.getViewingMessage(),
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );

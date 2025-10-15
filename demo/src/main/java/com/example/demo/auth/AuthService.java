@@ -2,8 +2,10 @@ package com.example.demo.auth;
 
 import com.example.demo.wallet.WalletService;
 import jakarta.annotation.PostConstruct;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class AuthService {
@@ -33,6 +35,10 @@ public class AuthService {
 
         if (!account.getPassword().equals(request.getPassword())) {
             throw new InvalidCredentialsException();
+        }
+
+        if (account.isBlacklisted()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "账号已被加入黑名单，请联系系统管理员。");
         }
 
         return toResponse(account, String.format("%s，欢迎登录系统！", account.getDisplayName()));
@@ -70,7 +76,16 @@ public class AuthService {
                 account.getRole(),
                 account.getUsername(),
                 account.getDisplayName(),
+                account.isBlacklisted(),
+                account.getReputationScore(),
                 message
         );
+    }
+
+    @Transactional(readOnly = true)
+    public LoginResponse profile(String username) {
+        UserAccount account = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "用户不存在"));
+        return toResponse(account, String.format("当前信誉分：%d", account.getReputationScore()));
     }
 }

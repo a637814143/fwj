@@ -75,8 +75,10 @@ const emit = defineEmits(['request-return']);
 
 const statusLabels = {
   PENDING: '待支付',
+  RESERVED: '已预定',
   PAID: '已支付',
-  RETURNED: '已退换'
+  RETURNED: '已退回',
+  CANCELLED: '已取消'
 };
 
 const canRequestReturn = (order) => {
@@ -200,6 +202,16 @@ const formatTime = (value) => {
 .status.returned {
   background: rgba(248, 113, 113, 0.2);
   color: #b91c1c;
+}
+
+.status.reserved {
+  background: rgba(250, 204, 21, 0.2);
+  color: #b45309;
+}
+
+.status.cancelled {
+  background: rgba(148, 163, 184, 0.25);
+  color: #475569;
 }
 
 dl {

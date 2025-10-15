@@ -28,8 +28,12 @@ public class SecondHandHouseController {
     }
 
     @GetMapping
-    public List<SecondHandHouse> list() {
-        return service.findAll();
+    public List<SecondHandHouse> list(@RequestParam(value = "keyword", required = false) String keyword,
+                                      @RequestParam(value = "minPrice", required = false) java.math.BigDecimal minPrice,
+                                      @RequestParam(value = "maxPrice", required = false) java.math.BigDecimal maxPrice,
+                                      @RequestParam(value = "minArea", required = false) java.math.BigDecimal minArea,
+                                      @RequestParam(value = "maxArea", required = false) java.math.BigDecimal maxArea) {
+        return service.search(keyword, minPrice, maxPrice, minArea, maxArea);
     }
 
     @GetMapping("/{id}")

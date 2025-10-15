@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @Transactional
@@ -40,18 +42,34 @@ public class SecondHandHouseService {
     }
 
     @Transactional(readOnly = true)
+    public List<SecondHandHouse> search(String keyword,
+                                        BigDecimal minPrice,
+                                        BigDecimal maxPrice,
+                                        BigDecimal minArea,
+                                        BigDecimal maxArea) {
+        String normalized = keyword == null ? null : keyword.trim().toLowerCase(Locale.ROOT);
+        return repository.findAll().stream()
+                .filter(house -> filterByKeyword(house, normalized))
+                .filter(house -> filterByRange(house.getPrice(), minPrice, maxPrice))
+                .filter(house -> filterByRange(house.getArea(), minArea, maxArea))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public SecondHandHouse findById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new SecondHandHouseNotFoundException(id));
     }
 
     public SecondHandHouse create(SecondHandHouse house) {
+        validateSellerAccount(house.getSellerUsername());
         house.setId(null);
         return repository.save(house);
     }
 
     public SecondHandHouse update(Long id, SecondHandHouse updatedHouse) {
         SecondHandHouse existing = findById(id);
+        validateSellerAccount(updatedHouse.getSellerUsername());
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
@@ -105,5 +123,37 @@ public class SecondHandHouseService {
             repository.deleteAll(toRemove);
         }
         return toRemove.size();
+    }
+
+    private boolean filterByKeyword(SecondHandHouse house, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return true;
+        }
+        String haystack = (house.getTitle() + " " + house.getAddress() + " " + (house.getDescription() == null ? "" : house.getDescription()))
+                .toLowerCase(Locale.ROOT);
+        return haystack.contains(keyword);
+    }
+
+    private boolean filterByRange(BigDecimal value, BigDecimal min, BigDecimal max) {
+        if (value == null) {
+            return false;
+        }
+        boolean greaterThanMin = min == null || value.compareTo(min) >= 0;
+        boolean lessThanMax = max == null || value.compareTo(max) <= 0;
+        return greaterThanMin && lessThanMax;
+    }
+
+    private void validateSellerAccount(String sellerUsername) {
+        if (sellerUsername == null || sellerUsername.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家账号不能为空");
+        }
+        UserAccount seller = userAccountRepository.findByUsername(sellerUsername)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
+        if (seller.getRole() != UserRole.SELLER && seller.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是合法的卖家角色");
+        }
+        if (seller.isBlacklisted()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "该卖家已被加入黑名单，无法发布房源");
+        }
     }
 }

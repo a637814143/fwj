@@ -1,10 +1,14 @@
 package com.example.demo.house;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -12,6 +16,9 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "second_hand_houses")
@@ -36,6 +43,9 @@ public class SecondHandHouse {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "seller_username", nullable = false, length = 50)
+    private String sellerUsername;
+
     @Column(name = "seller_name", nullable = false)
     private String sellerName;
 
@@ -44,6 +54,14 @@ public class SecondHandHouse {
 
     @Column(name = "listing_date", nullable = false)
     private LocalDate listingDate;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "second_hand_house_images",
+            joinColumns = @JoinColumn(name = "house_id", nullable = false)
+    )
+    @Column(name = "image_url", nullable = false, length = 512)
+    private List<String> imageUrls = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -115,6 +133,14 @@ public class SecondHandHouse {
         return sellerName;
     }
 
+    public String getSellerUsername() {
+        return sellerUsername;
+    }
+
+    public void setSellerUsername(String sellerUsername) {
+        this.sellerUsername = sellerUsername;
+    }
+
     public void setSellerName(String sellerName) {
         this.sellerName = sellerName;
     }
@@ -133,6 +159,20 @@ public class SecondHandHouse {
 
     public void setListingDate(LocalDate listingDate) {
         this.listingDate = listingDate;
+    }
+
+    public List<String> getImageUrls() {
+        return Collections.unmodifiableList(imageUrls);
+    }
+
+    public void setImageUrls(List<String> imageUrls) {
+        this.imageUrls.clear();
+        if (imageUrls != null) {
+            imageUrls.stream()
+                    .map(String::trim)
+                    .filter(url -> !url.isEmpty())
+                    .forEach(this.imageUrls::add);
+        }
     }
 
     public OffsetDateTime getCreatedAt() {

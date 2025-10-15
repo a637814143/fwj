@@ -119,8 +119,19 @@ public class HouseOrder {
         this.updatedAt = OffsetDateTime.now();
     }
 
+    public void markReserved() {
+        this.status = OrderStatus.RESERVED;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
     public void markReturned(String reason) {
         this.status = OrderStatus.RETURNED;
+        this.returnReason = reason;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void markCancelled(String reason) {
+        this.status = OrderStatus.CANCELLED;
         this.returnReason = reason;
         this.updatedAt = OffsetDateTime.now();
     }

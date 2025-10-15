@@ -1,12 +1,17 @@
 <template>
   <div class="app">
     <header class="header">
-      <h1>二手房屋管理系统</h1>
-      <p>请先登录或注册账号后再管理房源信息。</p>
+      <div class="branding">
+        <h1>二手房屋售卖系统</h1>
+        <p>支持线上预定、购房支付与信誉评估的综合平台。</p>
+      </div>
       <div v-if="currentUser" class="session">
-        <span>
-          当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
-        </span>
+        <div class="identity">
+          <span>
+            当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
+          </span>
+          <span class="reputation">信誉分：{{ currentUser.reputationScore ?? '—' }}</span>
+        </div>
         <button type="button" class="logout" @click="handleLogout">退出登录</button>
       </div>
       <p v-if="messages.success" class="success">{{ messages.success }}</p>
@@ -17,12 +22,39 @@
     </section>
 
     <template v-else>
+      <nav class="menu">
+        <button
+          v-for="tab in navigationTabs"
+          :key="tab.value"
+          type="button"
+          :class="['menu-item', { active: tab.value === activeTab }]"
+          @click="switchTab(tab.value)"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
       <section v-if="messages.error" class="alert">
         <strong>提示：</strong> {{ messages.error }}
       </section>
 
-      <main class="content">
-        <section class="form-section">
+      <main class="main-content">
+        <HouseExplorer
+          v-if="activeTab === 'home'"
+          :houses="houses"
+          :loading="loading"
+          :current-user="currentUser"
+          :filters="houseFilters"
+          :recommendations="recommendations"
+          :purchase-loading="ordersLoading"
+          :reservation-loading="reservationLoading"
+          :reservation-target="reservationTarget"
+          @search="handleFilterSearch"
+          @reserve="handleReserve"
+          @purchase="handlePurchase"
+        />
+
+        <div v-else-if="activeTab === 'manage'" class="manage-grid">
           <HouseForm
             :initial-house="selectedHouse"
             :loading="loading"
@@ -31,9 +63,6 @@
             @submit="handleSubmit"
             @cancel="handleCancel"
           />
-        </section>
-
-        <section class="list-section">
           <HouseList
             :houses="houses"
             :loading="loading"
@@ -44,23 +73,33 @@
             @remove="handleRemove"
             @purchase="handlePurchase"
           />
-        </section>
-      </main>
+        </div>
 
-      <section class="wallet-order-section">
-        <WalletPanel
-          :wallet="wallet"
-          :loading="walletLoading"
+        <div v-else-if="activeTab === 'orders'" class="orders-grid">
+          <WalletPanel
+            :wallet="wallet"
+            :loading="walletLoading"
+            :current-user="currentUser"
+            @top-up="handleTopUp"
+          />
+          <OrderHistory
+            :orders="orders"
+            :loading="ordersLoading"
+            :current-user="currentUser"
+            @request-return="handleRequestReturn"
+          />
+        </div>
+
+        <AdminReputationBoard
+          v-else-if="activeTab === 'admin'"
+          :loading="adminLoading"
+          :overview="adminReputation"
+          :users="adminUsers"
           :current-user="currentUser"
-          @top-up="handleTopUp"
+          @refresh="loadAdminData"
+          @toggle-blacklist="handleToggleBlacklist"
         />
-        <OrderHistory
-          :orders="orders"
-          :loading="ordersLoading"
-          :current-user="currentUser"
-          @request-return="handleRequestReturn"
-        />
-      </section>
+      </main>
     </template>
 
     <footer class="footer">
@@ -70,13 +109,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
 import RoleLogin from './components/RoleLogin.vue';
 import WalletPanel from './components/WalletPanel.vue';
 import OrderHistory from './components/OrderHistory.vue';
+import HouseExplorer from './components/HouseExplorer.vue';
+import AdminReputationBoard from './components/AdminReputationBoard.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -87,7 +128,21 @@ const wallet = ref(null);
 const walletLoading = ref(false);
 const orders = ref([]);
 const ordersLoading = ref(false);
+const reservationLoading = ref(false);
+const reservationTarget = ref(null);
 const messages = reactive({ error: '', success: '' });
+const recommendations = reactive({ sellers: [], buyers: [] });
+const adminUsers = ref([]);
+const adminReputation = ref(null);
+const adminLoading = ref(false);
+const activeTab = ref('home');
+const houseFilters = reactive({
+  keyword: '',
+  minPrice: '',
+  maxPrice: '',
+  minArea: '',
+  maxArea: ''
+});
 const storageKey = 'secondhand-house-current-user';
 
 const client = axios.create({
@@ -103,25 +158,97 @@ const roleLabels = {
 
 const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
+const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
 
 const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
 );
 
-const fetchHouses = async () => {
-  loading.value = true;
+const navigationTabs = computed(() => {
+  const tabs = [{ value: 'home', label: '购买首页' }];
+  if (canManageHouses.value) {
+    tabs.push({ value: 'manage', label: '房源管理' });
+  }
+  tabs.push({ value: 'orders', label: '订单与钱包' });
+  if (isAdmin.value) {
+    tabs.push({ value: 'admin', label: '信誉面板' });
+  }
+  return tabs;
+});
+
+const switchTab = (tab) => {
+  activeTab.value = tab;
+  if (tab === 'admin') {
+    loadAdminData();
+  }
+};
+
+const persistUser = (user) => {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(user));
+  } catch (error) {
+    console.warn('无法持久化登录状态：', error);
+  }
+};
+
+const normalizeHouse = (house) => ({
+  ...house,
+  listingDate: house.listingDate ?? '',
+  imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : []
+});
+
+const buildFilterParams = (filters) => {
+  const params = {};
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+    const trimmed = typeof value === 'string' ? value.trim() : value;
+    if (trimmed !== '' && !Number.isNaN(trimmed)) {
+      params[key] = trimmed;
+    }
+  });
+  return params;
+};
+
+const assignFilters = (filters = {}) => {
+  Object.entries(filters).forEach(([key, value]) => {
+    if (key in houseFilters) {
+      houseFilters[key] = value ?? '';
+    }
+  });
+};
+
+const fetchHouses = async ({ filters, silent = false } = {}) => {
+  if (filters) {
+    assignFilters(filters);
+  }
+  if (!silent) {
+    loading.value = true;
+  }
   messages.error = '';
   try {
-    const { data } = await client.get('/houses');
-    houses.value = data.map((house) => ({
-      ...house,
-      listingDate: house.listingDate ?? '',
-      imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : []
-    }));
+    const params = buildFilterParams(houseFilters);
+    const { data } = await client.get('/houses', { params });
+    houses.value = data.map(normalizeHouse);
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '加载房源数据失败，请检查后端服务。';
   } finally {
-    loading.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
+  }
+};
+
+const loadRecommendations = async ({ silent = true } = {}) => {
+  try {
+    const { data } = await client.get('/reputations/recommended');
+    recommendations.sellers = Array.isArray(data.sellers) ? data.sellers : [];
+    recommendations.buyers = Array.isArray(data.buyers) ? data.buyers : [];
+  } catch (error) {
+    if (!silent) {
+      messages.error = error.response?.data?.detail ?? '加载推荐用户失败。';
+    }
   }
 };
 
@@ -167,6 +294,26 @@ const fetchOrders = async ({ silent = false } = {}) => {
   }
 };
 
+const refreshCurrentUser = async ({ silent = true } = {}) => {
+  if (!currentUser.value) {
+    return;
+  }
+  try {
+    const { data } = await client.get(`/auth/profile/${currentUser.value.username}`);
+    const updated = {
+      ...currentUser.value,
+      ...data,
+      message: data.message ?? currentUser.value.message
+    };
+    currentUser.value = updated;
+    persistUser(updated);
+  } catch (error) {
+    if (!silent) {
+      messages.error = error.response?.data?.detail ?? '刷新用户信息失败。';
+    }
+  }
+};
+
 const guardReadOnly = () => {
   if (!canManageHouses.value) {
     messages.error = '当前角色仅支持浏览房源，如需维护房源请使用卖家或系统管理员账号。';
@@ -194,38 +341,21 @@ const handleSubmit = async (payload) => {
   if (!guardReadOnly()) {
     return;
   }
-
   loading.value = true;
   messages.error = '';
   messages.success = '';
   const requestPayload = normalizeHousePayload(payload);
-
   try {
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
-      houses.value = houses.value.map((house) =>
-        house.id === data.id
-          ? {
-              ...data,
-              listingDate: data.listingDate ?? '',
-              imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : []
-            }
-          : house
-      );
       messages.success = `房源《${data.title}》已更新。`;
     } else {
       const { data } = await client.post('/houses', requestPayload);
-      houses.value = [
-        ...houses.value,
-        {
-          ...data,
-          listingDate: data.listingDate ?? '',
-          imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : []
-        }
-      ];
       messages.success = `已新增房源《${data.title}》。`;
     }
     selectedHouse.value = null;
+    await fetchHouses({ silent: true });
+    await loadRecommendations();
   } catch (error) {
     const detail = error.response?.data;
     if (detail?.errors) {
@@ -259,16 +389,13 @@ const handleRemove = async (house) => {
   if (!guardReadOnly()) {
     return;
   }
-
   if (isSeller.value && currentUser.value.username !== house.sellerUsername) {
     messages.error = '卖家只能删除自己发布的房源。';
     return;
   }
-
-  if (!confirm(`确定要删除房源：${house.title} 吗？`)) {
+  if (!window.confirm(`确定要删除房源：${house.title} 吗？`)) {
     return;
   }
-
   loading.value = true;
   messages.error = '';
   messages.success = '';
@@ -276,8 +403,9 @@ const handleRemove = async (house) => {
     await client.delete(`/houses/${house.id}`, {
       params: { requester: currentUser.value.username }
     });
-    houses.value = houses.value.filter((item) => item.id !== house.id);
     messages.success = `已删除房源《${house.title}》。`;
+    await fetchHouses({ silent: true });
+    await loadRecommendations();
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '删除房源失败。';
   } finally {
@@ -287,7 +415,7 @@ const handleRemove = async (house) => {
 
 const handlePurchase = async (house) => {
   if (!isBuyer.value) {
-    messages.error = '只有买家角色可以发起支付。';
+    messages.error = '只有买家角色可以发起购买。';
     messages.success = '';
     return;
   }
@@ -307,6 +435,9 @@ const handlePurchase = async (house) => {
     messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ${Number(data.amount).toFixed(2)} 万元。`;
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
+    await refreshCurrentUser({ silent: true });
+    await loadRecommendations();
+    await fetchHouses({ silent: true });
   } catch (error) {
     const detail = error.response?.data;
     if (detail?.errors) {
@@ -317,6 +448,41 @@ const handlePurchase = async (house) => {
     }
   } finally {
     ordersLoading.value = false;
+  }
+};
+
+const handleReserve = async (house) => {
+  if (!isBuyer.value) {
+    messages.error = '只有买家角色可以预定房源。';
+    messages.success = '';
+    return;
+  }
+  reservationLoading.value = true;
+  reservationTarget.value = house.id;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post('/orders/reserve', {
+      houseId: house.id,
+      buyerUsername: currentUser.value.username
+    });
+    const deposit = Number(data.amount ?? 0).toFixed(2);
+    messages.success = `已成功预定房源《${data.houseTitle}》，定金 ${deposit} 万元。`;
+    await fetchWallet({ silent: true });
+    await fetchOrders({ silent: true });
+    await refreshCurrentUser({ silent: true });
+    await loadRecommendations();
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '预定失败，请稍后再试。';
+    }
+  } finally {
+    reservationLoading.value = false;
+    reservationTarget.value = null;
   }
 };
 
@@ -366,6 +532,8 @@ const handleRequestReturn = async ({ orderId, reason }) => {
     messages.success = `订单《${data.houseTitle}》已退换成功。`;
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
+    await refreshCurrentUser({ silent: true });
+    await loadRecommendations();
   } catch (error) {
     const detail = error.response?.data;
     if (detail?.errors) {
@@ -379,18 +547,73 @@ const handleRequestReturn = async ({ orderId, reason }) => {
   }
 };
 
+const handleFilterSearch = (filters) => {
+  fetchHouses({ filters });
+};
+
+const handleToggleBlacklist = async ({ username, blacklisted }) => {
+  if (!isAdmin.value || !currentUser.value) {
+    return;
+  }
+  adminLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    await client.patch(`/admin/users/${username}/blacklist`, {
+      requesterUsername: currentUser.value.username,
+      blacklisted
+    });
+    messages.success = blacklisted ? `已将账号 ${username} 加入黑名单。` : `已解除账号 ${username} 的黑名单状态。`;
+    await loadAdminData();
+    await loadRecommendations();
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '更新黑名单状态失败。';
+    }
+  } finally {
+    adminLoading.value = false;
+  }
+};
+
+const loadAdminData = async () => {
+  if (!isAdmin.value || !currentUser.value) {
+    adminUsers.value = [];
+    adminReputation.value = null;
+    return;
+  }
+  adminLoading.value = true;
+  try {
+    const [usersRes, reputationRes] = await Promise.all([
+      client.get('/admin/users', { params: { requester: currentUser.value.username } }),
+      client.get('/admin/reputations', { params: { requester: currentUser.value.username } })
+    ]);
+    adminUsers.value = Array.isArray(usersRes.data) ? usersRes.data : [];
+    adminReputation.value = reputationRes.data ?? null;
+  } catch (error) {
+    messages.error = error.response?.data?.detail ?? '加载信誉面板失败。';
+  } finally {
+    adminLoading.value = false;
+  }
+};
+
 const handleLoginSuccess = (user) => {
   currentUser.value = user;
-  messages.success = user.message ?? '';
+  const reputationText = user.reputationScore != null ? ` 当前信誉分：${user.reputationScore}` : '';
+  messages.success = `${user.message ?? '登录成功。'}${reputationText}`;
   messages.error = '';
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(user));
-  } catch (error) {
-    console.warn('无法持久化登录状态：', error);
-  }
+  persistUser(user);
+  activeTab.value = 'home';
   fetchHouses();
   fetchWallet();
   fetchOrders();
+  loadRecommendations({ silent: false });
+  if (user.role === 'ADMIN') {
+    loadAdminData();
+  }
 };
 
 const handleLogout = () => {
@@ -399,12 +622,32 @@ const handleLogout = () => {
   selectedHouse.value = null;
   wallet.value = null;
   orders.value = [];
+  recommendations.sellers = [];
+  recommendations.buyers = [];
+  adminUsers.value = [];
+  adminReputation.value = null;
   walletLoading.value = false;
   ordersLoading.value = false;
+  reservationLoading.value = false;
   messages.error = '';
   messages.success = '';
+  activeTab.value = 'home';
   localStorage.removeItem(storageKey);
+  fetchHouses();
+  loadRecommendations();
 };
+
+watch(
+  () => currentUser.value?.role,
+  (role) => {
+    if (role === 'ADMIN') {
+      loadAdminData();
+    } else {
+      adminUsers.value = [];
+      adminReputation.value = null;
+    }
+  }
+);
 
 onMounted(() => {
   try {
@@ -416,6 +659,10 @@ onMounted(() => {
       fetchHouses();
       fetchWallet();
       fetchOrders();
+      loadRecommendations();
+      if (user.role === 'ADMIN') {
+        loadAdminData();
+      }
       return;
     }
   } catch (error) {
@@ -423,6 +670,7 @@ onMounted(() => {
     localStorage.removeItem(storageKey);
   }
   fetchHouses();
+  loadRecommendations();
 });
 </script>
 
@@ -447,9 +695,15 @@ onMounted(() => {
   gap: 1rem;
 }
 
-.header h1 {
-  margin: 0 0 0.5rem;
-  font-size: 2rem;
+.branding h1 {
+  margin: 0;
+  font-size: 2.2rem;
+}
+
+.branding p {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.9;
 }
 
 .session {
@@ -458,6 +712,17 @@ onMounted(() => {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+}
+
+.reputation {
+  font-weight: 600;
 }
 
 .logout {
@@ -481,6 +746,33 @@ onMounted(() => {
   justify-content: center;
 }
 
+.menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.menu-item {
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
+  background: #e0e7ff;
+  color: #1e3a8a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menu-item.active {
+  background: #1d4ed8;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(29, 78, 216, 0.25);
+}
+
+.menu-item:not(.active):hover {
+  background: #c7d2fe;
+}
+
 .alert {
   background: #fee2e2;
   border-left: 4px solid #ef4444;
@@ -490,37 +782,45 @@ onMounted(() => {
 }
 
 .success {
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(34, 197, 94, 0.18);
   border-left: 4px solid #22c55e;
   border-radius: 0.75rem;
-  color: #f0fdf4;
+  color: #f8fafc;
   margin: 0;
   padding: 0.75rem 1rem;
 }
 
-.content {
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.manage-grid,
+.orders-grid {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-
-.wallet-order-section {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-
-.form-section,
-.list-section {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
-  padding: 1.5rem;
 }
 
 .footer {
   text-align: center;
-  color: #6b7280;
-  padding: 1.5rem 0 0.5rem;
+  color: #475569;
+  font-size: 0.85rem;
+  margin-top: auto;
+}
+
+@media (max-width: 768px) {
+  .header {
+    text-align: center;
+  }
+
+  .identity {
+    align-items: center;
+  }
+
+  .logout {
+    width: 100%;
+  }
 }
 </style>

@@ -1,6 +1,6 @@
-# 二手房屋销售全栈示例
+# 二手房屋售卖系统
 
-该项目演示了一个使用 Spring Boot (Java 21) 与 Vue 3 (Node.js 22) 实现的二手房屋销售管理系统，包含房源的增、删、改、查功能。后端提供 RESTful API，对接 MySQL 数据库，前端通过 Axios 与后端交互。
+该项目演示了一个使用 Spring Boot (Java 21) 与 Vue 3 (Node.js 22) 实现的二手房屋售卖系统，支持房源管理、买家预定、定金支付、信誉评分与黑名单管控等功能。后端提供 RESTful API，对接 MySQL 数据库，前端通过 Axios 与后端交互。
 
 ## 目录结构
 

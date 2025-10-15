@@ -35,6 +35,12 @@ public class HouseOrderController {
         return houseOrderService.createOrder(request);
     }
 
+    @PostMapping("/reserve")
+    @ResponseStatus(HttpStatus.CREATED)
+    public HouseOrderResponse reserveHouse(@Valid @RequestBody HouseReservationRequest request) {
+        return houseOrderService.reserveHouse(request);
+    }
+
     @PostMapping("/{orderId}/return")
     public HouseOrderResponse requestReturn(@PathVariable Long orderId,
                                             @Valid @RequestBody OrderReturnRequest request) {

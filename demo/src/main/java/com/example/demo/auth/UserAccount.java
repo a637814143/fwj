@@ -38,6 +38,18 @@ public class UserAccount {
     private UserRole role;
 
     @Column(nullable = false)
+    private boolean blacklisted = false;
+
+    @Column(nullable = false)
+    private int reputationScore = 100;
+
+    @Column(nullable = false)
+    private int reservationBreaches = 0;
+
+    @Column(nullable = false)
+    private int returnCount = 0;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
@@ -85,6 +97,64 @@ public class UserAccount {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isBlacklisted() {
+        return blacklisted;
+    }
+
+    public void setBlacklisted(boolean blacklisted) {
+        this.blacklisted = blacklisted;
+    }
+
+    public int getReputationScore() {
+        return reputationScore;
+    }
+
+    public void setReputationScore(int reputationScore) {
+        this.reputationScore = clampReputation(reputationScore);
+    }
+
+    public int getReservationBreaches() {
+        return reservationBreaches;
+    }
+
+    public void setReservationBreaches(int reservationBreaches) {
+        this.reservationBreaches = Math.max(0, reservationBreaches);
+    }
+
+    public int getReturnCount() {
+        return returnCount;
+    }
+
+    public void setReturnCount(int returnCount) {
+        this.returnCount = Math.max(0, returnCount);
+    }
+
+    public void increaseReputation(int delta) {
+        if (delta <= 0) {
+            return;
+        }
+        this.reputationScore = clampReputation(this.reputationScore + delta);
+    }
+
+    public void decreaseReputation(int delta) {
+        if (delta <= 0) {
+            return;
+        }
+        this.reputationScore = clampReputation(this.reputationScore - delta);
+    }
+
+    public void recordReservationBreach() {
+        this.reservationBreaches = Math.max(0, reservationBreaches + 1);
+    }
+
+    public void recordReturn() {
+        this.returnCount = Math.max(0, returnCount + 1);
+    }
+
+    private int clampReputation(int value) {
+        return Math.max(0, Math.min(100, value));
     }
 
     @PrePersist

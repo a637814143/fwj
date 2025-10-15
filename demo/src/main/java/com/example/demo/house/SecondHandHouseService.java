@@ -38,6 +38,7 @@ public class SecondHandHouseService {
         existing.setPrice(updatedHouse.getPrice());
         existing.setArea(updatedHouse.getArea());
         existing.setDescription(updatedHouse.getDescription());
+        existing.setSellerUsername(updatedHouse.getSellerUsername());
         existing.setSellerName(updatedHouse.getSellerName());
         existing.setContactNumber(updatedHouse.getContactNumber());
         existing.setListingDate(updatedHouse.getListingDate());

@@ -19,9 +19,10 @@
             <th>价格 (万元)</th>
             <th>面积 (㎡)</th>
             <th>挂牌日期</th>
-            <th>卖家</th>
+            <th>卖家账号</th>
+            <th>卖家姓名</th>
             <th>联系方式</th>
-            <th v-if="canManage">操作</th>
+            <th v-if="canManage || isBuyer">操作</th>
             <th v-else>权限</th>
           </tr>
         </thead>
@@ -35,11 +36,17 @@
             <td>{{ formatNumber(house.price) }}</td>
             <td>{{ formatNumber(house.area) }}</td>
             <td>{{ formatDate(house.listingDate) }}</td>
+            <td>{{ house.sellerUsername || '-' }}</td>
             <td>{{ house.sellerName }}</td>
             <td>{{ house.contactNumber }}</td>
             <td v-if="canManage" class="actions">
               <button class="btn small" :disabled="!canManage" @click="handleEdit(house)">编辑</button>
               <button class="btn small danger" :disabled="!canManage" @click="handleRemove(house)">删除</button>
+            </td>
+            <td v-else-if="isBuyer" class="actions">
+              <button class="btn small" :disabled="purchaseDisabled" @click="handlePurchase(house)">
+                {{ purchaseDisabled ? '处理中...' : '立即购买' }}
+              </button>
             </td>
             <td v-else class="actions muted">仅支持浏览</td>
           </tr>
@@ -50,7 +57,7 @@
 </template>
 
 <script setup>
-import { toRefs } from 'vue';
+import { computed, toRefs } from 'vue';
 
 const props = defineProps({
   houses: {
@@ -64,12 +71,23 @@ const props = defineProps({
   canManage: {
     type: Boolean,
     default: true
+  },
+  currentUser: {
+    type: Object,
+    default: null
+  },
+  ordersLoading: {
+    type: Boolean,
+    default: false
   }
 });
 
-const emit = defineEmits(['edit', 'remove']);
+const emit = defineEmits(['edit', 'remove', 'purchase']);
 
 const { houses, loading, canManage } = toRefs(props);
+
+const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
+const purchaseDisabled = computed(() => props.ordersLoading || loading.value);
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
@@ -100,6 +118,13 @@ const handleRemove = (house) => {
     return;
   }
   emit('remove', house);
+};
+
+const handlePurchase = (house) => {
+  if (!isBuyer.value || purchaseDisabled.value) {
+    return;
+  }
+  emit('purchase', house);
 };
 </script>
 

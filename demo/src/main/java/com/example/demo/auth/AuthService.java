@@ -1,5 +1,6 @@
 package com.example.demo.auth;
 
+import com.example.demo.wallet.WalletService;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,15 +9,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserAccountRepository userAccountRepository;
+    private final WalletService walletService;
 
-    public AuthService(UserAccountRepository userAccountRepository) {
+    public AuthService(UserAccountRepository userAccountRepository, WalletService walletService) {
         this.userAccountRepository = userAccountRepository;
+        this.walletService = walletService;
     }
 
     @PostConstruct
     public void preloadDemoUsers() {
         if (userAccountRepository.count() == 0) {
-            createUser(UserRole.LANDLORD, "landlord01", "owner123", "房东小李");
+            createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李");
             createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
             createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员");
         }
@@ -57,7 +60,9 @@ public class AuthService {
         account.setUsername(username);
         account.setPassword(password);
         account.setDisplayName(displayName);
-        return userAccountRepository.save(account);
+        UserAccount saved = userAccountRepository.save(account);
+        walletService.ensureWallet(saved);
+        return saved;
     }
 
     private LoginResponse toResponse(UserAccount account, String message) {

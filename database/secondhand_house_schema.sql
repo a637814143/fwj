@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS user_accounts (
 
 INSERT INTO user_accounts (username, password, display_name, role)
 VALUES
-    ('landlord01', 'owner123', '房东小李', 'LANDLORD'),
+    ('seller01', 'seller123', '卖家小李', 'SELLER'),
     ('buyer01', 'buyer123', '买家小王', 'BUYER'),
     ('admin', 'admin123', '系统管理员', 'ADMIN')
 ON DUPLICATE KEY UPDATE
@@ -29,9 +29,46 @@ CREATE TABLE IF NOT EXISTS second_hand_houses (
     price DECIMAL(15,2) NOT NULL,
     area DECIMAL(10,2) NOT NULL,
     description TEXT,
+    seller_username VARCHAR(50) NOT NULL,
     seller_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
     listing_date DATE NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+);
+
+CREATE TABLE IF NOT EXISTS user_wallets (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL UNIQUE,
+    virtual_port VARCHAR(64) NOT NULL UNIQUE,
+    balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_user_wallet_user FOREIGN KEY (user_id) REFERENCES user_accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    wallet_id BIGINT NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    reference VARCHAR(100),
+    description VARCHAR(255),
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_wallet_tx_wallet FOREIGN KEY (wallet_id) REFERENCES user_wallets(id)
+);
+
+CREATE TABLE IF NOT EXISTS house_orders (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    house_id BIGINT NOT NULL,
+    buyer_id BIGINT NOT NULL,
+    seller_id BIGINT NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    return_reason VARCHAR(255),
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_house_order_house FOREIGN KEY (house_id) REFERENCES second_hand_houses(id),
+    CONSTRAINT fk_house_order_buyer FOREIGN KEY (buyer_id) REFERENCES user_accounts(id),
+    CONSTRAINT fk_house_order_seller FOREIGN KEY (seller_id) REFERENCES user_accounts(id)
 );

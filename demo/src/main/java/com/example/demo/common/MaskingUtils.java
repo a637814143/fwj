@@ -5,6 +5,32 @@ public final class MaskingUtils {
     private MaskingUtils() {
     }
 
+    public static String maskDisplayName(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        if (value.isEmpty()) {
+            return raw;
+        }
+        if (value.length() == 1) {
+            return value + "*";
+        }
+        return value.charAt(0) + "**";
+    }
+
+    public static String maskUsername(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        if (value.length() <= 2) {
+            return "*".repeat(value.length());
+        }
+        int maskLength = Math.max(1, value.length() - 2);
+        return value.substring(0, 1) + "*".repeat(maskLength) + value.substring(value.length() - 1);
+    }
+
     public static String maskPhoneNumber(String raw) {
         if (raw == null) {
             return null;

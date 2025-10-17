@@ -20,16 +20,16 @@
               <dd>{{ order.id }}</dd>
             </div>
             <div>
-              <dt>金额（万元）</dt>
+              <dt>金额（元）</dt>
               <dd>{{ formatAmount(order.amount) }}</dd>
             </div>
             <div>
               <dt>买家</dt>
-              <dd>{{ order.buyerDisplayName }}（{{ order.buyerUsername }}）</dd>
+              <dd>{{ buyerDisplayName(order) }}（{{ buyerUsernameDisplay(order) }}）</dd>
             </div>
             <div>
               <dt>卖家</dt>
-              <dd>{{ order.sellerDisplayName }}（{{ order.sellerUsername }}）</dd>
+              <dd>{{ sellerDisplayName(order) }}（{{ sellerUsernameDisplay(order) }}）</dd>
             </div>
             <div>
               <dt>创建时间</dt>
@@ -68,6 +68,10 @@ const props = defineProps({
   currentUser: {
     type: Object,
     default: null
+  },
+  canViewSensitiveInfo: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -107,10 +111,77 @@ const formatAmount = (value) => {
   if (value == null) {
     return '0.00';
   }
-  return Number(value).toLocaleString('zh-CN', {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '0.00';
+  }
+  const yuan = num * 10000;
+  return yuan.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+};
+
+const maskName = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const text = String(value);
+  if (text.length === 1) {
+    return `${text}*`;
+  }
+  return `${text.slice(0, 1)}**`;
+};
+
+const maskUsername = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const text = String(value);
+  if (text.length <= 2) {
+    return '*'.repeat(text.length);
+  }
+  return `${text.slice(0, 1)}${'*'.repeat(text.length - 2)}${text.slice(-1)}`;
+};
+
+const shouldMaskBuyer = (order) => {
+  if (!order) {
+    return true;
+  }
+  if (props.currentUser && order.buyerUsername === props.currentUser.username) {
+    return false;
+  }
+  return !props.canViewSensitiveInfo;
+};
+
+const shouldMaskSeller = (order) => {
+  if (!order) {
+    return true;
+  }
+  if (props.currentUser && order.sellerUsername === props.currentUser.username) {
+    return false;
+  }
+  return !props.canViewSensitiveInfo;
+};
+
+const buyerDisplayName = (order) => {
+  const name = order?.buyerDisplayName ?? '—';
+  return shouldMaskBuyer(order) ? maskName(name) : name;
+};
+
+const buyerUsernameDisplay = (order) => {
+  const username = order?.buyerUsername ?? '—';
+  return shouldMaskBuyer(order) ? maskUsername(username) : username;
+};
+
+const sellerDisplayName = (order) => {
+  const name = order?.sellerDisplayName ?? '—';
+  return shouldMaskSeller(order) ? maskName(name) : name;
+};
+
+const sellerUsernameDisplay = (order) => {
+  const username = order?.sellerUsername ?? '—';
+  return shouldMaskSeller(order) ? maskUsername(username) : username;
 };
 
 const formatTime = (value) => {

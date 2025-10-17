@@ -87,17 +87,24 @@
             </div>
             <div>
               <dt>卖家</dt>
-              <dd>{{ house.sellerName }}（{{ house.sellerUsername }}）</dd>
+              <dd>{{ sellerNameDisplay(house) }}（{{ sellerUsernameDisplay(house) }}）</dd>
             </div>
             <div>
               <dt>联系方式</dt>
-              <dd>{{ house.contactNumber }}</dd>
+              <dd>{{ contactNumberDisplay(house) }}</dd>
             </div>
           </dl>
         </div>
         <footer class="card-actions">
           <template v-if="canOperate">
-            <button type="button" class="contact" @click="contactSeller(house)">联系卖家</button>
+            <button
+              type="button"
+              class="contact"
+              :disabled="contactDisabled"
+              @click="contactSeller(house)"
+            >
+              联系卖家
+            </button>
             <button
               class="reserve"
               :disabled="reservationDisabled()"
@@ -116,6 +123,9 @@
             >
               {{ purchaseDisabled ? '处理中...' : '立即购买' }}
             </button>
+            <p v-if="requiresVerification" class="verification-tip">
+              完成实名认证后才能查看完整信息并进行交易。
+            </p>
           </template>
           <span v-else class="hint">登录买家账号后可进行预定或购买</span>
         </footer>
@@ -139,6 +149,10 @@ const props = defineProps({
   currentUser: {
     type: Object,
     default: null
+  },
+  canViewSensitiveInfo: {
+    type: Boolean,
+    default: false
   },
   filters: {
     type: Object,
@@ -173,7 +187,13 @@ const localFilters = reactive({
 });
 
 const canOperate = computed(() => props.currentUser?.role === 'BUYER');
-const purchaseDisabled = computed(() => props.purchaseLoading || props.loading);
+const requiresVerification = computed(
+  () => props.currentUser?.role === 'BUYER' && !props.currentUser?.realNameVerified
+);
+const purchaseDisabled = computed(
+  () => props.purchaseLoading || props.loading || requiresVerification.value
+);
+const contactDisabled = computed(() => requiresVerification.value);
 const hasRecommendations = computed(() => {
   const sellers = Array.isArray(props.recommendations?.sellers)
     ? props.recommendations.sellers.length
@@ -256,6 +276,67 @@ const depositAmount = (house) => {
   return (price * 0.1).toFixed(2);
 };
 
+const maskName = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const text = String(value);
+  if (text.length === 1) {
+    return `${text}*`;
+  }
+  return `${text.slice(0, 1)}**`;
+};
+
+const maskUsername = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const text = String(value);
+  if (text.length <= 2) {
+    return '*'.repeat(text.length);
+  }
+  return `${text.slice(0, 1)}${'*'.repeat(text.length - 2)}${text.slice(-1)}`;
+};
+
+const maskPhone = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const digits = String(value).trim();
+  if (digits.length <= 4) {
+    return '*'.repeat(digits.length);
+  }
+  return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
+};
+
+const shouldMask = (house) => {
+  if (props.canViewSensitiveInfo) {
+    return false;
+  }
+  if (!house) {
+    return true;
+  }
+  if (props.currentUser?.username && props.currentUser.username === house.sellerUsername) {
+    return false;
+  }
+  return true;
+};
+
+const sellerNameDisplay = (house) => {
+  const name = house?.sellerName ?? '—';
+  return shouldMask(house) ? maskName(name) : name;
+};
+
+const sellerUsernameDisplay = (house) => {
+  const username = house?.sellerUsername ?? '—';
+  return shouldMask(house) ? maskUsername(username) : username;
+};
+
+const contactNumberDisplay = (house) => {
+  const contact = house?.contactNumber ?? '—';
+  return shouldMask(house) ? maskPhone(contact) : contact;
+};
+
 const isReservingCurrent = (house) => {
   if (!props.reservationLoading || props.reservationTarget == null) {
     return false;
@@ -265,6 +346,9 @@ const isReservingCurrent = (house) => {
 
 const reservationDisabled = () => {
   if (!canOperate.value) {
+    return true;
+  }
+  if (requiresVerification.value) {
     return true;
   }
   return Boolean(props.reservationLoading);
@@ -546,5 +630,11 @@ const reservationDisabled = () => {
 .hint {
   color: #64748b;
   font-size: 0.9rem;
+}
+
+.verification-tip {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
 }
 </style>

@@ -9,7 +9,7 @@
       <div v-else class="content">
         <div class="summary">
           <div class="balance">
-            <span class="label">当前余额（万元）</span>
+            <span class="label">当前余额（元）</span>
             <strong>{{ formatAmount(wallet.balance) }}</strong>
           </div>
           <div class="port">
@@ -21,14 +21,14 @@
         <form class="top-up" @submit.prevent="submitTopUp">
           <h3>充值钱包</h3>
           <label>
-            充值金额（万元）
+            充值金额（元）
             <input
               v-model.number="form.amount"
               type="number"
               min="0.01"
               step="0.01"
               required
-              placeholder="请输入金额，如 50"
+              placeholder="请输入金额，如 5000"
               :disabled="loading || submitting"
             />
           </label>
@@ -117,9 +117,14 @@ const submitTopUp = () => {
   if (submitting.value || props.loading || !form.amount || Number(form.amount) <= 0) {
     return;
   }
+  const amountValue = Number(form.amount);
+  if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    return;
+  }
   submitting.value = true;
+  const normalized = Number((amountValue / 10000).toFixed(2));
   emit('top-up', {
-    amount: Number(form.amount),
+    amount: normalized,
     reference: form.reference || undefined
   });
 };
@@ -128,7 +133,12 @@ const formatAmount = (value) => {
   if (value == null) {
     return '0.00';
   }
-  return Number(value).toLocaleString('zh-CN', {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '0.00';
+  }
+  const yuan = num * 10000;
+  return yuan.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -142,8 +152,12 @@ const formatSigned = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  const sign = num > 0 ? '+' : '';
-  return `${sign}${num.toFixed(2)}`;
+  const yuan = num * 10000;
+  const sign = yuan > 0 ? '+' : yuan < 0 ? '-' : '';
+  return `${sign}${Math.abs(yuan).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
 };
 
 const formatTime = (value) => {

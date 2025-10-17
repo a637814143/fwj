@@ -37,9 +37,12 @@
             <td>{{ formatNumber(house.price) }}</td>
             <td>{{ formatNumber(house.area) }}</td>
             <td>{{ formatDate(house.listingDate) }}</td>
-            <td>{{ house.sellerUsername || '-' }}</td>
-            <td>{{ house.sellerName }}</td>
-            <td>{{ house.contactNumber }}</td>
+            <td>{{ sellerUsernameDisplay(house) }}</td>
+            <td>
+              {{ sellerNameDisplay(house) }}
+              <span v-if="shouldMask(house)" class="mask-hint">需实名认证</span>
+            </td>
+            <td>{{ contactNumberDisplay(house) }}</td>
             <td>
               <div v-if="house.imageUrls && house.imageUrls.length" class="thumbnails">
                 <img
@@ -74,10 +77,17 @@
               <span v-else class="muted">仅限发布者维护</span>
             </td>
             <td v-else-if="isBuyer" class="actions">
-              <button class="btn small secondary" @click="handleContactSeller(house)">联系卖家</button>
+              <button
+                class="btn small secondary"
+                :disabled="requiresVerification"
+                @click="handleContactSeller(house)"
+              >
+                联系卖家
+              </button>
               <button class="btn small" :disabled="purchaseDisabled" @click="handlePurchase(house)">
                 {{ purchaseDisabled ? '处理中...' : '立即购买' }}
               </button>
+              <span v-if="requiresVerification" class="muted">完成实名认证后可操作</span>
             </td>
             <td v-else class="actions muted">仅支持浏览</td>
           </tr>
@@ -107,6 +117,10 @@ const props = defineProps({
     type: Object,
     default: null
   },
+  canViewSensitiveInfo: {
+    type: Boolean,
+    default: false
+  },
   ordersLoading: {
     type: Boolean,
     default: false
@@ -120,7 +134,12 @@ const { houses, loading, canManage } = toRefs(props);
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const isAdmin = computed(() => props.currentUser?.role === 'ADMIN');
 const isSeller = computed(() => props.currentUser?.role === 'SELLER');
-const purchaseDisabled = computed(() => props.ordersLoading || loading.value);
+const requiresVerification = computed(
+  () => props.currentUser?.role === 'BUYER' && !props.currentUser?.realNameVerified
+);
+const purchaseDisabled = computed(
+  () => props.ordersLoading || loading.value || requiresVerification.value
+);
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
@@ -137,6 +156,67 @@ const formatDate = (value) => {
     return '-';
   }
   return new Date(value).toLocaleDateString('zh-CN');
+};
+
+const maskName = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const text = String(value);
+  if (text.length === 1) {
+    return `${text}*`;
+  }
+  return `${text.slice(0, 1)}**`;
+};
+
+const maskUsername = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const text = String(value);
+  if (text.length <= 2) {
+    return '*'.repeat(text.length);
+  }
+  return `${text.slice(0, 1)}${'*'.repeat(text.length - 2)}${text.slice(-1)}`;
+};
+
+const maskPhone = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const digits = String(value).trim();
+  if (digits.length <= 4) {
+    return '*'.repeat(digits.length);
+  }
+  return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
+};
+
+const shouldMask = (house) => {
+  if (props.canViewSensitiveInfo) {
+    return false;
+  }
+  if (!house) {
+    return true;
+  }
+  if (props.currentUser?.username && props.currentUser.username === house.sellerUsername) {
+    return false;
+  }
+  return true;
+};
+
+const sellerNameDisplay = (house) => {
+  const name = house?.sellerName ?? '—';
+  return shouldMask(house) ? maskName(name) : name;
+};
+
+const sellerUsernameDisplay = (house) => {
+  const username = house?.sellerUsername ?? '—';
+  return shouldMask(house) ? maskUsername(username) : username;
+};
+
+const contactNumberDisplay = (house) => {
+  const contact = house?.contactNumber ?? '—';
+  return shouldMask(house) ? maskPhone(contact) : contact;
 };
 
 const handleEdit = (house) => {
@@ -275,6 +355,12 @@ tbody tr:hover {
 .muted {
   color: #94a3b8;
   font-size: 0.85rem;
+}
+
+.mask-hint {
+  margin-left: 0.25rem;
+  color: #f97316;
+  font-size: 0.75rem;
 }
 
 .btn.small {

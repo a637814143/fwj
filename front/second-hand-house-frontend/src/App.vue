@@ -11,6 +11,10 @@
             当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
           </span>
           <span class="reputation">信誉分：{{ currentUser.reputationScore ?? '—' }}</span>
+          <span class="verification-status">
+            实名认证：
+            <strong>{{ currentUser.realNameVerified ? '已完成' : '待完成' }}</strong>
+          </span>
         </div>
         <div class="session-actions">
           <button
@@ -54,6 +58,7 @@
           :houses="houses"
           :loading="loading"
           :current-user="currentUser"
+          :can-view-sensitive-info="canViewSensitiveInfo"
           :filters="houseFilters"
           :recommendations="recommendations"
           :purchase-loading="ordersLoading"
@@ -79,6 +84,7 @@
             :loading="loading"
             :can-manage="canManageHouses"
             :current-user="currentUser"
+            :can-view-sensitive-info="canViewSensitiveInfo"
             :orders-loading="ordersLoading"
             @edit="handleEdit"
             @remove="handleRemove"
@@ -98,9 +104,17 @@
             :orders="orders"
             :loading="ordersLoading"
             :current-user="currentUser"
+            :can-view-sensitive-info="canViewSensitiveInfo"
             @request-return="handleRequestReturn"
           />
         </div>
+
+        <RealNameVerification
+          v-else-if="activeTab === 'verify'"
+          :api-base-url="apiBaseUrl"
+          :current-user="currentUser"
+          @verified="handleVerificationUpdate"
+        />
 
         <AdminReputationBoard
           v-else-if="activeTab === 'admin'"
@@ -148,6 +162,7 @@ import OrderHistory from './components/OrderHistory.vue';
 import HouseExplorer from './components/HouseExplorer.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
+import RealNameVerification from './components/RealNameVerification.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -188,6 +203,17 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+const formatCurrencyYuan = (value) => {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0.00';
+  }
+  return (numeric * 10000).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
 const roleLabels = {
   SELLER: '卖家',
   BUYER: '买家',
@@ -198,6 +224,17 @@ const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
 const canUseMessaging = computed(() => currentUser.value && ['BUYER', 'SELLER'].includes(currentUser.value.role));
+const isRealNameVerified = computed(() => Boolean(currentUser.value?.realNameVerified));
+const canViewSensitiveInfo = computed(() => {
+  const user = currentUser.value;
+  if (!user) {
+    return false;
+  }
+  if (user.role === 'ADMIN') {
+    return true;
+  }
+  return Boolean(user.realNameVerified);
+});
 
 const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
@@ -205,6 +242,10 @@ const canManageHouses = computed(
 
 const navigationTabs = computed(() => {
   const tabs = [{ value: 'home', label: '购买首页' }];
+  tabs.push({
+    value: 'verify',
+    label: currentUser.value?.realNameVerified ? '实名认证（已完成）' : '实名认证'
+  });
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: '房源管理' });
   }
@@ -233,7 +274,8 @@ const persistUser = (user) => {
 const normalizeHouse = (house) => ({
   ...house,
   listingDate: house.listingDate ?? '',
-  imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : []
+  imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : [],
+  sensitiveMasked: Boolean(house.sensitiveMasked)
 });
 
 const buildFilterParams = (filters) => {
@@ -268,6 +310,9 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
   messages.error = '';
   try {
     const params = buildFilterParams(houseFilters);
+    if (currentUser.value?.username) {
+      params.requester = currentUser.value.username;
+    }
     const { data } = await client.get('/houses', { params });
     houses.value = data.map(normalizeHouse);
   } catch (error) {
@@ -447,9 +492,34 @@ const handleSendConversationMessage = async ({ conversationId, content }) => {
   }
 };
 
+const handleVerificationUpdate = async (response) => {
+  const updated = {
+    ...(currentUser.value ?? {}),
+    ...response
+  };
+  currentUser.value = updated;
+  persistUser(updated);
+  messages.success = response.message ?? '实名认证信息已更新。';
+  messages.error = '';
+  if (activeTab.value === 'verify' && updated.realNameVerified) {
+    activeTab.value = 'home';
+  }
+  await Promise.all([
+    fetchHouses({ silent: true }),
+    fetchWallet({ silent: true }),
+    fetchOrders({ silent: true })
+  ]);
+  await loadRecommendations({ silent: true });
+};
+
 const handleContactSeller = async ({ sellerUsername }) => {
   if (!isBuyer.value || !currentUser.value) {
     messages.error = '只有买家可以主动联系卖家。';
+    messages.success = '';
+    return;
+  }
+  if (!isRealNameVerified.value) {
+    messages.error = '请先完成实名认证后再联系卖家。';
     messages.success = '';
     return;
   }
@@ -595,6 +665,11 @@ const handlePurchase = async (house) => {
     messages.success = '';
     return;
   }
+  if (!isRealNameVerified.value) {
+    messages.error = '购买前请先完成实名认证。';
+    messages.success = '';
+    return;
+  }
   if (isSeller.value && currentUser.value.username === house.sellerUsername) {
     messages.error = '不能购买自己发布的房源。';
     messages.success = '';
@@ -608,7 +683,8 @@ const handlePurchase = async (house) => {
       houseId: house.id,
       buyerUsername: currentUser.value.username
     });
-    messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ${Number(data.amount).toFixed(2)} 万元。`;
+    const payment = formatCurrencyYuan(data.amount);
+    messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ￥${payment}。`;
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -633,6 +709,11 @@ const handleReserve = async (house) => {
     messages.success = '';
     return;
   }
+  if (!isRealNameVerified.value) {
+    messages.error = '预定前请先完成实名认证。';
+    messages.success = '';
+    return;
+  }
   reservationLoading.value = true;
   reservationTarget.value = house.id;
   messages.error = '';
@@ -642,8 +723,8 @@ const handleReserve = async (house) => {
       houseId: house.id,
       buyerUsername: currentUser.value.username
     });
-    const deposit = Number(data.amount ?? 0).toFixed(2);
-    messages.success = `已成功预定房源《${data.houseTitle}》，定金 ${deposit} 万元。`;
+    const deposit = formatCurrencyYuan(data.amount);
+    messages.success = `已成功预定房源《${data.houseTitle}》，定金 ￥${deposit}。`;
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -677,7 +758,7 @@ const handleTopUp = async ({ amount, reference }) => {
       reference
     });
     wallet.value = data;
-    messages.success = '钱包充值成功。';
+    messages.success = `钱包充值成功，充值金额 ￥${formatCurrencyYuan(amount)}。`;
   } catch (error) {
     const detail = error.response?.data;
     if (detail?.errors) {
@@ -950,6 +1031,10 @@ onMounted(() => {
 
 .reputation {
   font-weight: 600;
+}
+
+.verification-status {
+  font-size: 0.9rem;
 }
 
 .logout,

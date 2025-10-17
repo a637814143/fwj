@@ -20,7 +20,7 @@
               <dd>{{ order.id }}</dd>
             </div>
             <div>
-              <dt>金额（万元）</dt>
+              <dt>金额（元）</dt>
               <dd>{{ formatAmount(order.amount) }}</dd>
             </div>
             <div>
@@ -28,8 +28,16 @@
               <dd>{{ order.buyerDisplayName }}（{{ order.buyerUsername }}）</dd>
             </div>
             <div>
+              <dt>买家联系方式</dt>
+              <dd>{{ order.buyerPhoneMasked || '—' }}</dd>
+            </div>
+            <div>
               <dt>卖家</dt>
               <dd>{{ order.sellerDisplayName }}（{{ order.sellerUsername }}）</dd>
+            </div>
+            <div>
+              <dt>卖家联系方式</dt>
+              <dd>{{ order.sellerPhoneMasked || '—' }}</dd>
             </div>
             <div>
               <dt>创建时间</dt>
@@ -44,9 +52,34 @@
               <dd>{{ order.returnReason }}</dd>
             </div>
           </dl>
-          <footer v-if="canRequestReturn(order)" class="actions">
-            <button type="button" :disabled="loading" @click="requestReturn(order)">
+          <div class="progress">
+            <h4>交易进度</h4>
+            <ol>
+              <li
+                v-for="step in getProgress(order)"
+                :key="step.stage"
+                :class="{ completed: step.completed }"
+              >
+                {{ step.label }}
+              </li>
+            </ol>
+          </div>
+          <footer v-if="canRequestReturn(order) || canUpdateProgress(order)" class="actions">
+            <button
+              v-if="canRequestReturn(order)"
+              type="button"
+              :disabled="loading"
+              @click="requestReturn(order)"
+            >
               申请退换
+            </button>
+            <button
+              v-if="canUpdateProgress(order)"
+              type="button"
+              :disabled="loading"
+              @click="updateProgress(order)"
+            >
+              标记为{{ nextStageLabel(order) }}
             </button>
           </footer>
         </li>
@@ -56,6 +89,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+
 const props = defineProps({
   orders: {
     type: Array,
@@ -71,13 +106,26 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['request-return']);
+const emit = defineEmits(['request-return', 'update-progress']);
 
 const statusLabels = {
   PENDING: '待支付',
+  RESERVED: '已预定',
   PAID: '已支付',
-  RETURNED: '已退换'
+  RETURNED: '已退换',
+  CANCELLED: '已取消'
 };
+
+const progressLabels = {
+  RESERVED: '预定',
+  VIEWED: '已看房',
+  BALANCE_PAID: '已支付尾款',
+  HANDED_OVER: '已交房'
+};
+
+const progressOrder = ['RESERVED', 'VIEWED', 'BALANCE_PAID', 'HANDED_OVER'];
+
+const isSeller = computed(() => props.currentUser?.role === 'SELLER');
 
 const canRequestReturn = (order) => {
   if (!order) {
@@ -90,6 +138,29 @@ const canRequestReturn = (order) => {
   );
 };
 
+const getNextStage = (stage) => {
+  const index = progressOrder.indexOf(stage);
+  if (index === -1 || index >= progressOrder.length - 1) {
+    return null;
+  }
+  return progressOrder[index + 1];
+};
+
+const canUpdateProgress = (order) => {
+  if (!order || !isSeller.value || !props.currentUser) {
+    return false;
+  }
+  if (order.sellerUsername !== props.currentUser.username) {
+    return false;
+  }
+  return Boolean(getNextStage(order.progressStage));
+};
+
+const nextStageLabel = (order) => {
+  const next = getNextStage(order.progressStage);
+  return next ? progressLabels[next] ?? next : '';
+};
+
 const requestReturn = (order) => {
   if (!canRequestReturn(order) || props.loading) {
     return;
@@ -99,6 +170,27 @@ const requestReturn = (order) => {
     return;
   }
   emit('request-return', { orderId: order.id, reason: reason.trim() });
+};
+
+const updateProgress = (order) => {
+  if (!canUpdateProgress(order) || props.loading) {
+    return;
+  }
+  const next = getNextStage(order.progressStage);
+  if (!next) {
+    return;
+  }
+  emit('update-progress', { orderId: order.id, stage: next });
+};
+
+const getProgress = (order) => {
+  const currentIndex = progressOrder.indexOf(order?.progressStage);
+  const safeIndex = currentIndex < 0 ? 0 : currentIndex;
+  return progressOrder.map((stage, index) => ({
+    stage,
+    label: progressLabels[stage] ?? stage,
+    completed: index <= safeIndex
+  }));
 };
 
 const formatAmount = (value) => {
@@ -202,6 +294,16 @@ const formatTime = (value) => {
   color: #b91c1c;
 }
 
+.status.reserved {
+  background: rgba(248, 180, 0, 0.2);
+  color: #b45309;
+}
+
+.status.cancelled {
+  background: rgba(148, 163, 184, 0.25);
+  color: #475569;
+}
+
 dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -229,6 +331,7 @@ dl dd {
 .actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .actions button {
@@ -248,5 +351,39 @@ dl dd {
 .actions button:disabled {
   background: #fdba74;
   cursor: not-allowed;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress h4 {
+  margin: 0;
+  color: #1e293b;
+}
+
+.progress ol {
+  list-style: none;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.progress li {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.progress li.completed {
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+  font-weight: 600;
 }
 </style>

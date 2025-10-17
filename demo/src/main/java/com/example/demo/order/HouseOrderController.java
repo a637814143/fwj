@@ -52,4 +52,10 @@ public class HouseOrderController {
                                               @Valid @RequestBody ViewingScheduleRequest request) {
         return houseOrderService.scheduleViewing(orderId, request);
     }
+
+    @PostMapping("/{orderId}/progress")
+    public HouseOrderResponse updateProgress(@PathVariable Long orderId,
+                                             @Valid @RequestBody OrderProgressUpdateRequest request) {
+        return houseOrderService.updateProgress(orderId, request);
+    }
 }

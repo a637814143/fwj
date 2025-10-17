@@ -40,6 +40,21 @@ public class UserAccount {
     @Column(nullable = false)
     private boolean blacklisted = false;
 
+    @Column(name = "phone_number", length = 30)
+    private String phoneNumber;
+
+    @Column(name = "real_name", length = 50)
+    private String realName;
+
+    @Column(name = "id_number", length = 64)
+    private String idNumber;
+
+    @Column(name = "real_name_verified", nullable = false)
+    private boolean realNameVerified = false;
+
+    @Column(name = "real_name_verified_at")
+    private LocalDateTime realNameVerifiedAt;
+
     @Column(nullable = false)
     private int reputationScore = 100;
 
@@ -105,6 +120,46 @@ public class UserAccount {
 
     public void setBlacklisted(boolean blacklisted) {
         this.blacklisted = blacklisted;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getRealName() {
+        return realName;
+    }
+
+    public void setRealName(String realName) {
+        this.realName = realName;
+    }
+
+    public String getIdNumber() {
+        return idNumber;
+    }
+
+    public void setIdNumber(String idNumber) {
+        this.idNumber = idNumber;
+    }
+
+    public boolean isRealNameVerified() {
+        return realNameVerified;
+    }
+
+    public void setRealNameVerified(boolean realNameVerified) {
+        this.realNameVerified = realNameVerified;
+    }
+
+    public LocalDateTime getRealNameVerifiedAt() {
+        return realNameVerifiedAt;
+    }
+
+    public void setRealNameVerifiedAt(LocalDateTime realNameVerifiedAt) {
+        this.realNameVerifiedAt = realNameVerifiedAt;
     }
 
     public int getReputationScore() {

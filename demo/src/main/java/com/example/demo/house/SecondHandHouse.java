@@ -17,7 +17,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "second_hand_houses")
@@ -58,6 +61,14 @@ public class SecondHandHouse {
     @CollectionTable(name = "second_hand_house_images", joinColumns = @JoinColumn(name = "house_id"))
     @Column(name = "image_url", length = 500)
     private List<String> imageUrls = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "second_hand_house_keywords", joinColumns = @JoinColumn(name = "house_id"))
+    @Column(name = "keyword", length = 50)
+    private List<String> keywords = new ArrayList<>();
+
+    @Column(name = "floor")
+    private Integer floor;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -163,6 +174,31 @@ public class SecondHandHouse {
 
     public void setImageUrls(List<String> imageUrls) {
         this.imageUrls = imageUrls == null ? new ArrayList<>() : new ArrayList<>(imageUrls);
+    }
+
+    public List<String> getKeywords() {
+        return Collections.unmodifiableList(keywords);
+    }
+
+    public void setKeywords(List<String> keywords) {
+        if (keywords == null) {
+            this.keywords = new ArrayList<>();
+            return;
+        }
+        this.keywords = keywords.stream()
+                .filter(item -> item != null && !item.isBlank())
+                .map(item -> item.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .map(item -> item.length() > 50 ? item.substring(0, 50) : item)
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    public Integer getFloor() {
+        return floor;
+    }
+
+    public void setFloor(Integer floor) {
+        this.floor = floor;
     }
 
     public OffsetDateTime getCreatedAt() {

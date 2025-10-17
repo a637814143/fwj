@@ -16,8 +16,10 @@
           <tr>
             <th>标题</th>
             <th>地址</th>
-            <th>价格 (万元)</th>
+            <th>价格 (元)</th>
             <th>面积 (㎡)</th>
+            <th>楼层</th>
+            <th>关键词</th>
             <th>挂牌日期</th>
             <th>卖家账号</th>
             <th>卖家姓名</th>
@@ -40,17 +42,29 @@
             <td>{{ house.address }}</td>
             <td>{{ formatNumber(house.price) }}</td>
             <td>{{ formatNumber(house.area) }}</td>
+            <td>{{ house.floor ?? '-' }}</td>
+            <td>{{ formatKeywords(house.keywords) }}</td>
             <td>{{ formatDate(house.listingDate) }}</td>
             <td>{{ house.sellerUsername || '-' }}</td>
             <td>{{ house.sellerName }}</td>
-            <td>{{ house.contactNumber }}</td>
+            <td>{{ maskPhone(house.contactNumber) }}</td>
             <td v-if="canManage" class="actions">
               <button class="btn small" :disabled="!canManage" @click.stop="handleEdit(house)">编辑</button>
               <button class="btn small danger" :disabled="!canManage" @click.stop="handleRemove(house)">删除</button>
             </td>
             <td v-else-if="isBuyer" class="actions">
-              <button class="btn small" :disabled="purchaseDisabled" @click.stop="handlePurchase(house)">
-                {{ purchaseDisabled ? '处理中...' : '立即购买' }}
+              <button
+                class="btn small"
+                :disabled="purchaseDisabled || !buyerVerified"
+                @click.stop="handlePurchase(house)"
+              >
+                {{
+                  !buyerVerified
+                    ? '需实名认证'
+                    : purchaseDisabled
+                    ? '处理中...'
+                    : '立即购买'
+                }}
               </button>
             </td>
             <td v-else class="actions muted">仅支持浏览</td>
@@ -90,11 +104,12 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['edit', 'remove', 'purchase']);
+const emit = defineEmits(['edit', 'remove', 'purchase', 'view']);
 
 const { houses, loading, canManage } = toRefs(props);
 
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
+const buyerVerified = computed(() => props.currentUser?.realNameVerified === true);
 const purchaseDisabled = computed(() => props.ordersLoading || loading.value);
 const detailHouse = ref(null);
 
@@ -113,6 +128,26 @@ const formatDate = (value) => {
     return '-';
   }
   return new Date(value).toLocaleDateString('zh-CN');
+};
+
+const formatKeywords = (keywords) => {
+  if (!Array.isArray(keywords) || keywords.length === 0) {
+    return '—';
+  }
+  return keywords.join('、');
+};
+
+const maskPhone = (value) => {
+  if (!value) {
+    return '-';
+  }
+  const phone = String(value).trim();
+  if (phone.length <= 4) {
+    return '*'.repeat(phone.length);
+  }
+  const prefix = phone.slice(0, Math.min(3, phone.length - 4));
+  const suffix = phone.slice(-4);
+  return `${prefix}****${suffix}`;
 };
 
 const handleEdit = (house) => {
@@ -141,11 +176,16 @@ const openDetail = (house) => {
     ...house,
     imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
   };
+  emit('view', house);
 };
 
 const closeDetail = () => {
   detailHouse.value = null;
 };
+
+defineExpose({
+  openDetail
+});
 </script>
 
 <style scoped>

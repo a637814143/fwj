@@ -79,6 +79,8 @@ public class SecondHandHouseService {
         existing.setSellerName(updatedHouse.getSellerName());
         existing.setContactNumber(updatedHouse.getContactNumber());
         existing.setListingDate(updatedHouse.getListingDate());
+        existing.setFloor(updatedHouse.getFloor());
+        existing.setKeywords(updatedHouse.getKeywords());
         existing.getImageUrls().clear();
         existing.getImageUrls().addAll(updatedHouse.getImageUrls());
         return repository.save(existing);
@@ -131,7 +133,10 @@ public class SecondHandHouseService {
         }
         String haystack = (house.getTitle() + " " + house.getAddress() + " " + (house.getDescription() == null ? "" : house.getDescription()))
                 .toLowerCase(Locale.ROOT);
-        return haystack.contains(keyword);
+        if (haystack.contains(keyword)) {
+            return true;
+        }
+        return house.getKeywords().stream().anyMatch(item -> item.contains(keyword));
     }
 
     private boolean filterByRange(BigDecimal value, BigDecimal min, BigDecimal max) {

@@ -9,7 +9,7 @@
       <div v-else class="content">
         <div class="summary">
           <div class="balance">
-            <span class="label">当前余额（万元）</span>
+            <span class="label">当前余额（元）</span>
             <strong>{{ formatAmount(wallet.balance) }}</strong>
           </div>
           <div class="port">
@@ -21,7 +21,7 @@
         <form class="top-up" @submit.prevent="submitTopUp">
           <h3>充值钱包</h3>
           <label>
-            充值金额（万元）
+            充值金额（元）
             <input
               v-model.number="form.amount"
               type="number"

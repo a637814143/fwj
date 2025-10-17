@@ -27,7 +27,7 @@
       </label>
 
       <label>
-        价格（万元）
+        价格（元）
         <input
           v-model.number="form.price"
           type="number"
@@ -48,6 +48,18 @@
           step="0.01"
           required
           placeholder="例如 89"
+          :disabled="!canManage || loading"
+        />
+      </label>
+
+      <label>
+        楼层
+        <input
+          v-model.number="form.floor"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="请输入楼层，如 12"
           :disabled="!canManage || loading"
         />
       </label>
@@ -82,6 +94,18 @@
           required
           placeholder="请输入联系方式"
           :disabled="!canManage || loading"
+        />
+      </label>
+
+      <label>
+        关键词（使用逗号或顿号分隔）
+        <input
+          v-model.trim="keywordsText"
+          type="text"
+          placeholder="例如：靠近学校，靠近医院"
+          :disabled="!canManage || loading"
+          @change="syncKeywords"
+          @blur="syncKeywords"
         />
       </label>
 
@@ -186,6 +210,8 @@ const emptyForm = () => ({
   sellerName: props.currentUser?.role === 'SELLER' ? props.currentUser.displayName ?? '' : '',
   contactNumber: '',
   listingDate: '',
+  floor: '',
+  keywords: [],
   imageUrls: []
 });
 
@@ -199,10 +225,12 @@ const imageUploadError = ref('');
 const imageUploading = ref(false);
 const remainingSlots = computed(() => Math.max(0, MAX_IMAGES - form.imageUrls.length));
 const canUploadMore = computed(() => remainingSlots.value > 0);
+const keywordsText = ref('');
 
 const resetForm = () => {
   Object.assign(form, emptyForm());
   imageUploadError.value = '';
+  keywordsText.value = '';
 };
 
 watch(
@@ -219,8 +247,11 @@ watch(
         sellerName: house.sellerName ?? '',
         contactNumber: house.contactNumber ?? '',
         listingDate: house.listingDate ?? '',
+        floor: house.floor ?? '',
+        keywords: Array.isArray(house.keywords) ? [...house.keywords] : [],
         imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
       });
+      keywordsText.value = form.keywords.join('、');
       imageUploadError.value = '';
     } else {
       resetForm();
@@ -237,6 +268,17 @@ watch(
     }
   }
 );
+
+const syncKeywords = () => {
+  if (typeof keywordsText.value !== 'string') {
+    form.keywords = [];
+    return;
+  }
+  form.keywords = keywordsText.value
+    .split(/[、,，\s]+/)
+    .map((item) => item.trim())
+    .filter((item) => item);
+};
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -292,7 +334,13 @@ const submitForm = () => {
   if (!canManage.value || imageUploading.value) {
     return;
   }
-  emit('submit', { ...form, imageUrls: [...form.imageUrls] });
+  syncKeywords();
+  emit('submit', {
+    ...form,
+    floor: form.floor === '' || form.floor == null ? null : Number(form.floor),
+    keywords: [...form.keywords],
+    imageUrls: [...form.imageUrls]
+  });
   if (!isEditing.value) {
     resetForm();
   }

@@ -13,7 +13,7 @@
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">价格</span>
-            <span class="info-value">{{ formattedPrice }} 万元</span>
+            <span class="info-value">￥{{ formattedPrice }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">面积</span>
@@ -24,12 +24,23 @@
             <span class="info-value">{{ formattedDate }}</span>
           </div>
           <div class="info-item">
+            <span class="info-label">楼层</span>
+            <span class="info-value">{{ formattedFloor }}</span>
+          </div>
+          <div class="info-item">
             <span class="info-label">卖家账号</span>
             <span class="info-value">{{ house.sellerUsername || '-' }}</span>
           </div>
         </div>
 
         <p v-if="house.description" class="modal__description">{{ house.description }}</p>
+
+        <div v-if="keywordList.length" class="keywords">
+          <h4>房源关键词</h4>
+          <ul>
+            <li v-for="keyword in keywordList" :key="keyword">{{ keyword }}</li>
+          </ul>
+        </div>
 
         <div class="gallery">
           <div class="gallery__header">
@@ -49,7 +60,7 @@
       <footer class="modal__footer">
         <div class="contact">
           <span>卖家：{{ house.sellerName }}</span>
-          <span>联系方式：{{ house.contactNumber }}</span>
+          <span>联系方式：{{ maskedPhone }}</span>
         </div>
         <button type="button" class="primary-button" @click="emit('close')">关闭</button>
       </footer>
@@ -74,6 +85,14 @@ const images = computed(() => (Array.isArray(props.house?.imageUrls) ? props.hou
 const formattedPrice = computed(() => formatNumber(props.house?.price));
 const formattedArea = computed(() => formatNumber(props.house?.area));
 const formattedDate = computed(() => formatDate(props.house?.listingDate));
+const formattedFloor = computed(() => {
+  if (props.house?.floor == null || props.house.floor === '') {
+    return '—';
+  }
+  return `${props.house.floor} 层`;
+});
+const keywordList = computed(() => (Array.isArray(props.house?.keywords) ? props.house.keywords : []));
+const maskedPhone = computed(() => maskPhone(props.house?.contactNumber));
 
 function formatNumber(value) {
   if (value == null || value === '') {
@@ -90,6 +109,19 @@ function formatDate(value) {
     return '-';
   }
   return new Date(value).toLocaleDateString('zh-CN');
+}
+
+function maskPhone(value) {
+  if (!value) {
+    return '-';
+  }
+  const phone = String(value).trim();
+  if (phone.length <= 4) {
+    return '*'.repeat(phone.length);
+  }
+  const prefix = phone.slice(0, Math.min(3, phone.length - 4));
+  const suffix = phone.slice(-4);
+  return `${prefix}****${suffix}`;
 }
 </script>
 
@@ -189,6 +221,34 @@ function formatDate(value) {
   margin: 0;
   line-height: 1.7;
   color: #1f2937;
+}
+
+.keywords {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.keywords h4 {
+  margin: 0;
+  color: #1d4ed8;
+}
+
+.keywords ul {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keywords li {
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
 }
 
 .gallery {

@@ -110,6 +110,7 @@
           :current-user="currentUser"
           @refresh="loadAdminData"
           @toggle-blacklist="handleToggleBlacklist"
+          @delete-user="handleDeleteUser"
         />
       </main>
     </template>
@@ -748,6 +749,40 @@ const handleToggleBlacklist = async ({ username, blacklisted }) => {
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
       messages.error = detail?.detail ?? '更新黑名单状态失败。';
+    }
+  } finally {
+    adminLoading.value = false;
+  }
+};
+
+const handleDeleteUser = async ({ username }) => {
+  if (!isAdmin.value || !currentUser.value || !username || username === currentUser.value.username) {
+    return;
+  }
+  const confirmed = window.confirm(`确定要删除账号 ${username} 吗？该操作不可撤销。`);
+  if (!confirmed) {
+    return;
+  }
+  adminLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    await client.delete(`/admin/users/${username}`, {
+      params: { requester: currentUser.value.username }
+    });
+    messages.success = `账号 ${username} 已被删除。`;
+    await Promise.all([
+      loadAdminData(),
+      loadRecommendations()
+    ]);
+    await fetchHouses({ silent: true });
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '删除账号失败。';
     }
   } finally {
     adminLoading.value = false;

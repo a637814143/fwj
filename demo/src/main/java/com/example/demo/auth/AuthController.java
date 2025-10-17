@@ -38,4 +38,10 @@ public class AuthController {
     public LoginResponse profile(@PathVariable String username) {
         return authService.profile(username);
     }
+
+    @PostMapping("/verify/{username}")
+    public LoginResponse verify(@PathVariable String username,
+                                @Valid @RequestBody RealNameVerificationRequest request) {
+        return authService.verifyIdentity(username, request);
+    }
 }

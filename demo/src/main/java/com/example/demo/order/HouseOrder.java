@@ -45,6 +45,10 @@ public class HouseOrder {
     @Column(nullable = false, length = 20)
     private OrderStatus status = OrderStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "progress_stage", nullable = false, length = 20)
+    private OrderProgressStage progressStage = OrderProgressStage.RESERVED;
+
     @Column(name = "return_reason", length = 255)
     private String returnReason;
 
@@ -102,6 +106,18 @@ public class HouseOrder {
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    public OrderProgressStage getProgressStage() {
+        return progressStage;
+    }
+
+    public void setProgressStage(OrderProgressStage progressStage) {
+        if (progressStage == null) {
+            return;
+        }
+        this.progressStage = progressStage;
+        this.updatedAt = OffsetDateTime.now();
     }
 
     public String getReturnReason() {

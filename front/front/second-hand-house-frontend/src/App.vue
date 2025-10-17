@@ -21,6 +21,12 @@
         <strong>提示：</strong> {{ messages.error }}
       </section>
 
+      <RealNameVerification
+        :api-base-url="apiBaseUrl"
+        :current-user="currentUser"
+        @verified="handleVerificationUpdate"
+      />
+
       <main class="content">
         <section class="form-section">
           <HouseForm
@@ -34,7 +40,13 @@
         </section>
 
         <section class="list-section">
+          <HouseSearchBar
+            :loading="loading"
+            :initial-keyword="searchFilters.keyword"
+            @search="handleSearch"
+          />
           <HouseList
+            ref="houseListRef"
             :houses="houses"
             :loading="loading"
             :can-manage="canManageHouses"
@@ -43,9 +55,18 @@
             @edit="handleEdit"
             @remove="handleRemove"
             @purchase="handlePurchase"
+            @view="handleViewHouse"
           />
         </section>
       </main>
+
+      <section class="history-section">
+        <BrowsingHistory
+          :history="browsingHistory"
+          @select="handleHistorySelect"
+          @clear="clearBrowsingHistory"
+        />
+      </section>
 
       <section class="wallet-order-section">
         <WalletPanel
@@ -59,6 +80,7 @@
           :loading="ordersLoading"
           :current-user="currentUser"
           @request-return="handleRequestReturn"
+          @update-progress="handleUpdateProgress"
         />
       </section>
     </template>
@@ -77,6 +99,9 @@ import HouseList from './components/HouseList.vue';
 import RoleLogin from './components/RoleLogin.vue';
 import WalletPanel from './components/WalletPanel.vue';
 import OrderHistory from './components/OrderHistory.vue';
+import HouseSearchBar from './components/HouseSearchBar.vue';
+import BrowsingHistory from './components/BrowsingHistory.vue';
+import RealNameVerification from './components/RealNameVerification.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -89,6 +114,11 @@ const orders = ref([]);
 const ordersLoading = ref(false);
 const messages = reactive({ error: '', success: '' });
 const storageKey = 'secondhand-house-current-user';
+const historyStoragePrefix = 'secondhand-house-history-';
+const historyLimit = 10;
+const houseListRef = ref(null);
+const browsingHistory = ref([]);
+const searchFilters = reactive({ keyword: '' });
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -101,6 +131,13 @@ const roleLabels = {
   ADMIN: '系统管理员'
 };
 
+const progressStageLabels = {
+  RESERVED: '预定',
+  VIEWED: '已看房',
+  BALANCE_PAID: '已支付尾款',
+  HANDED_OVER: '已交房'
+};
+
 const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 
@@ -111,6 +148,9 @@ const canManageHouses = computed(
 const normalizeHouseResponse = (house) => ({
   ...house,
   listingDate: house?.listingDate ?? '',
+  floor: house?.floor ?? null,
+  keywords: Array.isArray(house?.keywords) ? [...house.keywords] : [],
+  contactNumber: house?.contactNumber ?? '',
   imageUrls: Array.isArray(house?.imageUrls) ? [...house.imageUrls] : []
 });
 
@@ -121,11 +161,23 @@ const sanitizeImages = (images) =>
         .filter((item) => item)
     : [];
 
-const fetchHouses = async () => {
+const sanitizeKeywords = (keywords) =>
+  Array.isArray(keywords)
+    ? keywords
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item)
+    : [];
+
+const fetchHouses = async ({ keyword } = {}) => {
   loading.value = true;
   messages.error = '';
+  const params = {};
+  const keywordValue = typeof keyword === 'string' ? keyword.trim() : searchFilters.keyword?.trim();
+  if (keywordValue) {
+    params.keyword = keywordValue;
+  }
   try {
-    const { data } = await client.get('/houses');
+    const { data } = await client.get('/houses', { params });
     houses.value = data.map((house) => normalizeHouseResponse(house));
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '加载房源数据失败，请检查后端服务。';
@@ -194,7 +246,91 @@ const normalizeHousePayload = (payload) => {
     }
   }
   result.imageUrls = sanitizeImages(payload.imageUrls);
+  result.keywords = sanitizeKeywords(payload.keywords);
+  if (result.floor === '' || result.floor == null) {
+    result.floor = null;
+  }
   return result;
+};
+
+const getHistoryStorageKey = () =>
+  currentUser.value ? `${historyStoragePrefix}${currentUser.value.username}` : null;
+
+const loadBrowsingHistory = () => {
+  const key = getHistoryStorageKey();
+  if (!key) {
+    browsingHistory.value = [];
+    return;
+  }
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      browsingHistory.value = Array.isArray(parsed) ? parsed : [];
+    } else {
+      browsingHistory.value = [];
+    }
+  } catch (error) {
+    console.warn('读取浏览历史失败：', error);
+    browsingHistory.value = [];
+  }
+};
+
+const saveBrowsingHistory = () => {
+  const key = getHistoryStorageKey();
+  if (!key) {
+    return;
+  }
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify(browsingHistory.value.slice(0, historyLimit))
+    );
+  } catch (error) {
+    console.warn('无法保存浏览历史：', error);
+  }
+};
+
+const recordBrowsing = (house) => {
+  if (!currentUser.value || !house?.id) {
+    return;
+  }
+  const entry = {
+    id: house.id,
+    title: house.title,
+    viewedAt: new Date().toISOString(),
+    price: house.price ?? null,
+    address: house.address ?? '',
+    keywords: Array.isArray(house.keywords) ? [...house.keywords] : []
+  };
+  const filtered = browsingHistory.value.filter((item) => item.id !== entry.id);
+  browsingHistory.value = [entry, ...filtered].slice(0, historyLimit);
+  saveBrowsingHistory();
+};
+
+const clearBrowsingHistory = () => {
+  browsingHistory.value = [];
+  const key = getHistoryStorageKey();
+  if (key) {
+    localStorage.removeItem(key);
+  }
+};
+
+const handleSearch = ({ keyword }) => {
+  searchFilters.keyword = keyword?.trim() ?? '';
+  fetchHouses({ keyword: searchFilters.keyword });
+};
+
+const handleViewHouse = (house) => {
+  recordBrowsing(house);
+};
+
+const handleHistorySelect = (houseId) => {
+  const house = houses.value.find((item) => item.id === houseId);
+  if (house) {
+    houseListRef.value?.openDetail(house);
+    recordBrowsing(house);
+  }
 };
 
 const handleSubmit = async (payload) => {
@@ -208,20 +344,21 @@ const handleSubmit = async (payload) => {
   const requestPayload = normalizeHousePayload(payload);
 
   try {
+    let responseHouse;
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
-      const normalized = normalizeHouseResponse(data);
-      houses.value = houses.value.map((house) =>
-        house.id === normalized.id ? normalized : house
-      );
-      messages.success = `房源《${normalized.title}》已更新。`;
+      responseHouse = data;
+      messages.success = `房源《${data.title}》已更新。`;
     } else {
       const { data } = await client.post('/houses', requestPayload);
-      const normalized = normalizeHouseResponse(data);
-      houses.value = [...houses.value, normalized];
-      messages.success = `已新增房源《${normalized.title}》。`;
+      responseHouse = data;
+      messages.success = `已新增房源《${data.title}》。`;
     }
+    await fetchHouses({ keyword: searchFilters.keyword });
     selectedHouse.value = null;
+    if (responseHouse) {
+      recordBrowsing(normalizeHouseResponse(responseHouse));
+    }
   } catch (error) {
     const detail = error.response?.data;
     if (detail?.errors) {
@@ -258,7 +395,7 @@ const handleRemove = async (house) => {
   messages.success = '';
   try {
     await client.delete(`/houses/${house.id}`);
-    houses.value = houses.value.filter((item) => item.id !== house.id);
+    await fetchHouses({ keyword: searchFilters.keyword });
     messages.success = `已删除房源《${house.title}》。`;
   } catch (error) {
     messages.error = error.response?.data?.detail ?? '删除房源失败。';
@@ -273,6 +410,11 @@ const handlePurchase = async (house) => {
     messages.success = '';
     return;
   }
+  if (!currentUser.value?.realNameVerified) {
+    messages.error = '购买前请先完成实名认证。';
+    messages.success = '';
+    return;
+  }
   ordersLoading.value = true;
   messages.error = '';
   messages.success = '';
@@ -281,7 +423,7 @@ const handlePurchase = async (house) => {
       houseId: house.id,
       buyerUsername: currentUser.value.username
     });
-    messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ${Number(data.amount).toFixed(2)} 万元。`;
+    messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ${Number(data.amount).toFixed(2)} 元。`;
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
   } catch (error) {
@@ -356,6 +498,55 @@ const handleRequestReturn = async ({ orderId, reason }) => {
   }
 };
 
+const handleUpdateProgress = async ({ orderId, stage }) => {
+  if (!currentUser.value) {
+    messages.error = '请先登录后再更新订单进度。';
+    messages.success = '';
+    return;
+  }
+  ordersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post(`/orders/${orderId}/progress`, {
+      requesterUsername: currentUser.value.username,
+      stage
+    });
+    orders.value = orders.value.map((order) =>
+      order.id === data.id ? data : order
+    );
+    messages.success = `交易进度已更新为${progressStageLabels[stage] ?? stage}。`;
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '更新交易进度失败。';
+    }
+  } finally {
+    ordersLoading.value = false;
+  }
+};
+
+const handleVerificationUpdate = (response) => {
+  if (!response) {
+    return;
+  }
+  currentUser.value = {
+    ...currentUser.value,
+    ...response
+  };
+  messages.error = '';
+  messages.success = response.message ?? '实名认证信息已更新。';
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(currentUser.value));
+  } catch (error) {
+    console.warn('无法保存认证状态：', error);
+  }
+  loadBrowsingHistory();
+};
+
 const handleLoginSuccess = (user) => {
   currentUser.value = user;
   messages.success = user.message ?? '';
@@ -365,12 +556,14 @@ const handleLoginSuccess = (user) => {
   } catch (error) {
     console.warn('无法持久化登录状态：', error);
   }
-  fetchHouses();
+  loadBrowsingHistory();
+  fetchHouses({ keyword: searchFilters.keyword });
   fetchWallet();
   fetchOrders();
 };
 
 const handleLogout = () => {
+  const key = getHistoryStorageKey();
   currentUser.value = null;
   houses.value = [];
   selectedHouse.value = null;
@@ -381,6 +574,11 @@ const handleLogout = () => {
   messages.error = '';
   messages.success = '';
   localStorage.removeItem(storageKey);
+  if (key) {
+    localStorage.removeItem(key);
+  }
+  browsingHistory.value = [];
+  searchFilters.keyword = '';
 };
 
 onMounted(() => {
@@ -390,7 +588,8 @@ onMounted(() => {
       const user = JSON.parse(cached);
       currentUser.value = user;
       messages.success = '已恢复上次的登录状态。';
-      fetchHouses();
+      loadBrowsingHistory();
+      fetchHouses({ keyword: searchFilters.keyword });
       fetchWallet();
       fetchOrders();
       return;
@@ -399,7 +598,7 @@ onMounted(() => {
     console.warn('恢复登录状态失败：', error);
     localStorage.removeItem(storageKey);
   }
-  fetchHouses();
+  fetchHouses({ keyword: searchFilters.keyword });
 });
 </script>
 
@@ -487,12 +686,23 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+.history-section {
+  display: flex;
+  flex-direction: column;
+}
+
 .form-section,
 .list-section {
   background: white;
   border-radius: 1rem;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
   padding: 1.5rem;
+}
+
+.list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .footer {

@@ -69,6 +69,10 @@ public class HouseOrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不能预定自己发布的房源");
         }
 
+        if (!buyer.isRealNameVerified()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "买家未完成实名认证，无法预定房源");
+        }
+
         ensureNotBlacklisted(buyer, "买家账号已被加入黑名单，无法预定房源");
         ensureNotBlacklisted(seller, "卖家账号已被加入黑名单，无法接受预定");
 
@@ -97,6 +101,7 @@ public class HouseOrderService {
         String description = String.format("房源《%s》预定定金", house.getTitle());
         walletService.processPayment(order, reference, description);
         order.markReserved();
+        order.setProgressStage(OrderProgressStage.RESERVED);
         order = orderRepository.save(order);
 
         seller.increaseReputation(1);
@@ -134,6 +139,9 @@ public class HouseOrderService {
 
         order.setViewingTime(viewingTime);
         order.setViewingMessage(viewingMessage);
+        if (order.getProgressStage() == OrderProgressStage.RESERVED) {
+            order.setProgressStage(OrderProgressStage.VIEWED);
+        }
         order = orderRepository.save(order);
 
         String formattedTime = viewingTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
@@ -166,6 +174,10 @@ public class HouseOrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不能购买自己发布的房源");
         }
 
+        if (!buyer.isRealNameVerified()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "买家未完成实名认证，无法购买房源");
+        }
+
         ensureNotBlacklisted(buyer, "买家账号已被加入黑名单，无法购买房源");
         ensureNotBlacklisted(seller, "卖家账号已被加入黑名单，无法出售房源");
 
@@ -183,6 +195,7 @@ public class HouseOrderService {
         String description = String.format("房源《%s》购房支付", house.getTitle());
         walletService.processPayment(order, reference, description);
         order.markPaid();
+        order.setProgressStage(OrderProgressStage.BALANCE_PAID);
         order = orderRepository.save(order);
 
         seller.increaseReputation(3);
@@ -217,10 +230,46 @@ public class HouseOrderService {
         return HouseOrderResponse.fromEntity(order);
     }
 
+    public HouseOrderResponse updateProgress(Long orderId, OrderProgressUpdateRequest request) {
+        HouseOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
+        if (!order.getSeller().getUsername().equals(request.requesterUsername())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅卖家本人可以更新交易进度");
+        }
+        OrderProgressStage current = order.getProgressStage();
+        OrderProgressStage target = request.stage();
+        if (current == target) {
+            return HouseOrderResponse.fromEntity(order);
+        }
+        if (!canTransition(current, target)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无效的进度更新请求");
+        }
+        order.setProgressStage(target);
+        if (target == OrderProgressStage.HANDED_OVER) {
+            UserAccount seller = order.getSeller();
+            UserAccount buyer = order.getBuyer();
+            seller.increaseReputation(5);
+            buyer.increaseReputation(3);
+            userAccountRepository.save(seller);
+            userAccountRepository.save(buyer);
+        }
+        order = orderRepository.save(order);
+        return HouseOrderResponse.fromEntity(order);
+    }
+
     private void ensureNotBlacklisted(UserAccount account, String message) {
         if (account.isBlacklisted()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
         }
+    }
+
+    private boolean canTransition(OrderProgressStage current, OrderProgressStage target) {
+        return switch (current) {
+            case RESERVED -> target == OrderProgressStage.VIEWED;
+            case VIEWED -> target == OrderProgressStage.BALANCE_PAID;
+            case BALANCE_PAID -> target == OrderProgressStage.HANDED_OVER;
+            case HANDED_OVER -> false;
+        };
     }
 
     private OffsetDateTime parseViewingTime(String viewingTime) {

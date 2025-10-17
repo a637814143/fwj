@@ -17,6 +17,8 @@ import java.util.Objects;
 @Transactional
 public class ConversationService {
 
+    private static final int MAX_MESSAGE_LENGTH = 2000;
+
     private final ConversationRepository conversationRepository;
     private final ConversationMessageRepository messageRepository;
     private final UserAccountRepository userAccountRepository;
@@ -116,6 +118,9 @@ public class ConversationService {
         String normalized = content.trim();
         if (normalized.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "消息内容不能为空");
+        }
+        if (normalized.length() > MAX_MESSAGE_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "消息内容长度不能超过 2000 字");
         }
         ConversationMessage message = new ConversationMessage(conversation, sender, normalized);
         ConversationMessage saved = messageRepository.save(message);

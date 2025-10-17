@@ -109,13 +109,23 @@
                 </span>
               </td>
               <td>
-                <button
-                  type="button"
-                  :disabled="user.username === currentUser?.username"
-                  @click="toggle(user)"
-                >
-                  {{ user.blacklisted ? '解除黑名单' : '加入黑名单' }}
-                </button>
+                <div class="actions">
+                  <button
+                    type="button"
+                    :disabled="user.username === currentUser?.username"
+                    @click="toggle(user)"
+                  >
+                    {{ user.blacklisted ? '解除黑名单' : '加入黑名单' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="danger"
+                    :disabled="user.role === 'ADMIN' || user.username === currentUser?.username"
+                    @click="remove(user)"
+                  >
+                    删除账号
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="!users || users.length === 0">
@@ -148,7 +158,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['toggle-blacklist', 'refresh']);
+const emit = defineEmits(['toggle-blacklist', 'refresh', 'delete-user']);
 
 const roleLabels = {
   SELLER: '卖家',
@@ -158,6 +168,10 @@ const roleLabels = {
 
 const toggle = (user) => {
   emit('toggle-blacklist', { username: user.username, blacklisted: !user.blacklisted });
+};
+
+const remove = (user) => {
+  emit('delete-user', { username: user.username });
 };
 </script>
 
@@ -230,6 +244,22 @@ header button {
 .summary strong {
   font-size: 1.4rem;
   color: #1e293b;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.actions .danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.actions .danger:disabled {
+  background: #fca5a5;
+  cursor: not-allowed;
 }
 
 .leaderboard {

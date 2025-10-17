@@ -78,7 +78,22 @@ public class UserAdminController {
     @GetMapping("/reputations")
     public ReputationOverview reputationOverview(@RequestParam("requester") String requesterUsername) {
         requireAdmin(requesterUsername);
-        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "信誉系统正在维护中，暂时无法访问");
+
+        List<UserAccountView> sellers = userAccountRepository
+                .findByRoleOrderByReputationScoreDesc(UserRole.SELLER)
+                .stream()
+                .map(UserAccountView::fromEntity)
+                .toList();
+
+        List<UserAccountView> buyers = userAccountRepository
+                .findByRoleOrderByReputationScoreDesc(UserRole.BUYER)
+                .stream()
+                .map(UserAccountView::fromEntity)
+                .toList();
+
+        long blacklistedCount = userAccountRepository.countByBlacklistedTrue();
+
+        return new ReputationOverview(sellers, buyers, blacklistedCount);
     }
 
     @DeleteMapping("/users/{username}")

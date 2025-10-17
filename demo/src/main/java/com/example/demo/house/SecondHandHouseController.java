@@ -28,17 +28,19 @@ public class SecondHandHouseController {
     }
 
     @GetMapping
-    public List<SecondHandHouse> list(@RequestParam(value = "keyword", required = false) String keyword,
-                                      @RequestParam(value = "minPrice", required = false) java.math.BigDecimal minPrice,
-                                      @RequestParam(value = "maxPrice", required = false) java.math.BigDecimal maxPrice,
-                                      @RequestParam(value = "minArea", required = false) java.math.BigDecimal minArea,
-                                      @RequestParam(value = "maxArea", required = false) java.math.BigDecimal maxArea) {
-        return service.search(keyword, minPrice, maxPrice, minArea, maxArea);
+    public List<SecondHandHouseView> list(@RequestParam(value = "keyword", required = false) String keyword,
+                                          @RequestParam(value = "minPrice", required = false) java.math.BigDecimal minPrice,
+                                          @RequestParam(value = "maxPrice", required = false) java.math.BigDecimal maxPrice,
+                                          @RequestParam(value = "minArea", required = false) java.math.BigDecimal minArea,
+                                          @RequestParam(value = "maxArea", required = false) java.math.BigDecimal maxArea,
+                                          @RequestParam(value = "requester", required = false) String requesterUsername) {
+        return service.search(keyword, minPrice, maxPrice, minArea, maxArea, requesterUsername);
     }
 
     @GetMapping("/{id}")
-    public SecondHandHouse get(@PathVariable Long id) {
-        return service.findById(id);
+    public SecondHandHouseView get(@PathVariable Long id,
+                                   @RequestParam(value = "requester", required = false) String requesterUsername) {
+        return service.viewById(id, requesterUsername);
     }
 
     @PostMapping

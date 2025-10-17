@@ -42,20 +42,29 @@ public class SecondHandHouseService {
     }
 
     @Transactional(readOnly = true)
-    public List<SecondHandHouse> search(String keyword,
-                                        BigDecimal minPrice,
-                                        BigDecimal maxPrice,
-                                        BigDecimal minArea,
-                                        BigDecimal maxArea) {
+    public List<SecondHandHouseView> search(String keyword,
+                                            BigDecimal minPrice,
+                                            BigDecimal maxPrice,
+                                            BigDecimal minArea,
+                                            BigDecimal maxArea,
+                                            String requesterUsername) {
+        UserAccount requester = resolveRequester(requesterUsername);
         String normalized = keyword == null ? null : keyword.trim().toLowerCase(Locale.ROOT);
         return repository.findAll().stream()
                 .filter(house -> filterByKeyword(house, normalized))
                 .filter(house -> filterByRange(house.getPrice(), minPrice, maxPrice))
                 .filter(house -> filterByRange(house.getArea(), minArea, maxArea))
+                .map(house -> SecondHandHouseView.fromEntity(house, shouldMaskSensitive(house, requester)))
                 .toList();
     }
 
     @Transactional(readOnly = true)
+    public SecondHandHouseView viewById(Long id, String requesterUsername) {
+        SecondHandHouse house = findById(id);
+        UserAccount requester = resolveRequester(requesterUsername);
+        return SecondHandHouseView.fromEntity(house, shouldMaskSensitive(house, requester));
+    }
+
     public SecondHandHouse findById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new SecondHandHouseNotFoundException(id));
@@ -137,6 +146,26 @@ public class SecondHandHouseService {
             return true;
         }
         return house.getKeywords().stream().anyMatch(item -> item.contains(keyword));
+    }
+
+    private UserAccount resolveRequester(String username) {
+        if (username == null || username.isBlank()) {
+            return null;
+        }
+        return userAccountRepository.findByUsername(username).orElse(null);
+    }
+
+    private boolean shouldMaskSensitive(SecondHandHouse house, UserAccount requester) {
+        if (requester == null) {
+            return true;
+        }
+        if (requester.getRole() == UserRole.ADMIN) {
+            return false;
+        }
+        if (house.getSellerUsername() != null && house.getSellerUsername().equals(requester.getUsername())) {
+            return false;
+        }
+        return !requester.isRealNameVerified();
     }
 
     private boolean filterByRange(BigDecimal value, BigDecimal min, BigDecimal max) {

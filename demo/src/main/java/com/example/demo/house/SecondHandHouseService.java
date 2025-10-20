@@ -135,7 +135,8 @@ public class SecondHandHouseService {
             return;
         }
 
-        if (requester.getRole() == UserRole.SELLER && requester.getUsername().equalsIgnoreCase(house.getSellerUsername())) {
+        if (requester.getRole() != null && requester.getRole().isSellerRole()
+                && requester.getUsername().equalsIgnoreCase(house.getSellerUsername())) {
             repository.delete(house);
             return;
         }
@@ -232,7 +233,7 @@ public class SecondHandHouseService {
         }
         UserAccount seller = userAccountRepository.findByUsername(sellerUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
-        if (seller.getRole() != UserRole.SELLER && seller.getRole() != UserRole.ADMIN) {
+        if (!seller.getRole().isSellerRole() && seller.getRole() != UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是合法的卖家角色");
         }
         if (seller.isBlacklisted()) {

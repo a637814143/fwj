@@ -12,4 +12,6 @@ public interface SecondHandHouseRepository extends JpaRepository<SecondHandHouse
     List<SecondHandHouse> findByListingDateBefore(LocalDate listingDate);
 
     List<SecondHandHouse> findBySellerUsername(String sellerUsername);
+
+    List<SecondHandHouse> findBySellerUsernameIgnoreCase(String sellerUsername);
 }

@@ -139,8 +139,7 @@ const tabs = [
 
 const roles = [
   { value: 'SELLER', label: '卖家' },
-  { value: 'BUYER', label: '买家' },
-  { value: 'ADMIN', label: '系统管理员' }
+  { value: 'BUYER', label: '买家' }
 ];
 
 const mode = ref('login');

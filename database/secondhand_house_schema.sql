@@ -16,15 +16,28 @@ CREATE TABLE IF NOT EXISTS user_accounts (
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 );
 
-INSERT INTO user_accounts (username, password, display_name, role, blacklisted)
+INSERT INTO user_accounts (
+    username,
+    password,
+    display_name,
+    role,
+    blacklisted,
+    reputation_score,
+    reservation_breaches,
+    return_count
+)
 VALUES
-    ('seller01', 'seller123', '卖家小李', 'SELLER', 0),
-    ('buyer01', 'buyer123', '买家小王', 'BUYER', 0),
-    ('admin', 'admin123', '系统管理员', 'ADMIN', 0)
+    ('seller01', 'seller123', '卖家小李', 'SELLER', 0, 100, 0, 0),
+    ('buyer01', 'buyer123', '买家小王', 'BUYER', 0, 100, 0, 0),
+    ('admin', 'admin123', '系统管理员', 'ADMIN', 0, 100, 0, 0)
 ON DUPLICATE KEY UPDATE
     password = VALUES(password),
     display_name = VALUES(display_name),
-    role = VALUES(role);
+    role = VALUES(role),
+    blacklisted = VALUES(blacklisted),
+    reputation_score = VALUES(reputation_score),
+    reservation_breaches = VALUES(reservation_breaches),
+    return_count = VALUES(return_count);
 
 CREATE TABLE IF NOT EXISTS second_hand_houses (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

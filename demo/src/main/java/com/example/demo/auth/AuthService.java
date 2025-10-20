@@ -52,6 +52,9 @@ public class AuthService {
         if (userAccountRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateUsernameException(request.getUsername());
         }
+        if (request.getRole() == UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "暂不支持自助注册管理员账号，请联系系统管理员开通。");
+        }
 
         UserAccount account = createUser(
                 request.getRole(),

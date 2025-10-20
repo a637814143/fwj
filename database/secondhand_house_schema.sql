@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS user_accounts (
     password VARCHAR(100) NOT NULL,
     display_name VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL,
-    blacklisted BIT(1) NOT NULL DEFAULT 0,
+    blacklisted TINYINT(1) NOT NULL DEFAULT 0,
     reputation_score INT NOT NULL DEFAULT 100,
     reservation_breaches INT NOT NULL DEFAULT 0,
     return_count INT NOT NULL DEFAULT 0,
@@ -16,11 +16,11 @@ CREATE TABLE IF NOT EXISTS user_accounts (
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 );
 
-INSERT INTO user_accounts (username, password, display_name, role)
+INSERT INTO user_accounts (username, password, display_name, role, blacklisted)
 VALUES
-    ('seller01', 'seller123', '卖家小李', 'SELLER'),
-    ('buyer01', 'buyer123', '买家小王', 'BUYER'),
-    ('admin', 'admin123', '系统管理员', 'ADMIN')
+    ('seller01', 'seller123', '卖家小李', 'SELLER', 0),
+    ('buyer01', 'buyer123', '买家小王', 'BUYER', 0),
+    ('admin', 'admin123', '系统管理员', 'ADMIN', 0)
 ON DUPLICATE KEY UPDATE
     password = VALUES(password),
     display_name = VALUES(display_name),

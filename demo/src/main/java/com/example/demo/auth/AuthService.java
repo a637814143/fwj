@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class AuthService {
@@ -23,11 +24,21 @@ public class AuthService {
 
     @PostConstruct
     public void preloadDemoUsers() {
+        migrateLegacyLandlords();
         if (userAccountRepository.count() == 0) {
             createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李");
             createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
             createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员");
         }
+    }
+
+    private void migrateLegacyLandlords() {
+        List<UserAccount> legacyLandlords = userAccountRepository.findByRole(UserRole.LANDLORD);
+        if (legacyLandlords.isEmpty()) {
+            return;
+        }
+        legacyLandlords.forEach(account -> account.setRole(UserRole.SELLER));
+        userAccountRepository.saveAll(legacyLandlords);
     }
 
     @Transactional(readOnly = true)
@@ -51,6 +62,9 @@ public class AuthService {
     public LoginResponse register(RegisterRequest request) {
         if (userAccountRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateUsernameException(request.getUsername());
+        }
+        if (request.getRole() == UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "暂不支持自助注册管理员账号，请联系系统管理员开通。");
         }
 
         UserAccount account = createUser(

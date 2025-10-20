@@ -4,6 +4,8 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -39,6 +41,12 @@ public class SecondHandHouse {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "installment_monthly_payment", nullable = false, precision = 15, scale = 2)
+    private BigDecimal installmentMonthlyPayment;
+
+    @Column(name = "installment_months", nullable = false)
+    private Integer installmentMonths;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal area;
 
@@ -70,6 +78,22 @@ public class SecondHandHouse {
     @Column(name = "floor")
     private Integer floor;
 
+    @Column(name = "property_certificate_url", nullable = false, length = 500)
+    private String propertyCertificateUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private ListingStatus status = ListingStatus.PENDING_REVIEW;
+
+    @Column(name = "reviewed_by", length = 50)
+    private String reviewedBy;
+
+    @Column(name = "review_message", length = 255)
+    private String reviewMessage;
+
+    @Column(name = "reviewed_at")
+    private OffsetDateTime reviewedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -81,6 +105,9 @@ public class SecondHandHouse {
         final OffsetDateTime now = OffsetDateTime.now();
         createdAt = now;
         updatedAt = now;
+        if (status == null) {
+            status = ListingStatus.PENDING_REVIEW;
+        }
     }
 
     @PreUpdate
@@ -118,6 +145,22 @@ public class SecondHandHouse {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    public BigDecimal getInstallmentMonthlyPayment() {
+        return installmentMonthlyPayment;
+    }
+
+    public void setInstallmentMonthlyPayment(BigDecimal installmentMonthlyPayment) {
+        this.installmentMonthlyPayment = installmentMonthlyPayment;
+    }
+
+    public Integer getInstallmentMonths() {
+        return installmentMonths;
+    }
+
+    public void setInstallmentMonths(Integer installmentMonths) {
+        this.installmentMonths = installmentMonths;
     }
 
     public BigDecimal getArea() {
@@ -199,6 +242,50 @@ public class SecondHandHouse {
 
     public void setFloor(Integer floor) {
         this.floor = floor;
+    }
+
+    public String getPropertyCertificateUrl() {
+        return propertyCertificateUrl;
+    }
+
+    public void setPropertyCertificateUrl(String propertyCertificateUrl) {
+        if (propertyCertificateUrl == null) {
+            this.propertyCertificateUrl = null;
+        } else {
+            this.propertyCertificateUrl = propertyCertificateUrl.trim();
+        }
+    }
+
+    public ListingStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ListingStatus status) {
+        this.status = status == null ? ListingStatus.PENDING_REVIEW : status;
+    }
+
+    public String getReviewedBy() {
+        return reviewedBy;
+    }
+
+    public void setReviewedBy(String reviewedBy) {
+        this.reviewedBy = reviewedBy;
+    }
+
+    public String getReviewMessage() {
+        return reviewMessage;
+    }
+
+    public void setReviewMessage(String reviewMessage) {
+        this.reviewMessage = reviewMessage;
+    }
+
+    public OffsetDateTime getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(OffsetDateTime reviewedAt) {
+        this.reviewedAt = reviewedAt;
     }
 
     public OffsetDateTime getCreatedAt() {

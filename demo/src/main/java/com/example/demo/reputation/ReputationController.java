@@ -21,7 +21,7 @@ public class ReputationController {
     @GetMapping("/recommended")
     public RecommendationResponse recommended() {
         var sellerRecommendations = userAccountRepository
-                .findTop5ByRoleAndBlacklistedFalseOrderByReputationScoreDesc(UserRole.SELLER)
+                .findTop5ByRoleInAndBlacklistedFalseOrderByReputationScoreDesc(UserRole.sellerRoles())
                 .stream()
                 .map(RecommendedUser::fromEntity)
                 .toList();

@@ -3,7 +3,7 @@
     <header class="explorer-header">
       <div>
         <h2>购房首页</h2>
-        <p>按关键字、价格或面积筛选房源，支持一键预定并支付定金。</p>
+        <p>按关键字、价格或面积筛选房源，系统将展示通过审核的优质房源并支持一键预定与支付。</p>
       </div>
       <form class="filters" @submit.prevent="submitFilters">
         <input v-model.trim="localFilters.keyword" type="search" placeholder="关键词（标题、地址、描述）" />
@@ -60,23 +60,33 @@
 
     <div v-else class="house-grid">
       <article v-for="house in houses" :key="house.id" class="house-card">
+        <div class="status" :class="statusClass(house)">{{ statusLabel(house) }}</div>
         <div class="cover" v-if="coverImage(house)">
           <img :src="coverImage(house)" :alt="house.title" loading="lazy" />
         </div>
         <div class="cover placeholder" v-else>
-          <span>无图片</span>
+          <span>暂无图片</span>
         </div>
         <div class="details">
           <header>
             <h3>{{ house.title }}</h3>
-            <span class="price">￥{{ formatNumber(house.price) }} 万</span>
+            <p class="address">{{ house.address }}</p>
           </header>
-          <p class="description" v-if="house.description">{{ house.description }}</p>
-          <dl>
-            <div>
-              <dt>地址</dt>
-              <dd>{{ house.address }}</dd>
+          <div class="pricing">
+            <div class="pricing-item">
+              <span class="label">全款价格</span>
+              <strong>￥{{ formatNumber(house.price) }} 万</strong>
             </div>
+            <div class="pricing-item" v-if="house.installmentMonthlyPayment">
+              <span class="label">分期（月供）</span>
+              <strong>
+                ￥{{ formatNumber(house.installmentMonthlyPayment) }} 万
+                <small v-if="house.installmentMonths">× {{ house.installmentMonths }} 期</small>
+              </strong>
+            </div>
+          </div>
+          <p class="description" v-if="house.description">{{ house.description }}</p>
+          <dl class="meta">
             <div>
               <dt>面积</dt>
               <dd>{{ formatNumber(house.area) }} ㎡</dd>
@@ -94,37 +104,54 @@
               <dd>{{ contactNumberDisplay(house) }}</dd>
             </div>
           </dl>
+          <ul v-if="house.keywords && house.keywords.length" class="keyword-list">
+            <li v-for="keyword in house.keywords" :key="`${house.id}-${keyword}`">#{{ keyword }}</li>
+          </ul>
         </div>
         <footer class="card-actions">
           <template v-if="canOperate">
-            <button
-              type="button"
-              class="contact"
-              :disabled="contactDisabled"
-              @click="contactSeller(house)"
-            >
-              联系卖家
-            </button>
-            <button
-              class="reserve"
-              :disabled="reservationDisabled()"
-              @click="$emit('reserve', house)"
-            >
-              {{
-                isReservingCurrent(house)
-                  ? '预定中...'
-                  : `预定（定金 ${depositAmount(house)} 万）`
-              }}
-            </button>
-            <button
-              class="purchase"
-              :disabled="purchaseDisabled"
-              @click="$emit('purchase', house)"
-            >
-              {{ purchaseDisabled ? '处理中...' : '立即购买' }}
-            </button>
+            <div class="payment" v-if="isApproved(house)">
+              <label for="payment-select">支付方式</label>
+              <select v-model="selectedPayments[house.id]">
+                <option value="FULL">全款支付</option>
+                <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
+                  分期付款
+                </option>
+              </select>
+            </div>
+            <div class="action-buttons">
+              <button
+                type="button"
+                class="contact"
+                :disabled="contactDisabled || !isApproved(house)"
+                @click="contactSeller(house)"
+              >
+                联系卖家
+              </button>
+              <button
+                class="reserve"
+                :disabled="reservationDisabled(house)"
+                @click="$emit('reserve', house)"
+              >
+                {{
+                  isReservingCurrent(house)
+                    ? '预定中...'
+                    : `预定（定金 ${depositAmount(house)} 万）`
+                }}
+              </button>
+              <button
+                class="purchase"
+                :disabled="purchaseDisabled || !isApproved(house)"
+                @click="purchase(house)"
+              >
+                {{ purchaseDisabled ? '处理中...' : '立即购买' }}
+              </button>
+            </div>
             <p v-if="requiresVerification" class="verification-tip">
               完成实名认证后才能查看完整信息并进行交易。
+            </p>
+            <p v-else-if="!isApproved(house)" class="verification-tip">
+              该房源尚待管理员审核，通过后方可预定或购买。
             </p>
           </template>
           <span v-else class="hint">登录买家账号后可进行预定或购买</span>
@@ -178,6 +205,12 @@ const props = defineProps({
 
 const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller']);
 
+const listingStatusLabels = {
+  PENDING_REVIEW: '待审核',
+  APPROVED: '已通过',
+  REJECTED: '已驳回'
+};
+
 const localFilters = reactive({
   keyword: '',
   minPrice: '',
@@ -185,6 +218,8 @@ const localFilters = reactive({
   minArea: '',
   maxArea: ''
 });
+
+const selectedPayments = reactive({});
 
 const canOperate = computed(() => props.currentUser?.role === 'BUYER');
 const requiresVerification = computed(
@@ -217,6 +252,28 @@ watch(
     });
   },
   { immediate: true, deep: true }
+);
+
+watch(
+  () => props.houses,
+  (list) => {
+    const ids = new Set();
+    (list ?? []).forEach((house) => {
+      ids.add(String(house.id));
+      if (!selectedPayments[house.id]) {
+        selectedPayments[house.id] = 'FULL';
+      }
+      if (selectedPayments[house.id] === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
+        selectedPayments[house.id] = 'FULL';
+      }
+    });
+    Object.keys(selectedPayments).forEach((key) => {
+      if (!ids.has(String(key))) {
+        delete selectedPayments[key];
+      }
+    });
+  },
+  { immediate: true }
 );
 
 const submitFilters = () => {
@@ -344,14 +401,43 @@ const isReservingCurrent = (house) => {
   return String(props.reservationTarget) === String(house.id);
 };
 
-const reservationDisabled = () => {
+const isApproved = (house) => house?.status === 'APPROVED';
+
+const reservationDisabled = (house) => {
   if (!canOperate.value) {
     return true;
   }
   if (requiresVerification.value) {
     return true;
   }
-  return Boolean(props.reservationLoading);
+  if (!isApproved(house)) {
+    return true;
+  }
+  if (!props.reservationLoading) {
+    return false;
+  }
+  return !isReservingCurrent(house);
+};
+
+const purchase = (house) => {
+  if (!isApproved(house)) {
+    return;
+  }
+  const method = selectedPayments[house.id] || 'FULL';
+  emit('purchase', { house, paymentMethod: method });
+};
+
+const statusLabel = (house) => listingStatusLabels[house?.status] ?? '待审核';
+
+const statusClass = (house) => {
+  switch (house?.status) {
+    case 'APPROVED':
+      return 'approved';
+    case 'REJECTED':
+      return 'rejected';
+    default:
+      return 'pending';
+  }
 };
 </script>
 
@@ -363,99 +449,83 @@ const reservationDisabled = () => {
 }
 
 .explorer-header {
-  background: #fff;
-  border-radius: 1rem;
-  padding: 1.25rem 1.5rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
-}
-
-.explorer-header h2 {
-  margin: 0;
-  color: #1e293b;
-}
-
-.explorer-header p {
-  margin: 0.35rem 0 0;
-  color: #475569;
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+  border-radius: 1rem;
+  padding: 1.5rem;
 }
 
 .filters {
-  display: grid;
-  gap: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .filters input[type='search'] {
-  border: 1px solid #cbd5f5;
+  padding: 0.75rem 1rem;
   border-radius: 0.75rem;
-  padding: 0.65rem 1rem;
-  font-size: 0.95rem;
+  border: 1px solid #cbd5f5;
+  background: #fff;
 }
 
 .range {
   display: grid;
-  gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
 }
 
 .range label {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  font-size: 0.85rem;
-  color: #475569;
+  font-weight: 600;
+  color: #1e293b;
 }
 
 .range input {
-  border: 1px solid #cbd5f5;
-  border-radius: 0.75rem;
   padding: 0.5rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid #cbd5f5;
 }
 
 .actions {
   display: flex;
-  gap: 0.75rem;
   flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .actions button {
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.75rem;
   border: none;
-  border-radius: 999px;
-  padding: 0.55rem 1.5rem;
   font-weight: 600;
   cursor: pointer;
   background: #2563eb;
   color: #fff;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.actions button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
-}
-
-.actions .secondary {
-  background: #e0e7ff;
-  color: #1e3a8a;
+.actions button.secondary {
+  background: #e2e8f0;
+  color: #1e293b;
 }
 
 .recommendations {
   display: grid;
-  gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
 }
 
 .recommendation {
-  background: linear-gradient(180deg, #fff, #f8fafc);
+  background: #fff;
   border-radius: 1rem;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  padding: 1rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 .recommendation h3 {
-  margin: 0 0 0.75rem;
-  color: #1e293b;
+  margin: 0 0 0.5rem;
 }
 
 .recommendation ul {
@@ -470,49 +540,75 @@ const reservationDisabled = () => {
 .recommendation li {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  border-radius: 0.75rem;
-  background: rgba(59, 130, 246, 0.08);
+  gap: 0.1rem;
+  color: #334155;
 }
 
 .recommendation .username {
-  font-size: 0.8rem;
-  color: #475569;
+  font-size: 0.85rem;
+  color: #64748b;
 }
 
 .recommendation .score {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: #1d4ed8;
+  color: #2563eb;
 }
 
 .loading,
 .empty {
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+  padding: 2rem;
   text-align: center;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
   color: #475569;
 }
 
 .house-grid {
   display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
 }
 
 .house-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   overflow: hidden;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.status {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+  z-index: 1;
+}
+
+.status.approved {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.status.pending {
+  background: linear-gradient(135deg, #facc15, #f97316);
+}
+
+.status.rejected {
+  background: linear-gradient(135deg, #f87171, #ef4444);
 }
 
 .cover {
-  height: 180px;
+  height: 200px;
   background: #e2e8f0;
   display: flex;
   align-items: center;
@@ -525,106 +621,178 @@ const reservationDisabled = () => {
   object-fit: cover;
 }
 
-.cover.placeholder span {
-  color: #64748b;
+.cover.placeholder {
+  color: #475569;
+  font-weight: 600;
 }
 
 .details {
-  padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding: 1.25rem;
 }
 
 .details header {
   display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .details h3 {
   margin: 0;
-  color: #1f2937;
+  font-size: 1.2rem;
+  color: #1e293b;
 }
 
-.price {
-  font-weight: 700;
-  color: #16a34a;
+.details .address {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.pricing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pricing-item {
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  border-radius: 0.85rem;
+  padding: 0.75rem 1rem;
+  min-width: 140px;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.pricing-item .label {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.pricing-item strong {
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.pricing-item small {
+  margin-left: 0.25rem;
+  color: #475569;
 }
 
 .description {
   margin: 0;
   color: #475569;
-  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
-.details dl {
+.meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.5rem 1rem;
+  gap: 0.75rem;
   margin: 0;
 }
 
-.details dt {
-  font-size: 0.75rem;
-  color: #94a3b8;
+.meta dt {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
 }
 
-.details dd {
+.meta dd {
   margin: 0;
-  font-size: 0.9rem;
-  color: #1f2937;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.keyword-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.keyword-list li {
+  padding: 0.25rem 0.75rem;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  font-size: 0.8rem;
 }
 
 .card-actions {
-  padding: 1rem 1.25rem 1.25rem;
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.payment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.payment select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid #cbd5f5;
+  background: #fff;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.card-actions button {
+.action-buttons button {
+  flex: 1 1 120px;
+  padding: 0.65rem 1rem;
+  border-radius: 0.85rem;
   border: none;
-  border-radius: 0.75rem;
-  padding: 0.65rem;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.contact {
-  background: #f8fafc;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+.action-buttons button.contact {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
-.contact:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
+.action-buttons button.reserve {
+  background: #fef3c7;
+  color: #b45309;
 }
 
-.card-actions button:disabled {
+.action-buttons button.purchase {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+}
+
+.action-buttons button:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
   cursor: not-allowed;
-  opacity: 0.6;
-  transform: none;
-  box-shadow: none;
 }
 
-.reserve {
-  background: #f97316;
-  color: #fff;
-}
-
-.reserve:not(:disabled):hover,
-.purchase:not(:disabled):hover {
+.action-buttons button:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(249, 115, 22, 0.25);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.25);
 }
 
-.purchase {
-  background: #2563eb;
-  color: #fff;
+.verification-tip {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #f97316;
 }
 
 .hint {
@@ -632,9 +800,9 @@ const reservationDisabled = () => {
   font-size: 0.9rem;
 }
 
-.verification-tip {
-  margin: 0;
-  font-size: 0.8rem;
-  color: #b91c1c;
+@media (max-width: 640px) {
+  .house-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -3,6 +3,8 @@ package com.example.demo.admin;
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
 import com.example.demo.auth.UserRole;
+import com.example.demo.conversation.Conversation;
+import com.example.demo.conversation.ConversationMessageRepository;
 import com.example.demo.conversation.ConversationRepository;
 import com.example.demo.house.SecondHandHouseRepository;
 import com.example.demo.order.HouseOrderRepository;
@@ -34,6 +36,7 @@ public class UserAdminController {
     private final HouseOrderRepository houseOrderRepository;
     private final SecondHandHouseRepository secondHandHouseRepository;
     private final ConversationRepository conversationRepository;
+    private final ConversationMessageRepository conversationMessageRepository;
     private final UserWalletRepository userWalletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
 
@@ -41,12 +44,14 @@ public class UserAdminController {
                                HouseOrderRepository houseOrderRepository,
                                SecondHandHouseRepository secondHandHouseRepository,
                                ConversationRepository conversationRepository,
+                               ConversationMessageRepository conversationMessageRepository,
                                UserWalletRepository userWalletRepository,
                                WalletTransactionRepository walletTransactionRepository) {
         this.userAccountRepository = userAccountRepository;
         this.houseOrderRepository = houseOrderRepository;
         this.secondHandHouseRepository = secondHandHouseRepository;
         this.conversationRepository = conversationRepository;
+        this.conversationMessageRepository = conversationMessageRepository;
         this.userWalletRepository = userWalletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
     }
@@ -107,9 +112,16 @@ public class UserAdminController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不允许删除管理员账号");
         }
 
-        conversationRepository.deleteAll(
-                conversationRepository.findByBuyer_UsernameOrSeller_Username(username, username)
-        );
+        List<Conversation> conversations = conversationRepository
+                .findByBuyer_UsernameOrSeller_Username(username, username);
+        if (!conversations.isEmpty()) {
+            List<Long> conversationIds = conversations.stream()
+                    .map(Conversation::getId)
+                    .toList();
+            conversationMessageRepository.deleteByConversation_IdIn(conversationIds);
+            conversationRepository.deleteAll(conversations);
+        }
+        conversationMessageRepository.deleteBySender_Username(username);
         houseOrderRepository.deleteAll(
                 houseOrderRepository.findByBuyer_UsernameOrSeller_UsernameOrderByCreatedAtDesc(username, username)
         );

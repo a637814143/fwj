@@ -123,9 +123,11 @@
           :overview="adminReputation"
           :users="adminUsers"
           :current-user="currentUser"
+          :pending-houses="pendingReviewHouses"
           @refresh="loadAdminData"
           @toggle-blacklist="handleToggleBlacklist"
           @delete-user="handleDeleteUser"
+          @review-house="handleReview"
         />
       </main>
     </template>
@@ -203,6 +205,10 @@ const client = axios.create({
   baseURL: apiBaseUrl,
   headers: { 'Content-Type': 'application/json' }
 });
+
+const pendingReviewHouses = computed(() =>
+  houses.value.filter((house) => house.status === 'PENDING_REVIEW')
+);
 
 const formatCurrencyYuan = (value) => {
   const numeric = Number(value ?? 0);
@@ -292,6 +298,7 @@ const normalizeHouse = (house) => ({
   reviewMessage: house?.reviewMessage ?? '',
   reviewedBy: house?.reviewedBy ?? '',
   reviewedAt: house?.reviewedAt ?? '',
+  createdAt: house?.createdAt ?? '',
   sensitiveMasked: Boolean(house?.sensitiveMasked)
 });
 

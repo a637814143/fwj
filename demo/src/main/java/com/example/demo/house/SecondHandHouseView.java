@@ -28,6 +28,7 @@ public record SecondHandHouseView(
         String reviewedBy,
         String reviewMessage,
         OffsetDateTime reviewedAt,
+        OffsetDateTime createdAt,
         boolean sensitiveMasked
 ) {
 
@@ -61,6 +62,7 @@ public record SecondHandHouseView(
                 house.getReviewedBy(),
                 house.getReviewMessage(),
                 house.getReviewedAt(),
+                house.getCreatedAt(),
                 maskSensitive
         );
     }

@@ -10,6 +10,59 @@
 
     <div v-if="loading" class="loading">信誉数据加载中...</div>
     <div v-else class="content">
+      <section class="pending" aria-label="待审核房源列表">
+        <header class="pending-header">
+          <div>
+            <h3>房源审核任务</h3>
+            <p>审核卖家提交的房源资料，确保重复上架与异常信息被拦截。</p>
+          </div>
+          <span class="badge" :class="{ empty: pendingHouses.length === 0 }">
+            待处理 {{ pendingHouses.length }} 套
+          </span>
+        </header>
+        <div v-if="pendingHouses.length === 0" class="empty-card">暂无待审核房源，已全部处理完毕。</div>
+        <table v-else class="pending-table">
+          <thead>
+            <tr>
+              <th>房源</th>
+              <th>卖家</th>
+              <th>提交时间</th>
+              <th>产权证明</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="house in pendingHouses" :key="house.id">
+              <td>
+                <strong>{{ house.title }}</strong>
+                <p class="sub">地址：{{ house.address }}</p>
+                <p class="meta">关键词：{{ formatKeywords(house.keywords) }}</p>
+              </td>
+              <td>
+                <div>{{ house.sellerName ?? '—' }}</div>
+                <div class="muted">@{{ house.sellerUsername }}</div>
+              </td>
+              <td>{{ formatDate(house.createdAt ?? house.listingDate) }}</td>
+              <td>
+                <a
+                  v-if="house.propertyCertificateUrl"
+                  :href="house.propertyCertificateUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  查看材料
+                </a>
+                <span v-else class="muted">未上传</span>
+              </td>
+              <td class="actions">
+                <button class="btn success" type="button" @click="approve(house)">通过</button>
+                <button class="btn warning" type="button" @click="reject(house)">驳回</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <section class="summary" v-if="overview">
         <div>
           <span class="label">黑名单账号</span>
@@ -155,10 +208,14 @@ const props = defineProps({
   currentUser: {
     type: Object,
     default: null
+  },
+  pendingHouses: {
+    type: Array,
+    default: () => []
   }
 });
 
-const emit = defineEmits(['toggle-blacklist', 'refresh', 'delete-user']);
+const emit = defineEmits(['toggle-blacklist', 'refresh', 'delete-user', 'review-house']);
 
 const roleLabels = {
   SELLER: '卖家',
@@ -172,6 +229,32 @@ const toggle = (user) => {
 
 const remove = (user) => {
   emit('delete-user', { username: user.username });
+};
+
+const approve = (house) => {
+  emit('review-house', { houseId: house.id, status: 'APPROVED' });
+};
+
+const reject = (house) => {
+  emit('review-house', { houseId: house.id, status: 'REJECTED' });
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return '—';
+  }
+  try {
+    return new Date(value).toLocaleString('zh-CN');
+  } catch (error) {
+    return value;
+  }
+};
+
+const formatKeywords = (keywords = []) => {
+  if (!Array.isArray(keywords) || keywords.length === 0) {
+    return '未设置';
+  }
+  return keywords.join('、');
 };
 </script>
 
@@ -213,6 +296,114 @@ header button {
   padding: 0.55rem 1.5rem;
   cursor: pointer;
   font-weight: 600;
+}
+
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pending-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pending-header h3 {
+  margin: 0;
+  color: #1e293b;
+}
+
+.pending-header p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+}
+
+.badge.empty {
+  background: #94a3b8;
+}
+
+.empty-card {
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+}
+
+.pending-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f8fafc;
+  border-radius: 0.85rem;
+  overflow: hidden;
+}
+
+.pending-table th,
+.pending-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.pending-table th {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.pending-table .sub,
+.pending-table .meta,
+.pending-table .muted {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.pending-table .meta {
+  font-style: italic;
+}
+
+.pending-table .muted {
+  font-size: 0.8rem;
+}
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn.success {
+  background: #16a34a;
+  color: #fff;
+}
+
+.btn.warning {
+  background: #f59e0b;
+  color: #1f2937;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
 }
 
 .loading {
@@ -314,6 +505,10 @@ header button {
 .user-table h3 {
   margin: 0;
   color: #1e293b;
+}
+
+.muted {
+  color: #64748b;
 }
 
 .user-table button {

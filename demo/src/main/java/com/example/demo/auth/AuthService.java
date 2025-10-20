@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,6 +26,7 @@ public class AuthService {
     @PostConstruct
     public void preloadDemoUsers() {
         migrateLegacyLandlords();
+        upgradeLegacyPasswords();
         if (userAccountRepository.count() == 0) {
             createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李");
             createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
@@ -41,14 +43,37 @@ public class AuthService {
         userAccountRepository.saveAll(legacyLandlords);
     }
 
+    private void upgradeLegacyPasswords() {
+        List<UserAccount> accounts = userAccountRepository.findAll();
+        List<UserAccount> toUpdate = new ArrayList<>();
+        for (UserAccount account : accounts) {
+            String existing = account.getPassword();
+            if (existing == null) {
+                continue;
+            }
+            if (!PasswordTransformer.isEncoded(existing)) {
+                account.setPassword(PasswordTransformer.encode(existing));
+                toUpdate.add(account);
+            }
+        }
+        if (!toUpdate.isEmpty()) {
+            userAccountRepository.saveAll(toUpdate);
+        }
+    }
+
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
         UserAccount account = userAccountRepository
                 .findByUsername(request.getUsername())
                 .orElseThrow(InvalidCredentialsException::new);
 
-        if (!account.getPassword().equals(request.getPassword())) {
+        if (!PasswordTransformer.matches(request.getPassword(), account.getPassword())) {
             throw new InvalidCredentialsException();
+        }
+
+        if (!PasswordTransformer.isEncoded(account.getPassword())) {
+            account.setPassword(PasswordTransformer.encode(account.getPassword()));
+            userAccountRepository.save(account);
         }
 
         if (account.isBlacklisted()) {
@@ -81,7 +106,7 @@ public class AuthService {
         UserAccount account = new UserAccount();
         account.setRole(role);
         account.setUsername(username);
-        account.setPassword(password);
+        account.setPassword(PasswordTransformer.encode(password));
         account.setDisplayName(displayName);
         UserAccount saved = userAccountRepository.save(account);
         walletService.ensureWallet(saved);

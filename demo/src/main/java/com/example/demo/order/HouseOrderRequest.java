@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record HouseOrderRequest(
         @NotNull(message = "请选择要购买的房源") Long houseId,
-        @NotBlank(message = "买家账号不能为空") String buyerUsername
+        @NotBlank(message = "买家账号不能为空") String buyerUsername,
+        @NotNull(message = "请选择支付方式") PaymentMethod paymentMethod
 ) {
 }

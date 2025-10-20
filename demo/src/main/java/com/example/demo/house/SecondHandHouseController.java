@@ -1,5 +1,6 @@
 package com.example.demo.house;
 
+import com.example.demo.house.SecondHandHouse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 import java.util.List;
 
@@ -45,18 +47,25 @@ public class SecondHandHouseController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SecondHandHouse create(@Valid @RequestBody SecondHandHouseRequest request) {
-        return service.create(request.toEntity());
+    public SecondHandHouseView create(@Valid @RequestBody SecondHandHouseRequest request) {
+        SecondHandHouse house = service.create(request.toEntity());
+        return SecondHandHouseView.fromEntity(house, false, true);
     }
 
     @PutMapping("/{id}")
-    public SecondHandHouse update(@PathVariable Long id, @Valid @RequestBody SecondHandHouseRequest request) {
-        return service.update(id, request.toEntity());
+    public SecondHandHouseView update(@PathVariable Long id, @Valid @RequestBody SecondHandHouseRequest request) {
+        SecondHandHouse house = service.update(id, request.toEntity());
+        return SecondHandHouseView.fromEntity(house, false, true);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, @RequestParam("requester") String requesterUsername) {
         service.delete(id, requesterUsername);
+    }
+
+    @PatchMapping("/{id}/review")
+    public SecondHandHouseView review(@PathVariable Long id, @Valid @RequestBody SecondHandHouseReviewRequest request) {
+        return service.review(id, request.status(), request.message(), request.reviewerUsername());
     }
 }

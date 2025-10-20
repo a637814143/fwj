@@ -4,6 +4,7 @@ import com.example.demo.common.MaskingUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -12,6 +13,8 @@ public record SecondHandHouseView(
         String title,
         String address,
         BigDecimal price,
+        BigDecimal installmentMonthlyPayment,
+        Integer installmentMonths,
         BigDecimal area,
         String description,
         String sellerUsername,
@@ -20,10 +23,17 @@ public record SecondHandHouseView(
         LocalDate listingDate,
         List<String> imageUrls,
         List<String> keywords,
+        String propertyCertificateUrl,
+        ListingStatus status,
+        String reviewedBy,
+        String reviewMessage,
+        OffsetDateTime reviewedAt,
         boolean sensitiveMasked
 ) {
 
-    public static SecondHandHouseView fromEntity(SecondHandHouse house, boolean maskSensitive) {
+    public static SecondHandHouseView fromEntity(SecondHandHouse house,
+                                                 boolean maskSensitive,
+                                                 boolean canViewCertificate) {
         if (house == null) {
             return null;
         }
@@ -36,6 +46,8 @@ public record SecondHandHouseView(
                 house.getTitle(),
                 house.getAddress(),
                 house.getPrice(),
+                house.getInstallmentMonthlyPayment(),
+                house.getInstallmentMonths(),
                 house.getArea(),
                 house.getDescription(),
                 house.getSellerUsername(),
@@ -44,6 +56,11 @@ public record SecondHandHouseView(
                 house.getListingDate(),
                 Collections.unmodifiableList(images),
                 Collections.unmodifiableList(keywords),
+                canViewCertificate ? house.getPropertyCertificateUrl() : null,
+                house.getStatus(),
+                house.getReviewedBy(),
+                house.getReviewMessage(),
+                house.getReviewedAt(),
                 maskSensitive
         );
     }

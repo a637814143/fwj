@@ -31,12 +31,19 @@ CREATE TABLE IF NOT EXISTS second_hand_houses (
     title VARCHAR(255) NOT NULL,
     address VARCHAR(255) NOT NULL,
     price DECIMAL(15,2) NOT NULL,
+    installment_monthly_payment DECIMAL(15,2) NOT NULL,
+    installment_months INT NOT NULL,
     area DECIMAL(10,2) NOT NULL,
     description TEXT,
     seller_username VARCHAR(50) NOT NULL,
     seller_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
     listing_date DATE NOT NULL,
+    property_certificate_url VARCHAR(500) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING_REVIEW',
+    reviewed_by VARCHAR(50),
+    review_message VARCHAR(255),
+    reviewed_at DATETIME(6),
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 );
@@ -46,6 +53,13 @@ CREATE TABLE IF NOT EXISTS second_hand_house_images (
     house_id BIGINT NOT NULL,
     image_url VARCHAR(500) NOT NULL,
     CONSTRAINT fk_house_image_house FOREIGN KEY (house_id) REFERENCES second_hand_houses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS second_hand_house_keywords (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    house_id BIGINT NOT NULL,
+    keyword VARCHAR(50) NOT NULL,
+    CONSTRAINT fk_house_keyword_house FOREIGN KEY (house_id) REFERENCES second_hand_houses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS user_wallets (
@@ -75,6 +89,7 @@ CREATE TABLE IF NOT EXISTS house_orders (
     buyer_id BIGINT NOT NULL,
     seller_id BIGINT NOT NULL,
     amount DECIMAL(18,2) NOT NULL,
+    payment_method VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL,
     return_reason VARCHAR(255),
     viewing_time DATETIME(6) NULL,

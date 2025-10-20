@@ -24,6 +24,10 @@
               <dd>{{ formatAmount(order.amount) }}</dd>
             </div>
             <div>
+              <dt>支付方式</dt>
+              <dd>{{ paymentMethodLabel(order.paymentMethod) }}</dd>
+            </div>
+            <div>
               <dt>买家</dt>
               <dd>{{ buyerDisplayName(order) }}（{{ buyerUsernameDisplay(order) }}）</dd>
             </div>
@@ -85,6 +89,11 @@ const statusLabels = {
   CANCELLED: '已取消'
 };
 
+const paymentMethodLabels = {
+  FULL: '全款支付',
+  INSTALLMENT: '分期付款'
+};
+
 const canRequestReturn = (order) => {
   if (!order) {
     return false;
@@ -121,6 +130,8 @@ const formatAmount = (value) => {
     maximumFractionDigits: 2
   });
 };
+
+const paymentMethodLabel = (value) => paymentMethodLabels[value] ?? '—';
 
 const maskName = (value) => {
   if (!value) {

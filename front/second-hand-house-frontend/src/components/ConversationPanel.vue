@@ -213,32 +213,34 @@ const formatDateTime = (value) => {
 .conversation-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1.5rem;
+  padding: 1.75rem;
   z-index: 50;
+  backdrop-filter: blur(6px);
 }
 
 .conversation-panel {
-  width: min(960px, 95vw);
-  max-height: 90vh;
-  background: #fff;
-  border-radius: 1.25rem;
-  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
+  width: min(980px, 96vw);
+  max-height: 92vh;
+  background: var(--gradient-surface);
+  border-radius: calc(var(--radius-lg) + 0.35rem);
+  box-shadow: 0 40px 90px rgba(15, 23, 42, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.3);
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
-  padding: 1.5rem 2rem;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  gap: 1.1rem;
+  padding: 1.8rem 2.2rem;
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.95), rgba(37, 99, 235, 0.95));
   color: #fff;
 }
 
@@ -247,36 +249,37 @@ const formatDateTime = (value) => {
 }
 
 .panel-header p {
-  margin: 0.25rem 0 0;
+  margin: 0.35rem 0 0;
   opacity: 0.9;
 }
 
 .header-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.8rem;
   flex-wrap: wrap;
 }
 
 .panel-body {
   display: grid;
   grid-template-columns: 280px 1fr;
-  min-height: 480px;
+  min-height: 520px;
   flex: 1;
 }
 
 .conversation-list {
-  border-right: 1px solid #e2e8f0;
-  padding: 1.5rem;
+  border-right: 1px solid rgba(226, 232, 240, 0.6);
+  padding: 1.6rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.1rem;
+  background: rgba(248, 250, 252, 0.85);
 }
 
 .list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .list-header h3 {
@@ -284,19 +287,20 @@ const formatDateTime = (value) => {
 }
 
 .count {
-  background: #eff6ff;
+  background: rgba(224, 231, 255, 0.85);
   color: #1d4ed8;
-  border-radius: 999px;
-  padding: 0.15rem 0.65rem;
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.7rem;
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .list-loading,
 .list-empty {
   padding: 1rem;
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  color: #475569;
+  background: rgba(241, 245, 249, 0.85);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
   font-size: 0.95rem;
 }
 
@@ -306,25 +310,30 @@ const formatDateTime = (value) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .conversation-list li {
-  padding: 0.75rem 1rem;
-  border-radius: 0.85rem;
-  background: #f1f5f9;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(248, 250, 252, 0.9);
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background var(--transition-base), transform var(--transition-base),
+    box-shadow var(--transition-base);
+  border: 1px solid rgba(226, 232, 240, 0.6);
 }
 
 .conversation-list li:hover {
-  background: #e0e7ff;
-  transform: translateY(-1px);
+  background: rgba(224, 231, 255, 0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
 .conversation-list li.active {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
   color: #fff;
+  border-color: transparent;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.25);
 }
 
 .conversation-list li.active .preview.muted {
@@ -332,9 +341,9 @@ const formatDateTime = (value) => {
 }
 
 .preview {
-  margin: 0.35rem 0 0;
+  margin: 0.4rem 0 0;
   font-size: 0.85rem;
-  color: #334155;
+  color: var(--color-text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -346,33 +355,34 @@ const formatDateTime = (value) => {
 }
 
 .preview.muted {
-  color: #94a3b8;
+  color: rgba(148, 163, 184, 0.9);
 }
 
 .message-area {
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
-  gap: 1rem;
+  padding: 1.6rem;
+  gap: 1.1rem;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .alert {
-  background: #fee2e2;
+  background: rgba(254, 202, 202, 0.8);
   border-left: 4px solid #ef4444;
   color: #991b1b;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
+  padding: 0.8rem 1.05rem;
+  border-radius: var(--radius-md);
 }
 
 .empty-state {
   margin: auto;
   text-align: center;
-  color: #475569;
+  color: var(--color-text-muted);
   max-width: 320px;
 }
 
 .empty-state h3 {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
 }
 
 .chat-header {
@@ -388,48 +398,49 @@ const formatDateTime = (value) => {
 
 .chat-header p {
   margin: 0.35rem 0 0;
-  color: #64748b;
+  color: var(--color-text-soft);
   font-size: 0.9rem;
 }
 
 .messages {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
-  padding: 1rem;
-  background: #f8fafc;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem;
+  background: rgba(248, 250, 252, 0.9);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
 }
 
 .messages-loading,
 .messages-empty {
   text-align: center;
-  color: #64748b;
+  color: var(--color-text-soft);
   padding: 2rem 0;
 }
 
 .message {
-  max-width: 80%;
-  padding: 0.75rem 1rem;
+  max-width: 78%;
+  padding: 0.8rem 1.05rem;
   border-radius: 1rem;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.15);
   align-self: flex-start;
 }
 
 .message.outgoing {
   align-self: flex-end;
-  background: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.28);
 }
 
 .message header {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   margin-bottom: 0.35rem;
   color: inherit;
 }
@@ -447,42 +458,52 @@ const formatDateTime = (value) => {
 .composer {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.75rem;
+  gap: 0.85rem;
   align-items: center;
 }
 
 .composer textarea {
   resize: vertical;
   min-height: 90px;
-  border-radius: 0.85rem;
-  border: 1px solid #cbd5f5;
-  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  padding: 0.8rem 1rem;
   font-size: 0.95rem;
   font-family: inherit;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 button.primary {
-  background: #2563eb;
+  background: var(--gradient-primary);
   border: none;
   color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.85rem;
+  padding: 0.8rem 1.6rem;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   font-weight: 600;
+  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 button.primary:disabled {
-  background: #93c5fd;
+  background: rgba(147, 197, 253, 0.85);
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+button.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 26px 48px rgba(37, 99, 235, 0.32);
 }
 
 button.secondary {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   color: #fff;
-  border-radius: 999px;
-  padding: 0.5rem 1.2rem;
+  border-radius: var(--radius-pill);
+  padding: 0.55rem 1.25rem;
   cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 button.secondary:disabled {
@@ -490,13 +511,24 @@ button.secondary:disabled {
   cursor: not-allowed;
 }
 
+button.secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.22);
+}
+
 button.ghost {
   background: transparent;
-  border: 1px solid #cbd5f5;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   color: #1d4ed8;
-  border-radius: 999px;
-  padding: 0.45rem 1.1rem;
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.2rem;
   cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+button.ghost:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
 @media (max-width: 900px) {
@@ -506,7 +538,7 @@ button.ghost {
 
   .conversation-list {
     border-right: none;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
   }
 
   .message {

@@ -139,13 +139,15 @@ const submit = async () => {
 
 <style scoped>
 .verification {
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  padding: 1.5rem;
+  background: var(--gradient-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 1.7rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.2rem;
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(var(--glass-blur));
 }
 
 header {
@@ -156,29 +158,29 @@ header {
 
 header h2 {
   margin: 0;
-  color: #1f2937;
+  color: var(--color-text-strong);
 }
 
 .status {
-  padding: 0.25rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
 .status.verified {
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(34, 197, 94, 0.2);
   color: #15803d;
 }
 
 .status.pending {
-  background: rgba(248, 113, 113, 0.15);
+  background: rgba(248, 113, 113, 0.2);
   color: #b91c1c;
 }
 
 .hint {
   margin: 0;
-  color: #475569;
+  color: var(--color-text-muted);
 }
 
 .summary {
@@ -194,60 +196,80 @@ header h2 {
 
 .summary button {
   border: none;
-  background: #2563eb;
+  background: var(--gradient-primary);
   color: #fff;
-  padding: 0.5rem 1.1rem;
-  border-radius: 0.75rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: var(--radius-pill);
   cursor: pointer;
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.22);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.summary button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 45px rgba(37, 99, 235, 0.28);
 }
 
 .form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-strong);
 }
 
 input {
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.7rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.92);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
 }
 
 button[type='submit'] {
-  padding: 0.75rem 1.4rem;
-  border-radius: 0.8rem;
+  padding: 0.8rem 1.6rem;
+  border-radius: var(--radius-pill);
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: var(--gradient-primary);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.25);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+button[type='submit']:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 45px rgba(37, 99, 235, 0.3);
 }
 
 button:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .error {
   margin: 0;
   color: #dc2626;
+  background: rgba(254, 226, 226, 0.65);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(248, 113, 113, 0.35);
 }
 </style>

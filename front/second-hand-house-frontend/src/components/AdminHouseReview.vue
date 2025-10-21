@@ -161,100 +161,102 @@ const review = (house, status) => {
 .review-board {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.6rem;
 }
 
 .review-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 1.75rem;
-  border-radius: 1.25rem;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(59, 130, 246, 0.12));
-  border: 1px solid rgba(14, 165, 233, 0.25);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  padding: 1.75rem 2rem;
+  border-radius: calc(var(--radius-lg) + 0.25rem);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(59, 130, 246, 0.18));
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
 .review-header h2 {
   margin: 0;
-  font-size: 1.6rem;
-  color: #0f172a;
+  font-size: 1.65rem;
+  color: var(--color-text-strong);
 }
 
 .review-header p {
-  margin: 0.35rem 0 0;
+  margin: 0.4rem 0 0;
   color: #0369a1;
 }
 
 .refresh {
   border: none;
-  border-radius: 999px;
-  padding: 0.55rem 1.4rem;
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  border-radius: var(--radius-pill);
+  padding: 0.65rem 1.6rem;
+  background: var(--gradient-primary);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 15px 28px rgba(14, 165, 233, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 18px 34px rgba(14, 165, 233, 0.3);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .refresh:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 20px 35px rgba(14, 165, 233, 0.32);
+  transform: translateY(-2px);
+  box-shadow: 0 26px 48px rgba(14, 165, 233, 0.34);
 }
 
 .state {
-  padding: 2.5rem 1.5rem;
-  border-radius: 1.25rem;
+  padding: 2.6rem 1.65rem;
+  border-radius: var(--radius-xl);
   text-align: center;
   font-size: 1rem;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  color: #475569;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  color: var(--color-text-muted);
+  backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
 .state.loading {
   color: #0369a1;
-  background: rgba(14, 165, 233, 0.08);
-  border-color: rgba(14, 165, 233, 0.25);
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.28);
 }
 
 .state.empty h3 {
-  margin: 0 0 0.35rem;
-  color: #0f172a;
+  margin: 0 0 0.4rem;
+  color: var(--color-text-strong);
 }
 
 .state.empty p {
   margin: 0;
-  color: #475569;
+  color: var(--color-text-muted);
 }
 
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.5rem;
+  gap: 1.6rem;
 }
 
 .review-card {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 1.5rem;
+  background: var(--gradient-surface);
+  border-radius: calc(var(--radius-lg) + 0.25rem);
   overflow: hidden;
-  box-shadow: 0 25px 40px rgba(15, 23, 42, 0.18);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.22);
+  border: 1px solid rgba(226, 232, 240, 0.65);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .review-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 32px 60px rgba(15, 23, 42, 0.22);
+  transform: translateY(-6px);
+  box-shadow: 0 38px 90px rgba(15, 23, 42, 0.25);
 }
 
 .visual {
   position: relative;
-  height: 180px;
-  background: linear-gradient(135deg, #bae6fd, #93c5fd);
+  height: 190px;
+  background: linear-gradient(135deg, rgba(186, 230, 253, 0.95), rgba(147, 197, 253, 0.85));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -267,93 +269,95 @@ const review = (house, status) => {
 }
 
 .visual.placeholder {
-  color: #0f172a;
+  color: var(--color-text-strong);
   font-weight: 600;
 }
 
 .badge {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
-  padding: 0.35rem 0.9rem;
-  border-radius: 999px;
+  top: 1.1rem;
+  left: 1.1rem;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-pill);
   background: rgba(234, 179, 8, 0.92);
   color: #78350f;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  box-shadow: 0 12px 18px rgba(250, 204, 21, 0.25);
+  box-shadow: 0 12px 18px rgba(250, 204, 21, 0.3);
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 1.1rem;
+  padding: 1.6rem;
 }
 
 .card-header h3 {
   margin: 0;
   font-size: 1.35rem;
-  color: #0f172a;
+  color: var(--color-text-strong);
 }
 
 .card-header .address {
-  margin: 0.3rem 0 0;
-  color: #475569;
+  margin: 0.35rem 0 0;
+  color: var(--color-text-muted);
 }
 
 .description {
   margin: 0;
-  color: #334155;
+  color: var(--color-text-muted);
   line-height: 1.55;
 }
 
 .meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.85rem;
+  gap: 0.9rem;
   margin: 0;
 }
 
 .meta div {
   background: rgba(241, 245, 249, 0.85);
-  border-radius: 0.85rem;
-  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  padding: 0.8rem;
+  border: 1px solid rgba(226, 232, 240, 0.6);
 }
 
 .meta dt {
-  margin: 0 0 0.25rem;
-  color: #64748b;
-  font-size: 0.8rem;
+  margin: 0 0 0.3rem;
+  color: var(--color-text-soft);
+  font-size: 0.82rem;
 }
 
 .meta dd {
   margin: 0;
-  color: #0f172a;
+  color: var(--color-text-strong);
   font-weight: 600;
 }
 
 .keywords {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .keywords span {
-  padding: 0.25rem 0.75rem;
-  background: rgba(191, 219, 254, 0.6);
+  padding: 0.3rem 0.85rem;
+  background: rgba(191, 219, 254, 0.7);
   color: #1d4ed8;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .certificate {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
   font-size: 0.95rem;
-  color: #0f172a;
+  color: var(--color-text-strong);
 }
 
 .certificate a {
@@ -368,51 +372,52 @@ const review = (house, status) => {
 .seller {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem;
-  padding: 1rem;
-  background: rgba(240, 249, 255, 0.8);
-  border-radius: 1rem;
-  border: 1px solid rgba(14, 165, 233, 0.2);
+  gap: 0.85rem;
+  padding: 1.05rem;
+  background: rgba(240, 249, 255, 0.9);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(14, 165, 233, 0.28);
 }
 
 .seller .label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: #0369a1;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
+  font-weight: 600;
 }
 
 .seller strong {
   display: block;
-  color: #0f172a;
+  color: var(--color-text-strong);
 }
 
 .actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.9rem;
   flex-wrap: wrap;
 }
 
 .actions button {
-  flex: 1 1 140px;
-  padding: 0.65rem 1rem;
+  flex: 1 1 150px;
+  padding: 0.75rem 1.05rem;
   border: none;
-  border-radius: 0.85rem;
+  border-radius: var(--radius-pill);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .actions .approve {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
-  box-shadow: 0 18px 30px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 22px 40px rgba(34, 197, 94, 0.32);
 }
 
 .actions .reject {
   background: linear-gradient(135deg, #f97316, #ea580c);
   color: #fff;
-  box-shadow: 0 18px 30px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 22px 40px rgba(249, 115, 22, 0.32);
 }
 
 .actions button:hover {
@@ -423,7 +428,7 @@ const review = (house, status) => {
   .review-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 1.1rem;
   }
 
   .refresh {

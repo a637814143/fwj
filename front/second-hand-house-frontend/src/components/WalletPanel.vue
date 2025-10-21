@@ -191,112 +191,126 @@ const transactionClass = (tx) => {
 .wallet-panel {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  padding: 1.5rem;
+  gap: 1.35rem;
+  background: var(--gradient-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 1.85rem;
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(var(--glass-blur));
 }
 
 .wallet-panel h2 {
   margin: 0;
-  font-size: 1.5rem;
-  color: #1e293b;
+  font-size: 1.55rem;
+  color: var(--color-text-strong);
 }
 
 .hint {
   margin: 0;
-  color: #64748b;
+  color: var(--color-text-soft);
 }
 
 .loading,
 .empty {
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  color: #475569;
+  background: rgba(248, 250, 252, 0.85);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.35rem;
+  color: var(--color-text-muted);
+  border: 1px solid rgba(226, 232, 240, 0.6);
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.6rem;
 }
 
 .summary {
   display: flex;
-  gap: 1.5rem;
+  gap: 1.6rem;
   flex-wrap: wrap;
   justify-content: space-between;
-  background: linear-gradient(135deg, #312e81, #1d4ed8);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.92), rgba(29, 78, 216, 0.92));
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.6rem;
   color: #f8fafc;
+  box-shadow: 0 26px 48px rgba(30, 64, 175, 0.35);
 }
 
 .summary .label {
   display: block;
-  font-size: 0.85rem;
-  opacity: 0.8;
+  font-size: 0.88rem;
+  opacity: 0.85;
 }
 
 .summary strong {
-  font-size: 2rem;
+  font-size: 2.1rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .summary code {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 0.5rem;
-  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md);
+  padding: 0.3rem 0.65rem;
   color: #e0e7ff;
   font-weight: 600;
 }
 
 .top-up {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.9rem;
 }
 
 .top-up h3 {
   margin: 0;
-  color: #1e293b;
+  color: var(--color-text-strong);
 }
 
 .top-up label {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  color: #334155;
+  gap: 0.4rem;
+  color: var(--color-text-muted);
   font-weight: 500;
 }
 
 .top-up input {
-  border: 1px solid #cbd5f5;
-  border-radius: 0.65rem;
-  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.9rem;
   font-size: 1rem;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .top-up button {
-  align-self: start;
-  background: #2563eb;
+  align-self: flex-start;
+  background: var(--gradient-primary);
   border: none;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-pill);
   color: #fff;
   cursor: pointer;
   font-weight: 600;
-  padding: 0.6rem 1.4rem;
+  padding: 0.65rem 1.55rem;
+  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.top-up button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 45px rgba(37, 99, 235, 0.3);
 }
 
 .top-up button:disabled {
-  background: #a5b4fc;
+  background: rgba(165, 180, 252, 0.85);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .transactions h3 {
-  margin: 0 0 0.5rem;
-  color: #1e293b;
+  margin: 0 0 0.6rem;
+  color: var(--color-text-strong);
 }
 
 .transactions ul {
@@ -305,17 +319,18 @@ const transactionClass = (tx) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .transaction {
   display: grid;
-  grid-template-columns: 100px 1fr 150px 1fr;
+  grid-template-columns: 110px 1fr 160px 1fr;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background: #f8fafc;
+  gap: 0.85rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: rgba(248, 250, 252, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.6);
 }
 
 .transaction .amount {
@@ -332,15 +347,15 @@ const transactionClass = (tx) => {
 }
 
 .transaction .reference {
-  color: #64748b;
-  font-size: 0.9rem;
+  color: var(--color-text-soft);
+  font-size: 0.92rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .transaction .time {
-  color: #475569;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 

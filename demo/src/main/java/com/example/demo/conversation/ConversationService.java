@@ -147,7 +147,7 @@ public class ConversationService {
     private UserAccount requireSellerAccount(String username) {
         UserAccount seller = userAccountRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
-        if (seller.getRole() != UserRole.SELLER) {
+        if (!seller.getRole().isSellerRole()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是卖家角色");
         }
         return seller;

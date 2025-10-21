@@ -80,7 +80,7 @@ public class UserAdminController {
         requireAdmin(requesterUsername);
 
         List<UserAccountView> sellers = userAccountRepository
-                .findByRoleOrderByReputationScoreDesc(UserRole.SELLER)
+                .findByRoleInOrderByReputationScoreDesc(UserRole.sellerRoles())
                 .stream()
                 .map(UserAccountView::fromEntity)
                 .toList();
@@ -119,7 +119,7 @@ public class UserAdminController {
             userWalletRepository.delete(wallet);
         });
 
-        if (account.getRole() == UserRole.SELLER) {
+        if (account.getRole().isSellerRole()) {
             secondHandHouseRepository.deleteAll(secondHandHouseRepository.findBySellerUsername(username));
         }
 

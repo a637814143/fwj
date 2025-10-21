@@ -3,6 +3,7 @@ package com.example.demo.order;
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
 import com.example.demo.conversation.ConversationService;
+import com.example.demo.house.ListingStatus;
 import com.example.demo.house.SecondHandHouse;
 import com.example.demo.house.SecondHandHouseRepository;
 import com.example.demo.wallet.WalletService;
@@ -54,6 +55,7 @@ public class HouseOrderService {
     public HouseOrderResponse reserveHouse(@Valid HouseReservationRequest request) {
         SecondHandHouse house = houseRepository.findById(request.houseId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "房源不存在"));
+        ensureApprovedHouse(house);
         if (house.getPrice() == null || house.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房源价格异常，无法预定");
         }
@@ -163,6 +165,7 @@ public class HouseOrderService {
     public HouseOrderResponse createOrder(@Valid HouseOrderRequest request) {
         SecondHandHouse house = houseRepository.findById(request.houseId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "房源不存在"));
+        ensureApprovedHouse(house);
         if (house.getSellerUsername() == null || house.getSellerUsername().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房源缺少卖家账号，无法发起支付");
         }
@@ -188,11 +191,16 @@ public class HouseOrderService {
         order.setHouse(house);
         order.setBuyer(buyer);
         order.setSeller(seller);
-        order.setAmount(house.getPrice());
+        PaymentMethod paymentMethod = request.paymentMethod();
+        order.setPaymentMethod(paymentMethod);
+        BigDecimal amount = resolvePaymentAmount(house, paymentMethod);
+        order.setAmount(amount);
         order = orderRepository.save(order);
 
         String reference = "ORDER-" + order.getId();
-        String description = String.format("房源《%s》购房支付", house.getTitle());
+        String description = paymentMethod == PaymentMethod.INSTALLMENT
+                ? String.format("房源《%s》分期付款（首期）", house.getTitle())
+                : String.format("房源《%s》购房全款支付", house.getTitle());
         walletService.processPayment(order, reference, description);
         order.markPaid();
         order.setProgressStage(OrderProgressStage.BALANCE_PAID);
@@ -261,6 +269,27 @@ public class HouseOrderService {
         if (account.isBlacklisted()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
         }
+    }
+
+    private void ensureApprovedHouse(SecondHandHouse house) {
+        if (house.getStatus() != ListingStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房源尚未通过审核，暂不可交易");
+        }
+    }
+
+    private BigDecimal resolvePaymentAmount(SecondHandHouse house, PaymentMethod paymentMethod) {
+        if (paymentMethod == null || paymentMethod == PaymentMethod.FULL) {
+            BigDecimal price = house.getPrice();
+            if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房源全款价格无效");
+            }
+            return price;
+        }
+        BigDecimal installment = house.getInstallmentMonthlyPayment();
+        if (installment == null || installment.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房源未配置有效的分期金额");
+        }
+        return installment;
     }
 
     private boolean canTransition(OrderProgressStage current, OrderProgressStage target) {

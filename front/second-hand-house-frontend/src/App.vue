@@ -88,6 +88,7 @@
             :orders-loading="ordersLoading"
             @edit="handleEdit"
             @remove="handleRemove"
+            @review="handleReview"
             @purchase="handlePurchase"
             @contact-seller="handleContactSeller"
           />
@@ -220,6 +221,12 @@ const roleLabels = {
   ADMIN: '系统管理员'
 };
 
+const listingStatusLabels = {
+  PENDING_REVIEW: '待审核',
+  APPROVED: '已通过',
+  REJECTED: '已驳回'
+};
+
 const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
@@ -273,9 +280,19 @@ const persistUser = (user) => {
 
 const normalizeHouse = (house) => ({
   ...house,
-  listingDate: house.listingDate ?? '',
-  imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : [],
-  sensitiveMasked: Boolean(house.sensitiveMasked)
+  price: house?.price != null ? Number(house.price) : null,
+  installmentMonthlyPayment:
+    house?.installmentMonthlyPayment != null ? Number(house.installmentMonthlyPayment) : null,
+  installmentMonths: house?.installmentMonths != null ? Number(house.installmentMonths) : null,
+  listingDate: house?.listingDate ?? '',
+  imageUrls: Array.isArray(house?.imageUrls) ? house.imageUrls : [],
+  keywords: Array.isArray(house?.keywords) ? house.keywords : [],
+  propertyCertificateUrl: house?.propertyCertificateUrl ?? '',
+  status: house?.status ?? 'PENDING_REVIEW',
+  reviewMessage: house?.reviewMessage ?? '',
+  reviewedBy: house?.reviewedBy ?? '',
+  reviewedAt: house?.reviewedAt ?? '',
+  sensitiveMasked: Boolean(house?.sensitiveMasked)
 });
 
 const buildFilterParams = (filters) => {
@@ -574,6 +591,26 @@ const normalizeHousePayload = (payload) => {
   result.imageUrls = Array.isArray(result.imageUrls)
     ? result.imageUrls.map((url) => (url ?? '').trim()).filter((url) => url.length > 0)
     : [];
+  result.keywords = Array.isArray(result.keywords)
+    ? result.keywords
+        .map((keyword) => (keyword ?? '').trim())
+        .filter((keyword) => keyword.length > 0)
+    : [];
+  result.price = Number(result.price ?? 0);
+  result.installmentMonthlyPayment = Number(result.installmentMonthlyPayment ?? 0);
+  result.installmentMonths = Number.parseInt(result.installmentMonths ?? 0, 10);
+  if (!Number.isFinite(result.price)) {
+    result.price = 0;
+  }
+  if (!Number.isFinite(result.installmentMonthlyPayment)) {
+    result.installmentMonthlyPayment = 0;
+  }
+  if (!Number.isFinite(result.installmentMonths)) {
+    result.installmentMonths = 0;
+  }
+  if (typeof result.propertyCertificateUrl === 'string') {
+    result.propertyCertificateUrl = result.propertyCertificateUrl.trim();
+  }
   if (isSeller.value) {
     result.sellerUsername = currentUser.value.username;
     if (!result.sellerName) {
@@ -594,10 +631,18 @@ const handleSubmit = async (payload) => {
   try {
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
-      messages.success = `房源《${data.title}》已更新。`;
+      const statusLabel = listingStatusLabels[data.status] ?? '待审核';
+      messages.success =
+        data.status === 'APPROVED'
+          ? `房源《${data.title}》已更新并重新上架。`
+          : `房源《${data.title}》已更新，当前状态：${statusLabel}。`;
     } else {
       const { data } = await client.post('/houses', requestPayload);
-      messages.success = `已新增房源《${data.title}》。`;
+      const statusLabel = listingStatusLabels[data.status] ?? '待审核';
+      messages.success =
+        data.status === 'APPROVED'
+          ? `已新增房源《${data.title}》，已通过审核并上架。`
+          : `已提交房源《${data.title}》，当前状态：${statusLabel}。`;
     }
     selectedHouse.value = null;
     await fetchHouses({ silent: true });
@@ -659,7 +704,7 @@ const handleRemove = async (house) => {
   }
 };
 
-const handlePurchase = async (house) => {
+const handlePurchase = async ({ house, paymentMethod }) => {
   if (!isBuyer.value) {
     messages.error = '只有买家角色可以发起购买。';
     messages.success = '';
@@ -668,6 +713,14 @@ const handlePurchase = async (house) => {
   if (!isRealNameVerified.value) {
     messages.error = '购买前请先完成实名认证。';
     messages.success = '';
+    return;
+  }
+  if (!house || house.status !== 'APPROVED') {
+    messages.error = '房源尚未通过审核，暂不可购买。';
+    return;
+  }
+  if (!paymentMethod) {
+    messages.error = '请选择支付方式后再尝试购买。';
     return;
   }
   if (isSeller.value && currentUser.value.username === house.sellerUsername) {
@@ -681,10 +734,12 @@ const handlePurchase = async (house) => {
   try {
     const { data } = await client.post('/orders', {
       houseId: house.id,
-      buyerUsername: currentUser.value.username
+      buyerUsername: currentUser.value.username,
+      paymentMethod
     });
     const payment = formatCurrencyYuan(data.amount);
-    messages.success = `成功购买房源《${data.houseTitle}》，支付金额 ￥${payment}。`;
+    const methodLabel = data.paymentMethod === 'INSTALLMENT' ? '分期' : '全款';
+    messages.success = `成功以${methodLabel}方式购买房源《${data.houseTitle}》，支付金额 ￥${payment}。`;
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -711,6 +766,11 @@ const handleReserve = async (house) => {
   }
   if (!isRealNameVerified.value) {
     messages.error = '预定前请先完成实名认证。';
+    messages.success = '';
+    return;
+  }
+  if (!house || house.status !== 'APPROVED') {
+    messages.error = '房源尚未通过审核，暂不可预定。';
     messages.success = '';
     return;
   }
@@ -864,6 +924,60 @@ const handleDeleteUser = async ({ username }) => {
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
       messages.error = detail?.detail ?? '删除账号失败。';
+    }
+  } finally {
+    adminLoading.value = false;
+  }
+};
+
+const handleReview = async ({ houseId, status }) => {
+  if (!isAdmin.value || !currentUser.value || !houseId || !status) {
+    return;
+  }
+  const target = houses.value.find((item) => item.id === houseId);
+  let reviewMessage = '';
+  if (status === 'REJECTED') {
+    const reason = window.prompt('请输入驳回原因', target?.reviewMessage ?? '');
+    if (reason === null) {
+      return;
+    }
+    reviewMessage = reason.trim();
+    if (!reviewMessage) {
+      messages.error = '驳回操作需要填写原因。';
+      return;
+    }
+  } else {
+    const remark = window.prompt('审核备注（可选）', target?.reviewMessage ?? '审核通过');
+    if (remark === null) {
+      return;
+    }
+    reviewMessage = remark.trim();
+  }
+
+  adminLoading.value = true;
+  messages.error = '';
+  try {
+    const { data } = await client.patch(`/houses/${houseId}/review`, {
+      reviewerUsername: currentUser.value.username,
+      status,
+      message: reviewMessage
+    });
+    const statusLabel = listingStatusLabels[data.status] ?? '';
+    messages.success =
+      data.status === 'APPROVED'
+        ? `已审核通过房源《${data.title}》。`
+        : `已驳回房源《${data.title}》，状态：${statusLabel}，原因：${data.reviewMessage ?? (reviewMessage || '未填写')}`;
+    await Promise.all([
+      fetchHouses({ silent: true }),
+      loadAdminData()
+    ]);
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? '提交审核结果失败。';
     }
   } finally {
     adminLoading.value = false;

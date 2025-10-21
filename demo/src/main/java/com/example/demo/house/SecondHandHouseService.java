@@ -15,8 +15,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -51,10 +53,15 @@ public class SecondHandHouseService {
         UserAccount requester = resolveRequester(requesterUsername);
         String normalized = keyword == null ? null : keyword.trim().toLowerCase(Locale.ROOT);
         return repository.findAll().stream()
+                .filter(house -> isVisibleToRequester(house, requester))
                 .filter(house -> filterByKeyword(house, normalized))
                 .filter(house -> filterByRange(house.getPrice(), minPrice, maxPrice))
                 .filter(house -> filterByRange(house.getArea(), minArea, maxArea))
-                .map(house -> SecondHandHouseView.fromEntity(house, shouldMaskSensitive(house, requester)))
+                .map(house -> SecondHandHouseView.fromEntity(
+                        house,
+                        shouldMaskSensitive(house, requester),
+                        canViewCertificate(house, requester)
+                ))
                 .toList();
     }
 
@@ -62,7 +69,14 @@ public class SecondHandHouseService {
     public SecondHandHouseView viewById(Long id, String requesterUsername) {
         SecondHandHouse house = findById(id);
         UserAccount requester = resolveRequester(requesterUsername);
-        return SecondHandHouseView.fromEntity(house, shouldMaskSensitive(house, requester));
+        if (!isVisibleToRequester(house, requester)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "房源不存在或尚未通过审核");
+        }
+        return SecondHandHouseView.fromEntity(
+                house,
+                shouldMaskSensitive(house, requester),
+                canViewCertificate(house, requester)
+        );
     }
 
     public SecondHandHouse findById(Long id) {
@@ -72,16 +86,24 @@ public class SecondHandHouseService {
 
     public SecondHandHouse create(SecondHandHouse house) {
         validateSellerAccount(house.getSellerUsername());
+        ensureNotDuplicate(house, null);
         house.setId(null);
+        house.setStatus(ListingStatus.PENDING_REVIEW);
+        house.setReviewedAt(null);
+        house.setReviewedBy(null);
+        house.setReviewMessage(null);
         return repository.save(house);
     }
 
     public SecondHandHouse update(Long id, SecondHandHouse updatedHouse) {
         SecondHandHouse existing = findById(id);
         validateSellerAccount(updatedHouse.getSellerUsername());
+        ensureNotDuplicate(updatedHouse, id);
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
+        existing.setInstallmentMonthlyPayment(updatedHouse.getInstallmentMonthlyPayment());
+        existing.setInstallmentMonths(updatedHouse.getInstallmentMonths());
         existing.setArea(updatedHouse.getArea());
         existing.setDescription(updatedHouse.getDescription());
         existing.setSellerUsername(updatedHouse.getSellerUsername());
@@ -92,6 +114,11 @@ public class SecondHandHouseService {
         existing.setKeywords(updatedHouse.getKeywords());
         existing.getImageUrls().clear();
         existing.getImageUrls().addAll(updatedHouse.getImageUrls());
+        existing.setPropertyCertificateUrl(updatedHouse.getPropertyCertificateUrl());
+        existing.setStatus(ListingStatus.PENDING_REVIEW);
+        existing.setReviewedAt(null);
+        existing.setReviewedBy(null);
+        existing.setReviewMessage(null);
         return repository.save(existing);
     }
 
@@ -108,12 +135,34 @@ public class SecondHandHouseService {
             return;
         }
 
-        if (requester.getRole() == UserRole.SELLER && requester.getUsername().equals(house.getSellerUsername())) {
+        if (requester.getRole() != null && requester.getRole().isSellerRole()
+                && requester.getUsername().equalsIgnoreCase(house.getSellerUsername())) {
             repository.delete(house);
             return;
         }
 
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "您无权删除该房源");
+    }
+
+    public SecondHandHouseView review(Long id, ListingStatus status, String reviewMessage, String reviewerUsername) {
+        if (status == null || status == ListingStatus.PENDING_REVIEW) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "审核状态无效");
+        }
+        UserAccount reviewer = requireAdmin(reviewerUsername);
+        SecondHandHouse house = findById(id);
+        if (status == ListingStatus.REJECTED) {
+            if (reviewMessage == null || reviewMessage.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请填写驳回原因");
+            }
+            house.setReviewMessage(reviewMessage.trim());
+        } else {
+            house.setReviewMessage(reviewMessage == null || reviewMessage.isBlank() ? "审核通过" : reviewMessage.trim());
+        }
+        house.setStatus(status);
+        house.setReviewedBy(reviewer.getUsername());
+        house.setReviewedAt(OffsetDateTime.now());
+        SecondHandHouse saved = repository.save(house);
+        return SecondHandHouseView.fromEntity(saved, false, true);
     }
 
     @Scheduled(cron = "0 0 3 * * ?")
@@ -128,6 +177,7 @@ public class SecondHandHouseService {
         LocalDate cutoffDate = LocalDate.now().minusMonths(1);
         List<SecondHandHouse> candidates = repository.findByListingDateBefore(cutoffDate);
         List<SecondHandHouse> toRemove = candidates.stream()
+                .filter(house -> house.getStatus() == ListingStatus.APPROVED)
                 .filter(house -> !houseOrderRepository.existsByHouse_IdAndStatus(house.getId(), OrderStatus.PAID))
                 .toList();
         if (!toRemove.isEmpty()) {
@@ -162,7 +212,7 @@ public class SecondHandHouseService {
         if (requester.getRole() == UserRole.ADMIN) {
             return false;
         }
-        if (house.getSellerUsername() != null && house.getSellerUsername().equals(requester.getUsername())) {
+        if (house.getSellerUsername() != null && house.getSellerUsername().equalsIgnoreCase(requester.getUsername())) {
             return false;
         }
         return !requester.isRealNameVerified();
@@ -183,11 +233,78 @@ public class SecondHandHouseService {
         }
         UserAccount seller = userAccountRepository.findByUsername(sellerUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
-        if (seller.getRole() != UserRole.SELLER && seller.getRole() != UserRole.ADMIN) {
+        if (!seller.getRole().isSellerRole() && seller.getRole() != UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是合法的卖家角色");
         }
         if (seller.isBlacklisted()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "该卖家已被加入黑名单，无法发布房源");
         }
+    }
+
+    private void ensureNotDuplicate(SecondHandHouse house, Long ignoreId) {
+        if (house.getSellerUsername() == null || house.getSellerUsername().isBlank()) {
+            return;
+        }
+        String normalizedTitle = normalize(house.getTitle());
+        String normalizedAddress = normalize(house.getAddress());
+        if (normalizedTitle.isEmpty() || normalizedAddress.isEmpty()) {
+            return;
+        }
+        List<SecondHandHouse> existingList = repository.findBySellerUsernameIgnoreCase(house.getSellerUsername());
+        boolean duplicate = existingList.stream()
+                .filter(existing -> ignoreId == null || !Objects.equals(existing.getId(), ignoreId))
+                .filter(existing -> existing.getStatus() != ListingStatus.REJECTED)
+                .anyMatch(existing -> normalize(existing.getTitle()).equals(normalizedTitle)
+                        && normalize(existing.getAddress()).equals(normalizedAddress));
+        if (duplicate) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "检测到重复房源信息，请勿重复上架。");
+        }
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean isVisibleToRequester(SecondHandHouse house, UserAccount requester) {
+        if (house.getStatus() == ListingStatus.APPROVED) {
+            return true;
+        }
+        if (requester == null) {
+            return false;
+        }
+        if (requester.getRole() == UserRole.ADMIN) {
+            return true;
+        }
+        return house.getSellerUsername() != null
+                && house.getSellerUsername().equalsIgnoreCase(requester.getUsername());
+    }
+
+    private boolean canViewCertificate(SecondHandHouse house, UserAccount requester) {
+        if (requester == null) {
+            return false;
+        }
+        if (requester.getRole() == UserRole.ADMIN) {
+            return true;
+        }
+        return house.getSellerUsername() != null
+                && house.getSellerUsername().equalsIgnoreCase(requester.getUsername());
+    }
+
+    private UserAccount requireAdmin(String requesterUsername) {
+        if (requesterUsername == null || requesterUsername.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求人不能为空");
+        }
+        UserAccount requester = userAccountRepository.findByUsername(requesterUsername)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "请求人账号不存在"));
+        if (requester.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅管理员可以执行该操作");
+        }
+        if (requester.isBlacklisted()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "请求人已被加入黑名单");
+        }
+        return requester;
     }
 }

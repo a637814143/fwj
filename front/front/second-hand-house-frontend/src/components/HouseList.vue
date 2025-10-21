@@ -205,8 +205,8 @@ defineExpose({
 .empty {
   padding: 2rem;
   text-align: center;
-  color: #475569;
-  background: #f8fafc;
+  color: var(--app-muted);
+  background: var(--app-surface-alt);
   border-radius: 1rem;
 }
 
@@ -219,23 +219,24 @@ table {
   border-collapse: collapse;
   border-radius: 1rem;
   overflow: hidden;
-  background: #fff;
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
 thead {
-  background: #1d4ed8;
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
 }
 
 th,
 td {
   padding: 0.85rem 1rem;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--app-border);
 }
 
 tbody tr:hover {
-  background: #f1f5f9;
+  background: var(--app-surface-alt);
 }
 
 .title-button {
@@ -247,7 +248,7 @@ tbody tr:hover {
   padding: 0;
   margin: 0;
   font: inherit;
-  color: #1d4ed8;
+  color: var(--accent-color);
   cursor: pointer;
 }
 
@@ -262,15 +263,15 @@ tbody tr:hover {
 
 .description {
   margin: 0.35rem 0 0;
-  color: #64748b;
+  color: var(--app-muted);
   font-size: 0.85rem;
 }
 
 .image-count {
   margin: 0.25rem 0 0;
-  color: #0f172a;
+  color: var(--accent-soft-text);
   font-size: 0.8rem;
-  background: #e0f2fe;
+  background: var(--accent-soft);
   display: inline-flex;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -282,7 +283,7 @@ tbody tr:hover {
 }
 
 .actions.muted {
-  color: #94a3b8;
+  color: var(--app-muted);
   font-size: 0.9rem;
 }
 
@@ -290,9 +291,16 @@ tbody tr:hover {
   padding: 0.4rem 0.8rem;
   border-radius: 0.65rem;
   border: none;
-  background: #2563eb;
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
   cursor: pointer;
+  box-shadow: 0 8px 16px var(--accent-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn.small:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px var(--accent-soft);
 }
 
 .btn.small.danger {
@@ -301,8 +309,10 @@ tbody tr:hover {
 
 .btn.small:disabled,
 .btn.small.danger:disabled {
-  background: #cbd5f5;
-  color: #475569;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 </style>

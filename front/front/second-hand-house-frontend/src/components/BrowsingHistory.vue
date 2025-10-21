@@ -61,9 +61,9 @@ const formatNumber = (value) => {
 
 <style scoped>
 .history {
-  background: #fff;
+  background: var(--app-surface);
   border-radius: 1rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -78,13 +78,13 @@ const formatNumber = (value) => {
 
 .history__header h3 {
   margin: 0;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .link {
   border: none;
   background: none;
-  color: #2563eb;
+  color: var(--accent-color);
   cursor: pointer;
   font-weight: 600;
 }
@@ -96,7 +96,7 @@ const formatNumber = (value) => {
 
 .empty {
   margin: 0;
-  color: #64748b;
+  color: var(--app-muted);
 }
 
 .history__list {
@@ -113,7 +113,7 @@ const formatNumber = (value) => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  border-bottom: 1px dashed #e2e8f0;
+  border-bottom: 1px dashed var(--app-border);
   padding-bottom: 0.75rem;
 }
 
@@ -125,7 +125,7 @@ const formatNumber = (value) => {
 .title {
   border: none;
   background: none;
-  color: #1d4ed8;
+  color: var(--accent-color);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -139,7 +139,7 @@ const formatNumber = (value) => {
   margin: 0.25rem 0 0;
   display: flex;
   gap: 0.75rem;
-  color: #64748b;
+  color: var(--app-muted);
   font-size: 0.85rem;
 }
 
@@ -151,8 +151,8 @@ const formatNumber = (value) => {
 }
 
 .tag {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
   font-size: 0.75rem;
@@ -160,7 +160,7 @@ const formatNumber = (value) => {
 
 .price {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--app-text);
   white-space: nowrap;
 }
 </style>

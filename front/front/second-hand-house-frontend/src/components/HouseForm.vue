@@ -364,16 +364,16 @@ const cancelEdit = () => {
 
 .house-form h2 {
   margin: 0;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .notice {
   margin: 0;
   padding: 0.75rem 1rem;
-  background: #f8fafc;
-  border-left: 4px solid #2563eb;
+  background: var(--accent-soft);
+  border-left: 4px solid var(--accent-color);
   border-radius: 0.75rem;
-  color: #1d4ed8;
+  color: var(--accent-soft-text);
   font-size: 0.95rem;
 }
 
@@ -387,7 +387,7 @@ label {
   display: flex;
   flex-direction: column;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--app-text);
   gap: 0.35rem;
 }
 
@@ -395,16 +395,17 @@ input,
 textarea {
   padding: 0.65rem 0.75rem;
   border-radius: 0.65rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-alt);
+  color: var(--app-text);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus,
 textarea:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 textarea {
@@ -415,7 +416,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  background: #f8fafc;
+  background: var(--app-surface-alt);
   border-radius: 1rem;
   padding: 1rem;
 }
@@ -428,19 +429,20 @@ textarea {
 
 .section-title {
   font-weight: 700;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .image-helper {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--app-muted);
 }
 
 .upload-input {
   padding: 0.6rem;
   border-radius: 0.65rem;
-  border: 1px dashed #94a3b8;
-  background: #fff;
+  border: 1px dashed var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
   cursor: pointer;
 }
 
@@ -452,7 +454,7 @@ textarea {
 .image-hint {
   margin: 0;
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--app-muted);
 }
 
 .image-error {
@@ -474,8 +476,8 @@ textarea {
   position: relative;
   border-radius: 0.75rem;
   overflow: hidden;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-  background: #fff;
+  box-shadow: var(--app-shadow);
+  background: var(--app-surface);
 }
 
 .image-preview__item img {
@@ -518,10 +520,11 @@ textarea {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+
 .btn.primary {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
+  box-shadow: 0 12px 24px var(--accent-soft);
 }
 
 .btn.primary:hover:not(:disabled) {
@@ -534,7 +537,8 @@ textarea {
 }
 
 .btn.secondary {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: var(--app-surface-alt);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
 }
 </style>

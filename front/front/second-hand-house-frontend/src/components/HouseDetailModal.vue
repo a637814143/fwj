@@ -140,12 +140,12 @@ function maskPhone(value) {
 .modal {
   width: min(900px, 100%);
   max-height: 90vh;
-  background: #fff;
+  background: var(--app-surface);
   border-radius: 1.25rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  box-shadow: var(--app-shadow);
 }
 
 .modal__header {
@@ -153,8 +153,8 @@ function maskPhone(value) {
   justify-content: space-between;
   align-items: flex-start;
   padding: 1.5rem 1.75rem;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
 }
 
 .modal__title h3 {
@@ -170,18 +170,19 @@ function maskPhone(value) {
 
 .icon-button {
   border: none;
-  background: rgba(15, 23, 42, 0.2);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--accent-contrast);
   font-size: 1.5rem;
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
   cursor: pointer;
   line-height: 2.25rem;
+  transition: background 0.3s ease;
 }
 
 .icon-button:hover {
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .modal__content {
@@ -190,6 +191,7 @@ function maskPhone(value) {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  color: var(--app-text);
 }
 
 .info-grid {
@@ -199,7 +201,7 @@ function maskPhone(value) {
 }
 
 .info-item {
-  background: #f8fafc;
+  background: var(--app-surface-alt);
   border-radius: 0.85rem;
   padding: 1rem;
   display: flex;
@@ -209,18 +211,18 @@ function maskPhone(value) {
 
 .info-label {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--app-muted);
 }
 
 .info-value {
   font-weight: 700;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .modal__description {
   margin: 0;
   line-height: 1.7;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .keywords {
@@ -231,7 +233,7 @@ function maskPhone(value) {
 
 .keywords h4 {
   margin: 0;
-  color: #1d4ed8;
+  color: var(--accent-color);
 }
 
 .keywords ul {
@@ -244,8 +246,8 @@ function maskPhone(value) {
 }
 
 .keywords li {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -265,20 +267,20 @@ function maskPhone(value) {
 
 .gallery__header h4 {
   margin: 0;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .gallery__count {
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--app-muted);
 }
 
 .gallery__empty {
   margin: 0;
   padding: 1rem;
   border-radius: 0.85rem;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--app-surface-alt);
+  color: var(--app-muted);
   text-align: center;
 }
 
@@ -289,11 +291,11 @@ function maskPhone(value) {
 }
 
 .gallery__item {
-  background: #0f172a;
+  background: var(--app-surface-alt);
   border-radius: 0.85rem;
   overflow: hidden;
-  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.25);
-  color: #fff;
+  box-shadow: var(--app-shadow);
+  color: var(--app-text);
 }
 
 .gallery__item img {
@@ -307,12 +309,12 @@ function maskPhone(value) {
   margin: 0;
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(15, 23, 42, 0.18);
 }
 
 .modal__footer {
   padding: 1.25rem 1.75rem;
-  background: #f8fafc;
+  background: var(--app-surface-alt);
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
@@ -324,22 +326,23 @@ function maskPhone(value) {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .primary-button {
   padding: 0.65rem 1.5rem;
   border-radius: 0.75rem;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .primary-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 10px 20px var(--accent-soft);
 }
 
 @media (max-width: 640px) {

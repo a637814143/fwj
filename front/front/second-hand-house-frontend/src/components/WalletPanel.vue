@@ -178,29 +178,29 @@ const transactionClass = (tx) => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: #fff;
+  background: var(--app-surface);
   border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow);
   padding: 1.5rem;
 }
 
 .wallet-panel h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .hint {
   margin: 0;
-  color: #64748b;
+  color: var(--app-muted);
 }
 
 .loading,
 .empty {
-  background: #f8fafc;
+  background: var(--app-surface-alt);
   border-radius: 0.75rem;
   padding: 1rem 1.25rem;
-  color: #475569;
+  color: var(--app-muted);
 }
 
 .content {
@@ -214,10 +214,10 @@ const transactionClass = (tx) => {
   gap: 1.5rem;
   flex-wrap: wrap;
   justify-content: space-between;
-  background: linear-gradient(135deg, #312e81, #1d4ed8);
+  background: var(--accent-gradient);
   border-radius: 0.75rem;
   padding: 1.25rem;
-  color: #f8fafc;
+  color: var(--accent-contrast);
 }
 
 .summary .label {
@@ -232,10 +232,10 @@ const transactionClass = (tx) => {
 }
 
 .summary code {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 0.5rem;
   padding: 0.25rem 0.5rem;
-  color: #e0e7ff;
+  color: var(--accent-contrast);
   font-weight: 600;
 }
 
@@ -246,43 +246,56 @@ const transactionClass = (tx) => {
 
 .top-up h3 {
   margin: 0;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .top-up label {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  color: #334155;
+  color: var(--app-text);
   font-weight: 500;
 }
 
 .top-up input {
-  border: 1px solid #cbd5f5;
+  border: 1px solid var(--app-border);
   border-radius: 0.65rem;
   padding: 0.6rem 0.8rem;
   font-size: 1rem;
+  background: var(--app-surface-alt);
+  color: var(--app-text);
 }
+
 
 .top-up button {
   align-self: start;
-  background: #2563eb;
+  background: var(--accent-gradient);
   border: none;
   border-radius: 0.75rem;
-  color: #fff;
+  color: var(--accent-contrast);
   cursor: pointer;
   font-weight: 600;
   padding: 0.6rem 1.4rem;
+  box-shadow: 0 10px 20px var(--accent-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.top-up button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px var(--accent-soft);
 }
 
 .top-up button:disabled {
-  background: #a5b4fc;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .transactions h3 {
   margin: 0 0 0.5rem;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .transactions ul {
@@ -301,7 +314,8 @@ const transactionClass = (tx) => {
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
-  background: #f8fafc;
+  background: var(--app-surface-alt);
+  color: var(--app-text);
 }
 
 .transaction .amount {
@@ -318,7 +332,7 @@ const transactionClass = (tx) => {
 }
 
 .transaction .reference {
-  color: #64748b;
+  color: var(--app-muted);
   font-size: 0.9rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -326,7 +340,7 @@ const transactionClass = (tx) => {
 }
 
 .transaction .time {
-  color: #475569;
+  color: var(--app-muted);
   font-size: 0.9rem;
 }
 

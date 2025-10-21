@@ -139,9 +139,9 @@ const submit = async () => {
 
 <style scoped>
 .verification {
-  background: #fff;
+  background: var(--app-surface);
   border-radius: 1rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow);
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
@@ -156,7 +156,7 @@ header {
 
 header h2 {
   margin: 0;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 .status {
@@ -178,7 +178,7 @@ header h2 {
 
 .hint {
   margin: 0;
-  color: #475569;
+  color: var(--app-muted);
 }
 
 .summary {
@@ -194,11 +194,18 @@ header h2 {
 
 .summary button {
   border: none;
-  background: #2563eb;
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
   padding: 0.5rem 1.1rem;
   border-radius: 0.75rem;
   cursor: pointer;
+  box-shadow: 0 10px 18px var(--accent-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.summary button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px var(--accent-soft);
 }
 
 .form {
@@ -215,35 +222,45 @@ header h2 {
 
 label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 input {
   padding: 0.65rem 0.75rem;
   border-radius: 0.7rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-alt);
+  color: var(--app-text);
 }
 
 input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 button[type='submit'] {
   padding: 0.75rem 1.4rem;
   border-radius: 0.8rem;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 12px 24px var(--accent-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+}
+
+button[type='submit']:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px var(--accent-soft);
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .error {

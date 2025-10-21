@@ -60,10 +60,10 @@ const reset = () => {
   flex-wrap: wrap;
   gap: 1rem;
   align-items: flex-end;
-  background: #fff;
+  background: var(--app-surface);
   border-radius: 1rem;
   padding: 1rem 1.25rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow);
 }
 
 .field {
@@ -76,20 +76,22 @@ const reset = () => {
 
 label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--app-text);
 }
 
 input {
   padding: 0.65rem 0.75rem;
   border-radius: 0.7rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-alt);
+  color: var(--app-text);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .actions {
@@ -101,19 +103,28 @@ button {
   padding: 0.65rem 1.4rem;
   border-radius: 0.75rem;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
 }
 
 button.secondary {
-  background: #e2e8f0;
-  color: #1f2937;
+  background: var(--app-surface-alt);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 </style>

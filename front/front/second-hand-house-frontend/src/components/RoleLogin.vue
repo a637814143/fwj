@@ -249,10 +249,10 @@ const submitRegister = async () => {
 
 <style scoped>
 .auth-panel {
-  background: #ffffff;
+  background: var(--app-surface);
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow: 0 15px 40px rgba(79, 70, 229, 0.15);
+  box-shadow: var(--app-shadow);
   display: grid;
   gap: 1.5rem;
 }
@@ -264,27 +264,27 @@ const submitRegister = async () => {
 }
 
 .mode-tab {
-  background: #f3f4f6;
+  background: var(--app-surface-alt);
   border: none;
   border-radius: 9999px;
-  color: #374151;
+  color: var(--app-text);
   cursor: pointer;
   font-weight: 600;
   padding: 0.75rem 1rem;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .mode-tab:hover,
 .mode-tab:focus {
   outline: none;
-  background: #e0e7ff;
-  color: #1d4ed8;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
 }
 
 .mode-tab.active {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #ffffff;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
+  box-shadow: 0 8px 20px var(--accent-soft);
 }
 
 .form {
@@ -297,24 +297,27 @@ const submitRegister = async () => {
   gap: 0.5rem;
 }
 
+
 .label,
 label {
   font-weight: 600;
-  color: #374151;
+  color: var(--app-text);
 }
 
 input {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
   font-size: 1rem;
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  background: var(--app-surface-alt);
+  color: var(--app-text);
 }
 
 input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .roles {
@@ -325,9 +328,9 @@ input:focus {
 
 .role-option {
   align-items: center;
-  background: #f3f4f6;
+  background: var(--app-surface-alt);
   border-radius: 9999px;
-  color: #374151;
+  color: var(--app-text);
   display: inline-flex;
   gap: 0.35rem;
   padding: 0.4rem 0.9rem;
@@ -339,24 +342,26 @@ input:focus {
 }
 
 .submit {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: var(--accent-gradient);
   border: none;
   border-radius: 0.75rem;
-  color: white;
+  color: var(--accent-contrast);
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
   padding: 0.75rem 1rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 12px 25px var(--accent-soft);
 }
 
 .submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 25px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 14px 28px var(--accent-soft);
 }
 
 .submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 </style>

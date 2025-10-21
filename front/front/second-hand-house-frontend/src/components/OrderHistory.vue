@@ -216,29 +216,29 @@ const formatTime = (value) => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface);
+  border-radius: 1.15rem;
+  box-shadow: var(--app-shadow);
   padding: 1.5rem;
 }
 
 .order-history h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .hint {
   margin: 0;
-  color: #64748b;
+  color: var(--app-muted);
 }
 
 .loading,
 .empty {
-  background: #f8fafc;
+  background: var(--app-surface-alt);
   border-radius: 0.75rem;
   padding: 1rem 1.25rem;
-  color: #475569;
+  color: var(--app-muted);
 }
 
 .order-list {
@@ -251,13 +251,13 @@ const formatTime = (value) => {
 }
 
 .order-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border);
   border-radius: 0.9rem;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(180deg, var(--app-surface) 0%, var(--app-surface-alt) 100%);
 }
 
 .order-card header {
@@ -269,7 +269,7 @@ const formatTime = (value) => {
 
 .order-card h3 {
   margin: 0;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .status {
@@ -301,7 +301,7 @@ const formatTime = (value) => {
 
 .status.cancelled {
   background: rgba(148, 163, 184, 0.25);
-  color: #475569;
+  color: var(--app-muted);
 }
 
 dl {
@@ -318,13 +318,13 @@ dl div {
 }
 
 dl dt {
-  color: #475569;
+  color: var(--app-muted);
   font-size: 0.9rem;
 }
 
 dl dd {
   margin: 0;
-  color: #1f2937;
+  color: var(--app-text);
   font-size: 0.95rem;
 }
 
@@ -335,22 +335,27 @@ dl dd {
 }
 
 .actions button {
-  background: #f97316;
+  background: var(--accent-gradient);
   border: none;
   border-radius: 0.75rem;
-  color: #fff;
+  color: var(--accent-contrast);
   cursor: pointer;
   font-weight: 600;
   padding: 0.55rem 1.4rem;
+  box-shadow: 0 10px 20px var(--accent-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
 }
 
-.actions button:hover {
-  background: #ea580c;
+.actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px var(--accent-soft);
 }
 
 .actions button:disabled {
-  background: #fdba74;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .progress {
@@ -361,7 +366,7 @@ dl dd {
 
 .progress h4 {
   margin: 0;
-  color: #1e293b;
+  color: var(--app-text);
 }
 
 .progress ol {
@@ -376,14 +381,14 @@ dl dd {
 .progress li {
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--app-surface-alt);
+  color: var(--app-muted);
   font-size: 0.85rem;
 }
 
 .progress li.completed {
-  background: rgba(37, 99, 235, 0.15);
-  color: #1d4ed8;
+  background: var(--accent-soft);
+  color: var(--accent-color);
   font-weight: 600;
 }
 </style>

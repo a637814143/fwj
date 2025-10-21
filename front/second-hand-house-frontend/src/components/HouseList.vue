@@ -321,11 +321,12 @@ table {
   border-radius: 1rem;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 thead {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
   color: #fff;
 }
 
@@ -377,17 +378,17 @@ tbody tr:hover {
 }
 
 .status.approved {
-  background: #dcfce7;
+  background: rgba(34, 197, 94, 0.18);
   color: #166534;
 }
 
 .status.pending {
-  background: #fef9c3;
+  background: rgba(250, 204, 21, 0.22);
   color: #92400e;
 }
 
 .status.rejected {
-  background: #fee2e2;
+  background: rgba(239, 68, 68, 0.18);
   color: #b91c1c;
 }
 
@@ -429,26 +430,37 @@ tbody tr:hover {
   gap: 0.5rem;
 }
 
+
 .btn {
-  padding: 0.45rem 0.85rem;
+  padding: 0.45rem 0.95rem;
   border: none;
-  border-radius: 0.65rem;
-  background: #2563eb;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
   cursor: pointer;
   font-weight: 600;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn.danger {
-  background: #ef4444;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 12px 24px rgba(239, 68, 68, 0.2);
 }
 
 .btn.warning {
-  background: #f97316;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  box-shadow: 0 12px 24px rgba(249, 115, 22, 0.2);
 }
 
 .btn.success {
-  background: #16a34a;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.2);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
 }
 
 .btn:disabled {

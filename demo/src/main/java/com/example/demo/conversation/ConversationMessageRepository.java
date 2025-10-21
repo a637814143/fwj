@@ -10,4 +10,6 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
     List<ConversationMessage> findByConversation_IdOrderByCreatedAtAsc(Long conversationId);
 
     Optional<ConversationMessage> findFirstByConversation_IdOrderByCreatedAtDesc(Long conversationId);
+
+    void deleteByConversation_IdIn(List<Long> conversationIds);
 }

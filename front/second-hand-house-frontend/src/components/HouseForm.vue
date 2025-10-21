@@ -4,7 +4,7 @@
       <div>
         <h2>{{ isEditing ? '编辑房源' : '新增房源' }}</h2>
         <p v-if="!canManage" class="notice">
-          当前角色仅支持浏览房源，如需发布或维护房源请使用卖家或系统管理员账号。
+          当前角色仅支持浏览房源，如需发布或维护房源请使用卖家账号。
         </p>
       </div>
       <div v-if="isEditing" class="status-indicator" :class="statusClass">

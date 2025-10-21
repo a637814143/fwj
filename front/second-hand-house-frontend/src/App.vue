@@ -94,6 +94,14 @@
           />
         </div>
 
+        <AdminHouseReview
+          v-else-if="activeTab === 'review'"
+          :houses="pendingReviewHouses"
+          :loading="reviewLoading"
+          @refresh="fetchHouses({ silent: false })"
+          @review="handleReview"
+        />
+
         <div v-else-if="activeTab === 'orders'" class="orders-grid">
           <WalletPanel
             :wallet="wallet"
@@ -161,6 +169,7 @@ import RoleLogin from './components/RoleLogin.vue';
 import WalletPanel from './components/WalletPanel.vue';
 import OrderHistory from './components/OrderHistory.vue';
 import HouseExplorer from './components/HouseExplorer.vue';
+import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
@@ -243,9 +252,13 @@ const canViewSensitiveInfo = computed(() => {
   return Boolean(user.realNameVerified);
 });
 
-const canManageHouses = computed(
-  () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
+const canManageHouses = computed(() => currentUser.value?.role === 'SELLER');
+
+const pendingReviewHouses = computed(() =>
+  houses.value.filter((house) => house.status === 'PENDING_REVIEW')
 );
+
+const reviewLoading = computed(() => loading.value || adminLoading.value);
 
 const navigationTabs = computed(() => {
   const tabs = [{ value: 'home', label: '购买首页' }];
@@ -258,6 +271,10 @@ const navigationTabs = computed(() => {
   }
   tabs.push({ value: 'orders', label: '订单与钱包' });
   if (isAdmin.value) {
+    const pendingLabel = pendingReviewHouses.value.length
+      ? `房源审核（${pendingReviewHouses.value.length}）`
+      : '房源审核';
+    tabs.push({ value: 'review', label: pendingLabel });
     tabs.push({ value: 'admin', label: '信誉面板' });
   }
   return tabs;
@@ -267,6 +284,9 @@ const switchTab = (tab) => {
   activeTab.value = tab;
   if (tab === 'admin') {
     loadAdminData();
+  }
+  if (tab === 'review') {
+    fetchHouses();
   }
 };
 
@@ -579,7 +599,7 @@ const refreshCurrentUser = async ({ silent = true } = {}) => {
 
 const guardReadOnly = () => {
   if (!canManageHouses.value) {
-    messages.error = '当前角色仅支持浏览房源，如需维护房源请使用卖家或系统管理员账号。';
+    messages.error = '当前角色仅支持浏览房源，如需维护房源请使用卖家账号。';
     messages.success = '';
     return false;
   }
@@ -1094,44 +1114,62 @@ onMounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  margin: 0 auto;
-  max-width: 1200px;
-  padding: 1.5rem;
-  gap: 1.5rem;
+  margin: 2.5rem auto;
+  max-width: 1240px;
+  padding: 2rem;
+  gap: 1.75rem;
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 1.75rem;
+  border: 1px solid rgba(14, 165, 233, 0.15);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.18);
 }
 
 .header {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
   color: #fff;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
+  padding: 2rem;
+  border-radius: 1.5rem;
+  box-shadow: 0 22px 45px rgba(14, 165, 233, 0.35);
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 45%);
+  pointer-events: none;
 }
 
 .branding h1 {
   margin: 0;
-  font-size: 2.2rem;
+  font-size: 2.4rem;
+  letter-spacing: 0.02em;
 }
 
 .branding p {
   margin: 0;
-  font-size: 0.95rem;
-  opacity: 0.9;
+  font-size: 1rem;
+  opacity: 0.92;
 }
 
 .session {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.25rem;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 
 .session-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.85rem;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -1139,8 +1177,8 @@ onMounted(() => {
 .identity {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.95rem;
+  gap: 0.45rem;
+  font-size: 0.98rem;
 }
 
 .reputation {
@@ -1153,20 +1191,22 @@ onMounted(() => {
 
 .logout,
 .messages-trigger {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 999px;
   color: #fff;
   cursor: pointer;
   font-weight: 600;
-  padding: 0.5rem 1.25rem;
-  transition: background 0.2s ease, transform 0.2s ease;
+  padding: 0.55rem 1.35rem;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(4px);
 }
 
 .logout:hover,
 .messages-trigger:hover {
   background: rgba(255, 255, 255, 0.35);
   transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
 }
 
 .login-section {
@@ -1177,51 +1217,56 @@ onMounted(() => {
 .menu {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  background: rgba(14, 165, 233, 0.08);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.15);
 }
 
 .menu-item {
   border: none;
   border-radius: 999px;
-  padding: 0.5rem 1.25rem;
-  background: #e0e7ff;
-  color: #1e3a8a;
+  padding: 0.55rem 1.35rem;
+  background: transparent;
+  color: #0369a1;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .menu-item.active {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
   color: #fff;
-  box-shadow: 0 8px 16px rgba(29, 78, 216, 0.25);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.25);
 }
 
 .menu-item:not(.active):hover {
-  background: #c7d2fe;
+  background: rgba(14, 165, 233, 0.16);
+  color: #0f172a;
 }
 
 .alert {
   background: #fee2e2;
-  border-left: 4px solid #ef4444;
-  border-radius: 0.75rem;
-  color: #991b1b;
+  border-left: 4px solid #f87171;
+  border-radius: 0.85rem;
+  color: #b91c1c;
   padding: 1rem 1.5rem;
 }
 
 .success {
-  background: rgba(34, 197, 94, 0.18);
+  background: rgba(34, 197, 94, 0.15);
   border-left: 4px solid #22c55e;
-  border-radius: 0.75rem;
-  color: #f8fafc;
+  border-radius: 0.85rem;
+  color: #166534;
   margin: 0;
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
 }
 
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .manage-grid,
@@ -1233,22 +1278,37 @@ onMounted(() => {
 
 .footer {
   text-align: center;
-  color: #475569;
-  font-size: 0.85rem;
+  color: #334155;
+  font-size: 0.88rem;
   margin-top: auto;
 }
 
+@media (max-width: 1024px) {
+  .app {
+    margin: 1.5rem;
+    padding: 1.5rem;
+  }
+}
+
 @media (max-width: 768px) {
+  .app {
+    margin: 1rem;
+    padding: 1.25rem;
+  }
+
   .header {
     text-align: center;
+    padding: 1.75rem 1.25rem;
   }
 
   .identity {
     align-items: center;
   }
 
-  .logout {
+  .logout,
+  .messages-trigger {
     width: 100%;
+    justify-content: center;
   }
 }
 </style>

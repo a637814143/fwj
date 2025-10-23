@@ -8,29 +8,35 @@
       <div v-else-if="!wallet" class="empty">暂无钱包数据，稍后再试。</div>
       <div v-else class="content">
         <div class="summary">
-          <div class="balance">
-            <span class="label">当前余额（元）</span>
-            <strong>{{ formatAmount(wallet.balance) }}</strong>
+          <div class="summary-card balance">
+            <span class="label">当前余额</span>
+            <div class="figures">
+              <strong class="amount-wan">￥{{ formatWan(wallet.balance) }}<small>万</small></strong>
+              <span class="amount-yuan">≈ ￥{{ formatYuan(wallet.balance) }} 元</span>
+            </div>
           </div>
-          <div class="port">
+          <div class="summary-card port">
             <span class="label">虚拟端口号</span>
             <code>{{ wallet.virtualPort }}</code>
+            <small>该编号用于识别充值与收款</small>
           </div>
         </div>
 
         <form class="top-up" @submit.prevent="submitTopUp">
           <h3>充值钱包</h3>
+          <p class="top-up-hint">系统以万元为结算单位，界面会自动折算成人民币金额。</p>
           <label>
-            充值金额（元）
+            充值金额（万元）
             <input
               v-model.number="form.amount"
               type="number"
               min="0.01"
               step="0.01"
               required
-              placeholder="请输入金额，如 5000"
+              placeholder="请输入金额，如 50"
               :disabled="loading || submitting"
             />
+            <span v-if="amountPreview" class="amount-preview">≈ ￥{{ amountPreview }} 元</span>
           </label>
           <label>
             备注（选填）
@@ -51,10 +57,15 @@
           <h3>最近流水</h3>
           <p v-if="!wallet.transactions || wallet.transactions.length === 0" class="empty">暂无交易记录。</p>
           <ul v-else>
-            <li v-for="tx in wallet.transactions" :key="tx.id" :class="['transaction', transactionClass(tx)]">
-              <span class="type">{{ typeLabels[tx.type] ?? tx.type }}</span>
-              <span class="amount">{{ formatSigned(tx.amount) }}</span>
-              <span class="time">{{ formatTime(tx.createdAt) }}</span>
+            <li v-for="tx in transactions" :key="tx.id" :class="['transaction', transactionClass(tx)]">
+              <div class="transaction-main">
+                <span class="type">{{ typeLabels[tx.type] ?? tx.type }}</span>
+                <span class="time">{{ formatTime(tx.createdAt) }}</span>
+              </div>
+              <div class="transaction-amount">
+                <span class="wan">{{ tx.amountParts.sign }}{{ tx.amountParts.wan }} 万</span>
+                <span class="yuan">≈ {{ tx.amountParts.sign }}￥{{ tx.amountParts.yuan }}</span>
+              </div>
               <span class="reference" :title="tx.reference || tx.description || ''">
                 {{ tx.reference || tx.description || '—' }}
               </span>
@@ -67,7 +78,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 const props = defineProps({
   wallet: {
@@ -96,6 +107,27 @@ const typeLabels = {
   REFUND: '退款'
 };
 
+const transactions = computed(() => {
+  if (!props.wallet || !Array.isArray(props.wallet.transactions)) {
+    return [];
+  }
+  return props.wallet.transactions.map((tx) => ({
+    ...tx,
+    amountParts: currencyParts(tx.amount)
+  }));
+});
+
+const amountPreview = computed(() => {
+  if (form.amount == null || form.amount === '') {
+    return '';
+  }
+  const numeric = Number(form.amount);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '';
+  }
+  return formatYuan(numeric);
+});
+
 watch(
   () => props.wallet,
   () => {
@@ -122,14 +154,14 @@ const submitTopUp = () => {
     return;
   }
   submitting.value = true;
-  const normalized = Number((amountValue / 10000).toFixed(2));
+  const normalized = Math.round(amountValue * 100) / 100;
   emit('top-up', {
     amount: normalized,
     reference: form.reference || undefined
   });
 };
 
-const formatAmount = (value) => {
+const formatWan = (value) => {
   if (value == null) {
     return '0.00';
   }
@@ -137,14 +169,13 @@ const formatAmount = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  const yuan = num * 10000;
-  return yuan.toLocaleString('zh-CN', {
+  return num.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 };
 
-const formatSigned = (value) => {
+const formatYuan = (value) => {
   if (value == null) {
     return '0.00';
   }
@@ -152,12 +183,30 @@ const formatSigned = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  const yuan = num * 10000;
-  const sign = yuan > 0 ? '+' : yuan < 0 ? '-' : '';
-  return `${sign}${Math.abs(yuan).toLocaleString('zh-CN', {
+  return (num * 10000).toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  })}`;
+  });
+};
+
+const currencyParts = (value) => {
+  if (value == null) {
+    return { sign: '', wan: '0.00', yuan: '0.00' };
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return { sign: '', wan: '0.00', yuan: '0.00' };
+  }
+  const sign = num > 0 ? '+' : num < 0 ? '−' : '';
+  const wan = Math.abs(num).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  const yuan = Math.abs(num * 10000).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return { sign, wan, yuan };
 };
 
 const formatTime = (value) => {
@@ -191,19 +240,21 @@ const transactionClass = (tx) => {
 .wallet-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
+  gap: 1.6rem;
   background: var(--gradient-surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
-  padding: 1.85rem;
+  padding: 2rem;
   border: 1px solid var(--color-border);
   backdrop-filter: blur(var(--glass-blur));
 }
 
 .wallet-panel h2 {
   margin: 0;
-  font-size: 1.55rem;
+  font-size: 1.6rem;
+  font-weight: 700;
   color: var(--color-text-strong);
+  letter-spacing: 0.01em;
 }
 
 .hint {
@@ -213,103 +264,167 @@ const transactionClass = (tx) => {
 
 .loading,
 .empty {
-  background: rgba(248, 250, 252, 0.85);
-  border-radius: var(--radius-md);
-  padding: 1.1rem 1.35rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.4rem;
   color: var(--color-text-muted);
-  border: 1px solid rgba(226, 232, 240, 0.6);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1.6rem;
+  gap: 1.8rem;
 }
 
 .summary {
-  display: flex;
-  gap: 1.6rem;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  background: linear-gradient(135deg, rgba(49, 46, 129, 0.92), rgba(29, 78, 216, 0.92));
-  border-radius: var(--radius-lg);
-  padding: 1.4rem 1.6rem;
-  color: #f8fafc;
-  box-shadow: 0 26px 48px rgba(30, 64, 175, 0.35);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.2rem;
 }
 
-.summary .label {
+.summary-card {
+  position: relative;
+  border-radius: calc(var(--radius-lg) - 0.2rem);
+  padding: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(calc(var(--glass-blur) / 2));
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.summary-card.balance {
+  background: var(--gradient-primary);
+  color: var(--color-text-on-emphasis);
+  box-shadow: 0 28px 60px rgba(37, 99, 235, 0.32);
+}
+
+.summary-card.port {
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+}
+
+.summary-card .label {
   display: block;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.summary-card .figures {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.amount-wan {
+  font-size: 2.25rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.amount-wan small {
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.amount-yuan {
+  font-size: 0.95rem;
   opacity: 0.85;
 }
 
-.summary strong {
-  font-size: 2.1rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+.summary-card.port code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface-soft) 70%, transparent);
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
-.summary code {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-md);
-  padding: 0.3rem 0.65rem;
-  color: #e0e7ff;
-  font-weight: 600;
+.summary-card.port small {
+  display: block;
+  margin-top: 0.6rem;
+  color: var(--color-text-soft);
 }
 
 .top-up {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .top-up h3 {
   margin: 0;
+  font-size: 1.2rem;
   color: var(--color-text-strong);
+}
+
+.top-up-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-soft);
 }
 
 .top-up label {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
   color: var(--color-text-muted);
   font-weight: 500;
 }
 
 .top-up input {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: var(--radius-md);
-  padding: 0.65rem 0.9rem;
-  font-size: 1rem;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+  font-size: 1.05rem;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base),
+    background var(--transition-base);
+}
+
+.top-up input:focus {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.amount-preview {
+  font-size: 0.88rem;
+  color: var(--color-text-soft);
 }
 
 .top-up button {
-  align-self: flex-start;
+  justify-self: flex-start;
   background: var(--gradient-primary);
   border: none;
   border-radius: var(--radius-pill);
-  color: #fff;
-  cursor: pointer;
+  color: var(--color-text-on-emphasis);
   font-weight: 600;
-  padding: 0.65rem 1.55rem;
-  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
+  padding: 0.7rem 1.8rem;
+  box-shadow: 0 22px 48px rgba(37, 99, 235, 0.3);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .top-up button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 24px 45px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 30px 60px rgba(37, 99, 235, 0.35);
 }
 
 .top-up button:disabled {
-  background: rgba(165, 180, 252, 0.85);
-  cursor: not-allowed;
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
   box-shadow: none;
 }
 
 .transactions h3 {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.75rem;
   color: var(--color-text-strong);
 }
 
@@ -319,49 +434,90 @@ const transactionClass = (tx) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
 }
 
 .transaction {
   display: grid;
-  grid-template-columns: 110px 1fr 160px 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+}
+
+.transaction-main {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.85rem 1.1rem;
-  border-radius: var(--radius-md);
-  background: rgba(248, 250, 252, 0.85);
-  border: 1px solid rgba(226, 232, 240, 0.6);
+  gap: 0.65rem;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
 }
 
-.transaction .amount {
+.transaction-main .type {
   font-weight: 600;
-  text-align: right;
+  color: var(--color-text-strong);
 }
 
-.transaction.positive .amount {
+.transaction-amount {
+  text-align: right;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  color: var(--color-text-strong);
+}
+
+.transaction-amount .wan {
+  font-size: 1.15rem;
+}
+
+.transaction-amount .yuan {
+  font-size: 0.88rem;
+  color: var(--color-text-soft);
+}
+
+.transaction.positive .transaction-amount {
   color: #16a34a;
 }
 
-.transaction.negative .amount {
-  color: #dc2626;
+.transaction.negative .transaction-amount {
+  color: #ef4444;
 }
 
 .transaction .reference {
+  grid-column: 1 / -1;
   color: var(--color-text-soft);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.transaction .time {
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
+.transactions .empty {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text-soft);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 720px) {
+  .wallet-panel {
+    padding: 1.6rem;
+  }
+
   .transaction {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-amount {
+    align-items: flex-start;
+    text-align: left;
   }
 }
 </style>

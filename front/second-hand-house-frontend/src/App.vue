@@ -1990,7 +1990,7 @@ onMounted(() => {
 
 .header {
   background: linear-gradient(130deg, rgba(14, 165, 233, 0.95), rgba(37, 99, 235, 0.95));
-  color: #fff;
+  color: var(--color-text-on-emphasis);
   padding: 2.35rem;
   border-radius: calc(var(--radius-lg) + 0.35rem);
   box-shadow: 0 26px 60px rgba(14, 165, 233, 0.35);
@@ -2057,15 +2057,15 @@ onMounted(() => {
 }
 
 .header-actions :deep(.settings-toggle) {
-  background: rgba(255, 255, 255, 0.24);
+  background: color-mix(in srgb, var(--color-text-on-emphasis) 18%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.45);
-  color: #fff;
+  color: var(--color-text-on-emphasis);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
 }
 
 .header-actions :deep(.settings-toggle:hover) {
-  background: rgba(255, 255, 255, 0.34);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-text-on-emphasis) 28%, transparent);
+  color: var(--color-text-on-emphasis);
 }
 
 .session {
@@ -2107,10 +2107,10 @@ onMounted(() => {
 
 .logout,
 .messages-trigger {
-  background: rgba(255, 255, 255, 0.24);
+  background: color-mix(in srgb, var(--color-text-on-emphasis) 22%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--radius-pill);
-  color: #fff;
+  color: var(--color-text-on-emphasis);
   font-weight: 600;
   padding: 0.6rem 1.5rem;
   transition: background var(--transition-base), transform var(--transition-base),
@@ -2120,7 +2120,7 @@ onMounted(() => {
 
 .logout:hover,
 .messages-trigger:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: color-mix(in srgb, var(--color-text-on-emphasis) 32%, transparent);
   transform: translateY(-1px);
   box-shadow: 0 14px 26px rgba(15, 23, 42, 0.18);
 }
@@ -2135,9 +2135,9 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.9rem;
   padding: 0.85rem;
-  background: rgba(255, 255, 255, 0.65);
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid var(--color-border);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
@@ -2147,7 +2147,7 @@ onMounted(() => {
   border-radius: var(--radius-pill);
   padding: 0.55rem 1.5rem;
   background: transparent;
-  color: rgba(37, 99, 235, 0.85);
+  color: var(--color-accent);
   font-weight: 600;
   letter-spacing: 0.01em;
   transition: all var(--transition-base);
@@ -2155,28 +2155,28 @@ onMounted(() => {
 
 .menu-item.active {
   background: var(--gradient-primary);
-  color: #fff;
+  color: var(--color-text-on-emphasis);
   box-shadow: 0 18px 34px rgba(37, 99, 235, 0.28);
 }
 
 .menu-item:not(.active):hover {
-  background: rgba(37, 99, 235, 0.12);
-  color: #0f172a;
+  background: var(--color-accent-soft);
+  color: var(--color-text-strong);
 }
 
 .alert {
-  background: rgba(248, 113, 113, 0.16);
+  background: color-mix(in srgb, rgba(248, 113, 113, 0.35) 55%, transparent);
   border-radius: var(--radius-md);
-  color: #7f1d1d;
+  color: color-mix(in srgb, #7f1d1d 80%, var(--color-text-strong));
   padding: 1.05rem 1.45rem;
   border: 1px solid rgba(239, 68, 68, 0.32);
   backdrop-filter: blur(calc(var(--glass-blur) / 3));
 }
 
 .success {
-  background: rgba(34, 197, 94, 0.18);
+  background: color-mix(in srgb, rgba(34, 197, 94, 0.28) 60%, transparent);
   border-radius: var(--radius-md);
-  color: #14532d;
+  color: color-mix(in srgb, #14532d 85%, var(--color-text-strong));
   margin: 0;
   padding: 0.9rem 1.2rem;
   border: 1px solid rgba(34, 197, 94, 0.32);
@@ -2202,6 +2202,21 @@ onMounted(() => {
   font-size: 0.9rem;
   margin-top: auto;
   padding-top: 0.75rem;
+}
+
+:global(body[data-theme='dark']) .app {
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88));
+  border-color: color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+:global(body[data-theme='dark']) .header {
+  background: linear-gradient(130deg, rgba(56, 189, 248, 0.85), rgba(99, 102, 241, 0.88));
+  box-shadow: 0 26px 60px rgba(15, 118, 221, 0.32);
+}
+
+:global(body[data-theme='dark']) .menu {
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
 @media (max-width: 1024px) {

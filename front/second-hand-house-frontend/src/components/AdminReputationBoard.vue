@@ -100,7 +100,7 @@
               <td>{{ roleLabels[user.role] ?? user.role }}</td>
               <td>{{ user.reputationScore }}</td>
               <td>
-                <span v-if="user.role === 'SELLER'">违约 {{ user.reservationBreaches }}</span>
+                <span v-if="isSellerRole(user.role)">违约 {{ user.reservationBreaches }}</span>
                 <span v-else>退回 {{ user.returnCount }}</span>
               </td>
               <td>
@@ -160,11 +160,16 @@ const props = defineProps({
 
 const emit = defineEmits(['toggle-blacklist', 'refresh', 'delete-user']);
 
+const sellerRoles = ['SELLER', 'LANDLORD'];
+
 const roleLabels = {
   SELLER: '卖家',
+  LANDLORD: '卖家',
   BUYER: '买家',
   ADMIN: '管理员'
 };
+
+const isSellerRole = (role) => sellerRoles.includes(role);
 
 const toggle = (user) => {
   emit('toggle-blacklist', { username: user.username, blacklisted: !user.blacklisted });

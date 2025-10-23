@@ -1263,8 +1263,12 @@ const convertLocalTimeToIso = (value) => {
   return date.toISOString();
 };
 
+const sellerRoles = ['SELLER', 'LANDLORD'];
+const isSellerRole = (role) => sellerRoles.includes(role);
+
 const roleLabels = computed(() => ({
   SELLER: t('roles.seller'),
+  LANDLORD: t('roles.seller'),
   BUYER: t('roles.buyer'),
   ADMIN: t('roles.admin')
 }));
@@ -1289,10 +1293,13 @@ const orderProgressSequence = Object.freeze([
   'HANDOVER_COMPLETED'
 ]);
 
-const isSeller = computed(() => currentUser.value?.role === 'SELLER');
+const isSeller = computed(() => isSellerRole(currentUser.value?.role));
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
-const canUseMessaging = computed(() => currentUser.value && ['BUYER', 'SELLER'].includes(currentUser.value.role));
+const canUseMessaging = computed(() => {
+  const role = currentUser.value?.role;
+  return role === 'BUYER' || isSellerRole(role);
+});
 const isRealNameVerified = computed(() => Boolean(currentUser.value?.realNameVerified));
 const canViewSensitiveInfo = computed(() => {
   const user = currentUser.value;
@@ -1305,10 +1312,10 @@ const canViewSensitiveInfo = computed(() => {
   return Boolean(user.realNameVerified);
 });
 
-const canManageHouses = computed(() => currentUser.value?.role === 'SELLER');
+const canManageHouses = computed(() => isSeller.value);
 
 const urgentTasks = computed(() => {
-  if (!currentUser.value || !['BUYER', 'SELLER'].includes(currentUser.value.role)) {
+  if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
     return [];
   }
   const role = currentUser.value.role;
@@ -1328,7 +1335,7 @@ const urgentTasks = computed(() => {
     const timeLabel = validViewing ? formatLocalDateTime(validViewing) : null;
     const viewingSoon = validViewing ? timeValue <= soonThreshold : false;
 
-    if (role === 'SELLER') {
+    if (isSellerRole(role)) {
       if (stage === 'DEPOSIT_PAID') {
         list.push({
           key: `${order.id}-schedule`,
@@ -2264,7 +2271,7 @@ const handleLoginSuccess = (user) => {
   fetchWallet();
   fetchOrders();
   loadRecommendations({ silent: false });
-  if (user.role === 'BUYER' || user.role === 'SELLER') {
+  if (user.role === 'BUYER' || isSellerRole(user.role)) {
     loadConversations({ silent: true });
   }
   if (user.role === 'ADMIN') {
@@ -2303,7 +2310,7 @@ watch(
       adminUsers.value = [];
       adminReputation.value = null;
     }
-    if (role === 'BUYER' || role === 'SELLER') {
+    if (role === 'BUYER' || isSellerRole(role)) {
       loadConversations({ silent: true });
     } else {
       resetConversationState();

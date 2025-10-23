@@ -230,9 +230,11 @@ const listingStatusLabels = {
 const currentStep = ref(1);
 const stepErrors = reactive({ 1: '', 2: '', 3: '' });
 
+const sellerRoles = ['SELLER', 'LANDLORD'];
 const disabled = computed(() => !props.canManage || props.loading);
 const isEditing = computed(() => Boolean(props.initialHouse));
-const disableSellerAccount = computed(() => props.currentUser?.role === 'SELLER');
+const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
+const disableSellerAccount = computed(() => isSeller.value);
 const initialHouse = computed(() => props.initialHouse);
 const statusLabel = computed(() => listingStatusLabels[props.initialHouse?.status] ?? '待审核');
 const statusClass = computed(() => {
@@ -267,8 +269,8 @@ const emptyForm = () => ({
   price: '',
   area: '',
   description: '',
-  sellerUsername: props.currentUser?.role === 'SELLER' ? props.currentUser.username ?? '' : '',
-  sellerName: props.currentUser?.role === 'SELLER' ? props.currentUser.displayName ?? '' : '',
+  sellerUsername: isSeller.value ? props.currentUser?.username ?? '' : '',
+  sellerName: isSeller.value ? props.currentUser?.displayName ?? '' : '',
   contactNumber: '',
   listingDate: '',
   floor: '',

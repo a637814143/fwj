@@ -13,7 +13,11 @@
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">价格</span>
-            <span class="info-value">￥{{ formattedPrice }} 万</span>
+            <span class="info-value">￥{{ formattedPrice }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">首付</span>
+            <span class="info-value">￥{{ formattedDownPayment }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">分期方案</span>
@@ -106,14 +110,18 @@ const emit = defineEmits(['close']);
 
 const images = computed(() => (Array.isArray(props.house?.imageUrls) ? props.house.imageUrls : []));
 
-const formattedPrice = computed(() => formatNumber(props.house?.price));
+const formattedPrice = computed(() => formatCurrency(props.house?.price));
+const formattedDownPayment = computed(() => formatCurrency(props.house?.downPayment));
 const formattedInstallment = computed(() => {
-  const monthly = formatNumber(props.house?.installmentMonthlyPayment);
-  const months = props.house?.installmentMonths ?? '—';
-  if (monthly === '-' && (!months || months === '—')) {
+  const monthly = formatCurrency(props.house?.installmentMonthlyPayment);
+  const months =
+    props.house?.installmentMonths != null && props.house.installmentMonths !== ''
+      ? props.house.installmentMonths
+      : '—';
+  if (monthly === '—') {
     return '—';
   }
-  return `￥${monthly} 万 × ${months} 期`;
+  return `￥${monthly} × ${months} 期`;
 });
 const formattedArea = computed(() => formatNumber(props.house?.area));
 const formattedDate = computed(() => formatDate(props.house?.listingDate));
@@ -161,10 +169,24 @@ const maskedPhone = computed(() => {
 
 function formatNumber(value) {
   if (value == null || value === '') {
-    return '-';
+    return '—';
   }
   return Number(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatCurrency(value) {
+  if (value == null || value === '') {
+    return '—';
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '—';
+  }
+  return num.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 }

@@ -109,6 +109,9 @@ watch(
   { immediate: true }
 );
 
+const idNumberPattern = /^\d{18}$/;
+const phoneNumberPattern = /^\d{13}$/;
+
 const submit = async () => {
   if (!props.currentUser) {
     return;
@@ -116,6 +119,14 @@ const submit = async () => {
   loading.value = true;
   error.value = '';
   try {
+    if (!idNumberPattern.test(form.idNumber)) {
+      error.value = '身份证号必须为18位数字。';
+      return;
+    }
+    if (!phoneNumberPattern.test(form.phoneNumber)) {
+      error.value = '手机号必须为13位数字。';
+      return;
+    }
     const { data } = await client.post(`/auth/verify/${props.currentUser.username}`, {
       realName: form.realName,
       idNumber: form.idNumber,

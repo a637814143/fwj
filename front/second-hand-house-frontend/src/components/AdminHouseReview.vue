@@ -32,12 +32,16 @@
           <dl class="meta">
             <div>
               <dt>挂牌价</dt>
-              <dd>￥{{ formatPrice(house.price) }} 万</dd>
+              <dd>￥{{ formatCurrency(house.price) }}</dd>
+            </div>
+            <div>
+              <dt>首付</dt>
+              <dd>￥{{ formatCurrency(house.downPayment) }}</dd>
             </div>
             <div>
               <dt>分期方案</dt>
               <dd>
-                ￥{{ formatPrice(house.installmentMonthlyPayment) }} 万 ×
+                ￥{{ formatCurrency(house.installmentMonthlyPayment) }} ×
                 {{ house.installmentMonths || '—' }} 期
               </dd>
             </div>
@@ -115,7 +119,7 @@ const emit = defineEmits(['refresh', 'review']);
 
 const pendingCount = computed(() => props.houses.length);
 
-const formatPrice = (value) => {
+const formatCurrency = (value) => {
   if (value == null || Number.isNaN(Number(value))) {
     return '0.00';
   }

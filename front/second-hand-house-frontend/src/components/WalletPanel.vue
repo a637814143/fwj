@@ -11,8 +11,7 @@
           <div class="summary-card balance">
             <span class="label">{{ t('wallet.labels.balance') }}</span>
             <div class="figures">
-              <strong class="amount-wan">￥{{ formatWan(wallet.balance) }}<small>{{ t('wallet.labels.unitWan') }}</small></strong>
-              <span class="amount-yuan">≈ ￥{{ formatYuan(wallet.balance) }} {{ t('wallet.labels.unitYuan') }}</span>
+              <strong class="amount-yuan">￥{{ formatYuan(wallet.balance) }}</strong>
             </div>
           </div>
           <div class="summary-card port">
@@ -36,7 +35,7 @@
               :placeholder="t('wallet.topUp.amountPlaceholder')"
               :disabled="loading || submitting"
             />
-            <span v-if="amountPreview" class="amount-preview">≈ ￥{{ amountPreview }} {{ t('wallet.labels.unitYuan') }}</span>
+            <span v-if="amountPreview" class="amount-preview">￥{{ amountPreview }}</span>
           </label>
           <label>
             {{ t('wallet.topUp.referenceLabel') }}
@@ -65,8 +64,7 @@
                 <span class="time">{{ formatTime(tx.createdAt) }}</span>
               </div>
               <div class="transaction-amount">
-                <span class="wan">{{ tx.amountParts.sign }}{{ tx.amountParts.wan }} {{ t('wallet.labels.unitWan') }}</span>
-                <span class="yuan">≈ {{ tx.amountParts.sign }}￥{{ tx.amountParts.yuan }}</span>
+                <span class="amount">{{ tx.amountParts.sign }}￥{{ tx.amountParts.value }}</span>
               </div>
               <span class="reference" :title="formatReference(tx)">
                 {{ formatReference(tx) }}
@@ -169,20 +167,8 @@ const submitTopUp = () => {
   });
 };
 
-const formatWan = (value) => formatCurrency(value, 2);
-
 const formatYuan = (value) => {
-  if (value == null) {
-    return '0.00';
-  }
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return '0.00';
-  }
-  return (num * 10000).toLocaleString(locale.value, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+  return formatCurrency(value, 2);
 };
 
 const formatCurrency = (value, fractionDigits = 2) => {
@@ -201,18 +187,17 @@ const formatCurrency = (value, fractionDigits = 2) => {
 
 const currencyParts = (value) => {
   if (value == null) {
-    return { sign: '', wan: '0.00', yuan: '0.00' };
+    return { sign: '', value: '0.00' };
   }
   const num = Number(value);
   if (!Number.isFinite(num)) {
-    return { sign: '', wan: '0.00', yuan: '0.00' };
+    return { sign: '', value: '0.00' };
   }
   const sign = num > 0 ? '+' : num < 0 ? '−' : '';
   const absolute = Math.abs(num);
   return {
     sign,
-    wan: formatCurrency(absolute, 2),
-    yuan: formatYuan(absolute)
+    value: formatYuan(absolute)
   };
 };
 
@@ -326,21 +311,10 @@ const formatTime = (value) => {
   gap: 0.35rem;
 }
 
-.amount-wan {
+.amount-yuan {
   font-size: 1.8rem;
   color: var(--color-text-strong);
-  display: flex;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.amount-wan small {
-  font-size: 1rem;
-}
-
-.amount-yuan {
-  color: var(--color-text-soft);
-  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .summary-card.port code {
@@ -448,9 +422,16 @@ const formatTime = (value) => {
 
 .transaction-amount {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  justify-content: flex-end;
+  align-items: center;
   font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-text-strong);
+}
+
+.transaction-amount .amount {
+  display: inline-flex;
+  align-items: baseline;
 }
 
 .transaction.positive .transaction-amount {

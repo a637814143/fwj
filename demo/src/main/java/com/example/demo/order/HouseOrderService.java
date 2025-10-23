@@ -103,7 +103,7 @@ public class HouseOrderService {
         String description = String.format("房源《%s》预定定金", house.getTitle());
         walletService.processPayment(order, reference, description);
         order.markReserved();
-        order.setProgressStage(OrderProgressStage.RESERVED);
+        order.setProgressStage(OrderProgressStage.DEPOSIT_PAID);
         order = orderRepository.save(order);
 
         seller.increaseReputation(1);
@@ -136,13 +136,22 @@ public class HouseOrderService {
         ensureNotBlacklisted(order.getSeller(), "卖家账号已被加入黑名单，无法预约看房");
         ensureNotBlacklisted(order.getBuyer(), "买家账号已被加入黑名单，无法接受预约");
 
+        OrderProgressStage progressStage = order.getProgressStage();
+        if (progressStage == OrderProgressStage.FEEDBACK_SUBMITTED
+                || progressStage == OrderProgressStage.HANDOVER_COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前订单进度不支持预约看房");
+        }
+
         OffsetDateTime viewingTime = parseViewingTime(request.viewingTime());
+        if (viewingTime.isBefore(OffsetDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预约时间不能早于当前时间");
+        }
         String viewingMessage = normalizeMessage(request.message());
 
         order.setViewingTime(viewingTime);
         order.setViewingMessage(viewingMessage);
-        if (order.getProgressStage() == OrderProgressStage.RESERVED) {
-            order.setProgressStage(OrderProgressStage.VIEWED);
+        if (order.getProgressStage() == OrderProgressStage.DEPOSIT_PAID) {
+            order.setProgressStage(OrderProgressStage.VIEWING_SCHEDULED);
         }
         order = orderRepository.save(order);
 
@@ -151,6 +160,7 @@ public class HouseOrderService {
         if (viewingMessage != null) {
             content.append("，备注：").append(viewingMessage);
         }
+        content.append("，请在消息中心确认安排。");
 
         conversationService.sendMessageBetween(
                 order.getBuyer().getUsername(),
@@ -203,7 +213,7 @@ public class HouseOrderService {
                 : String.format("房源《%s》购房全款支付", house.getTitle());
         walletService.processPayment(order, reference, description);
         order.markPaid();
-        order.setProgressStage(OrderProgressStage.BALANCE_PAID);
+        order.setProgressStage(OrderProgressStage.HANDOVER_COMPLETED);
         order = orderRepository.save(order);
 
         seller.increaseReputation(3);
@@ -253,7 +263,7 @@ public class HouseOrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无效的进度更新请求");
         }
         order.setProgressStage(target);
-        if (target == OrderProgressStage.HANDED_OVER) {
+        if (target == OrderProgressStage.HANDOVER_COMPLETED) {
             UserAccount seller = order.getSeller();
             UserAccount buyer = order.getBuyer();
             seller.increaseReputation(5);
@@ -294,10 +304,10 @@ public class HouseOrderService {
 
     private boolean canTransition(OrderProgressStage current, OrderProgressStage target) {
         return switch (current) {
-            case RESERVED -> target == OrderProgressStage.VIEWED;
-            case VIEWED -> target == OrderProgressStage.BALANCE_PAID;
-            case BALANCE_PAID -> target == OrderProgressStage.HANDED_OVER;
-            case HANDED_OVER -> false;
+            case DEPOSIT_PAID -> target == OrderProgressStage.VIEWING_SCHEDULED;
+            case VIEWING_SCHEDULED -> target == OrderProgressStage.FEEDBACK_SUBMITTED;
+            case FEEDBACK_SUBMITTED -> target == OrderProgressStage.HANDOVER_COMPLETED;
+            case HANDOVER_COMPLETED -> false;
         };
     }
 

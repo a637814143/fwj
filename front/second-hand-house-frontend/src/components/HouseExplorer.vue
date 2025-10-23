@@ -1,36 +1,58 @@
 <template>
   <section class="house-explorer">
-    <header class="explorer-header">
-      <div>
-        <h2>购房首页</h2>
-        <p>按关键字、价格或面积筛选房源，系统将展示通过审核的优质房源并支持一键预定与支付。</p>
+    <form class="filters" @submit.prevent="submitFilters">
+      <div class="search-row" ref="searchContainerRef">
+        <div class="search-field">
+          <input
+            ref="keywordInputRef"
+            v-model.trim="localFilters.keyword"
+            type="search"
+            placeholder="输入房源关键词（标题、地址或描述）"
+            @focus="showHistory"
+            @click="showHistory"
+          />
+          <button type="button" class="history-toggle" @click.stop="toggleHistory">
+            历史搜索
+          </button>
+        </div>
+        <button type="submit" class="search-submit">搜索房源</button>
+        <transition name="fade">
+          <ul v-if="historyVisible && searchHistory.length" class="history-dropdown">
+            <li v-for="item in searchHistory" :key="item">
+              <button type="button" @click="selectHistory(item)">{{ item }}</button>
+            </li>
+          </ul>
+        </transition>
       </div>
-      <form class="filters" @submit.prevent="submitFilters">
-        <input v-model.trim="localFilters.keyword" type="search" placeholder="关键词（标题、地址、描述）" />
-        <div class="range">
-          <label>
-            最低价格
-            <input v-model.number="localFilters.minPrice" type="number" min="0" step="0.01" placeholder="万元" />
-          </label>
-          <label>
-            最高价格
-            <input v-model.number="localFilters.maxPrice" type="number" min="0" step="0.01" placeholder="万元" />
-          </label>
-          <label>
-            最小面积
-            <input v-model.number="localFilters.minArea" type="number" min="0" step="0.1" placeholder="㎡" />
-          </label>
-          <label>
-            最大面积
-            <input v-model.number="localFilters.maxArea" type="number" min="0" step="0.1" placeholder="㎡" />
-          </label>
+      <header class="explorer-header">
+        <div>
+          <h2>购房首页</h2>
+          <p>按关键字、价格或面积筛选房源，系统将展示通过审核的优质房源并支持一键预定与支付。</p>
         </div>
-        <div class="actions">
-          <button type="submit">筛选房源</button>
-          <button type="button" class="secondary" @click="resetFilters">重置</button>
-        </div>
-      </form>
-    </header>
+      </header>
+      <div class="range">
+        <label>
+          最低价格
+          <input v-model.number="localFilters.minPrice" type="number" min="0" step="0.01" placeholder="万元" />
+        </label>
+        <label>
+          最高价格
+          <input v-model.number="localFilters.maxPrice" type="number" min="0" step="0.01" placeholder="万元" />
+        </label>
+        <label>
+          最小面积
+          <input v-model.number="localFilters.minArea" type="number" min="0" step="0.1" placeholder="㎡" />
+        </label>
+        <label>
+          最大面积
+          <input v-model.number="localFilters.maxArea" type="number" min="0" step="0.1" placeholder="㎡" />
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">应用筛选</button>
+        <button type="button" class="secondary" @click="resetFilters">重置</button>
+      </div>
+    </form>
 
     <section v-if="hasRecommendations" class="recommendations">
       <div class="recommendation">
@@ -162,7 +184,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, watch, ref, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   houses: {
@@ -218,6 +240,12 @@ const localFilters = reactive({
   minArea: '',
   maxArea: ''
 });
+
+const historyStorageKey = 'house-search-history';
+const historyVisible = ref(false);
+const searchHistory = ref([]);
+const searchContainerRef = ref(null);
+const keywordInputRef = ref(null);
 
 const selectedPayments = reactive({});
 
@@ -277,6 +305,8 @@ watch(
 );
 
 const submitFilters = () => {
+  historyVisible.value = false;
+  recordHistory(localFilters.keyword);
   emit('search', { ...localFilters });
 };
 
@@ -294,8 +324,90 @@ const resetFilters = () => {
   Object.keys(localFilters).forEach((key) => {
     localFilters[key] = '';
   });
+  historyVisible.value = false;
   emit('search', { ...localFilters });
 };
+
+const loadHistory = () => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(historyStorageKey);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.slice(0, 9);
+    }
+  } catch (error) {
+    console.warn('Failed to restore search history', error);
+  }
+  return [];
+};
+
+const persistHistory = (history) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(historyStorageKey, JSON.stringify(history));
+  } catch (error) {
+    console.warn('Failed to persist search history', error);
+  }
+};
+
+const recordHistory = (value) => {
+  const keyword = (value ?? '').trim();
+  if (!keyword) {
+    return;
+  }
+  const unique = [keyword, ...searchHistory.value.filter((item) => item !== keyword)].slice(0, 9);
+  searchHistory.value = unique;
+  persistHistory(unique);
+};
+
+const showHistory = () => {
+  if (searchHistory.value.length > 0) {
+    historyVisible.value = true;
+  }
+};
+
+const toggleHistory = () => {
+  if (!searchHistory.value.length) {
+    historyVisible.value = false;
+    return;
+  }
+  historyVisible.value = !historyVisible.value;
+};
+
+const selectHistory = (keyword) => {
+  localFilters.keyword = keyword;
+  historyVisible.value = false;
+  submitFilters();
+  keywordInputRef.value?.blur();
+};
+
+const handleClickOutside = (event) => {
+  if (!historyVisible.value) {
+    return;
+  }
+  const container = searchContainerRef.value;
+  if (container && !container.contains(event.target)) {
+    historyVisible.value = false;
+  }
+};
+
+searchHistory.value = loadHistory();
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 
 const coverImage = (house) => {
   if (!house || !Array.isArray(house.imageUrls)) {
@@ -475,19 +587,117 @@ const statusClass = (house) => {
 .filters {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1.4rem;
 }
 
-.filters input[type='search'] {
-  padding: 0.85rem 1.1rem;
+.search-row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  align-items: center;
+}
+
+.search-field {
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-.filters input[type='search']::placeholder {
-  color: rgba(100, 116, 139, 0.8);
+.search-field input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  outline: none;
+  color: var(--color-text-strong);
+}
+
+.search-field input::placeholder {
+  color: rgba(100, 116, 139, 0.75);
+}
+
+.history-toggle {
+  border: none;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.history-toggle:hover {
+  background: rgba(37, 99, 235, 0.22);
+}
+
+.search-submit {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.65rem 1.6rem;
+  background: var(--gradient-primary);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.24);
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.search-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 24px 45px rgba(37, 99, 235, 0.28);
+}
+
+.history-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  width: min(520px, 100%);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  box-shadow: var(--shadow-md);
+  padding: 0.6rem;
+  list-style: none;
+  margin: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.history-dropdown li button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.history-dropdown li button:hover {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .range {

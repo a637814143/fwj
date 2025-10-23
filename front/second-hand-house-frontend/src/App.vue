@@ -110,6 +110,11 @@
         />
 
         <div v-else-if="activeTab === 'orders'" class="orders-grid">
+          <UrgentTasks
+            v-if="showUrgentTasks"
+            :tasks="urgentTasks"
+            :progress-labels="orderProgressLabels"
+          />
           <WalletPanel
             :wallet="wallet"
             :loading="walletLoading"
@@ -121,7 +126,12 @@
             :loading="ordersLoading"
             :current-user="currentUser"
             :can-view-sensitive-info="canViewSensitiveInfo"
+            :progress-labels="orderProgressLabels"
+            :progress-order="orderProgressSequence"
             @request-return="handleRequestReturn"
+            @schedule-viewing="handleScheduleViewing"
+            @advance-progress="handleAdvanceProgress"
+            @confirm-viewing="handleViewingConfirmation"
           />
         </div>
 
@@ -155,10 +165,12 @@
       :sending-message="conversationSending"
       :current-user="currentUser"
       :error="conversationError"
-      @close="conversationPanelVisible = false"
+      :prefill="conversationPrefill"
+      @close="closeConversationPanel"
       @refresh-conversations="loadConversations()"
       @select-conversation="handleSelectConversation"
       @send-message="handleSendConversationMessage"
+      @prefill-consumed="handleConversationPrefillConsumed"
     />
 
     <footer class="footer">
@@ -181,6 +193,7 @@ import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
+import UrgentTasks from './components/UrgentTasks.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -199,6 +212,7 @@ const adminUsers = ref([]);
 const adminReputation = ref(null);
 const adminLoading = ref(false);
 const conversationPanelVisible = ref(false);
+const conversationPrefill = ref('');
 const conversations = ref([]);
 const activeConversationId = ref(null);
 const conversationMessages = ref([]);
@@ -366,6 +380,8 @@ const translations = {
       reservation: '已成功预定房源《{title}》，定金 ￥{amount}。',
       walletTopUp: '钱包充值成功，充值金额 ￥{amount}。',
       orderReturned: '订单《{title}》已退换成功。',
+      viewingScheduled: '已为房源《{title}》安排看房，时间 {time}。',
+      progressUpdated: '交易进度已更新至 {stage}。',
       blacklistAdded: '已将账号 {username} 加入黑名单。',
       blacklistRemoved: '已解除账号 {username} 的黑名单状态。',
       accountDeleted: '账号 {username} 已被删除。',
@@ -384,6 +400,9 @@ const translations = {
       loadMessages: '加载消息失败。',
       messagingUnsupported: '当前角色暂不支持对话功能。',
       sendMessage: '发送消息失败。',
+      scheduleViewing: '预约看房失败，请稍后再试。',
+      progressUpdate: '更新交易进度失败。',
+      scheduleViewingInvalid: '请选择有效的预约时间。',
       contactSellerBuyerOnly: '只有买家可以主动联系卖家。',
       contactSellerVerifyFirst: '请先完成实名认证后再联系卖家。',
       createConversation: '创建对话失败，请稍后再试。',
@@ -427,6 +446,29 @@ const translations = {
     payments: {
       installment: '分期',
       full: '全款'
+    },
+    orders: {
+      progress: {
+        DEPOSIT_PAID: '定金交付阶段',
+        VIEWING_SCHEDULED: '预约看房阶段',
+        FEEDBACK_SUBMITTED: '看房反馈阶段',
+        HANDOVER_COMPLETED: '交房阶段'
+      },
+      urgent: {
+        title: '紧急待办',
+        subtitle: '查看最近的预约情况与提醒。',
+        empty: '最近暂无紧急事项。',
+        badge: '{count} 条待办',
+        awaitingScheduleSeller: '买家 {buyer} 已预定，尽快安排看房时间。',
+        awaitingScheduleBuyer: '等待卖家安排看房，如有需要可主动联系。',
+        scheduledReminderSeller: '已预约 {time} 看房，请准时到场并提前准备房屋。',
+        scheduledReminderBuyer: '已预约 {time} 看房，请及时确认并按时到场。',
+        upcomingViewing: '预约时间：{time}'
+      },
+      quickMessages: {
+        confirmViewing: '我已确认 {time} 的看房安排，届时见。',
+        confirmViewingNoTime: '我已收到看房安排，请您确认。'
+      }
     }
   },
   en: {
@@ -537,6 +579,8 @@ const translations = {
       reservation: 'Successfully reserved “{title}” with a deposit of ¥{amount}.',
       walletTopUp: 'Wallet top-up successful, amount ¥{amount}.',
       orderReturned: 'Order “{title}” has been refunded.',
+      viewingScheduled: 'Viewing for “{title}” has been scheduled at {time}.',
+      progressUpdated: 'Progress updated to {stage}.',
       blacklistAdded: 'Account {username} added to blacklist.',
       blacklistRemoved: 'Account {username} removed from blacklist.',
       accountDeleted: 'Account {username} has been deleted.',
@@ -555,6 +599,9 @@ const translations = {
       loadMessages: 'Failed to load messages.',
       messagingUnsupported: 'Messaging is not available for this role.',
       sendMessage: 'Failed to send message.',
+      scheduleViewing: 'Failed to schedule viewing. Please try again later.',
+      progressUpdate: 'Failed to update progress.',
+      scheduleViewingInvalid: 'Please choose a valid viewing time.',
       contactSellerBuyerOnly: 'Only buyers can contact sellers.',
       contactSellerVerifyFirst: 'Please complete real-name verification before contacting sellers.',
       createConversation: 'Failed to start conversation. Please try again later.',
@@ -598,6 +645,29 @@ const translations = {
     payments: {
       installment: 'instalments',
       full: 'full payment'
+    },
+    orders: {
+      progress: {
+        DEPOSIT_PAID: 'Deposit stage',
+        VIEWING_SCHEDULED: 'Viewing appointment',
+        FEEDBACK_SUBMITTED: 'Viewing feedback',
+        HANDOVER_COMPLETED: 'Handover'
+      },
+      urgent: {
+        title: 'Urgent tasks',
+        subtitle: 'Stay on top of the latest viewing appointments.',
+        empty: 'No urgent items recently.',
+        badge: '{count} tasks',
+        awaitingScheduleSeller: 'Buyer {buyer} has reserved. Please arrange a viewing.',
+        awaitingScheduleBuyer: 'Waiting for the seller to schedule a viewing. Feel free to reach out proactively.',
+        scheduledReminderSeller: 'Viewing scheduled at {time}. Please prepare the property in advance.',
+        scheduledReminderBuyer: 'Viewing scheduled at {time}. Remember to confirm and arrive on time.',
+        upcomingViewing: 'Appointment: {time}'
+      },
+      quickMessages: {
+        confirmViewing: 'I confirm the viewing at {time}. See you then!',
+        confirmViewingNoTime: 'I have received the viewing arrangement. Please confirm.'
+      }
     }
   }
 };
@@ -709,6 +779,36 @@ const formatCurrencyYuan = (value) => {
   });
 };
 
+const formatLocalDateTime = (value) => {
+  if (!value) {
+    return '';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const locale = settings.language === 'en' ? 'en-US' : 'zh-CN';
+  return date.toLocaleString(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+};
+
+const convertLocalTimeToIso = (value) => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+};
+
 const roleLabels = computed(() => ({
   SELLER: t('roles.seller'),
   BUYER: t('roles.buyer'),
@@ -720,6 +820,20 @@ const listingStatusLabels = computed(() => ({
   APPROVED: t('statuses.approved'),
   REJECTED: t('statuses.rejected')
 }));
+
+const orderProgressLabels = computed(() => ({
+  DEPOSIT_PAID: t('orders.progress.DEPOSIT_PAID'),
+  VIEWING_SCHEDULED: t('orders.progress.VIEWING_SCHEDULED'),
+  FEEDBACK_SUBMITTED: t('orders.progress.FEEDBACK_SUBMITTED'),
+  HANDOVER_COMPLETED: t('orders.progress.HANDOVER_COMPLETED')
+}));
+
+const orderProgressSequence = Object.freeze([
+  'DEPOSIT_PAID',
+  'VIEWING_SCHEDULED',
+  'FEEDBACK_SUBMITTED',
+  'HANDOVER_COMPLETED'
+]);
 
 const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
@@ -738,6 +852,94 @@ const canViewSensitiveInfo = computed(() => {
 });
 
 const canManageHouses = computed(() => currentUser.value?.role === 'SELLER');
+
+const urgentTasks = computed(() => {
+  if (!currentUser.value || !['BUYER', 'SELLER'].includes(currentUser.value.role)) {
+    return [];
+  }
+  const role = currentUser.value.role;
+  const now = Date.now();
+  const soonThreshold = now + 72 * 60 * 60 * 1000;
+  const list = [];
+  const orderList = Array.isArray(orders.value) ? orders.value : [];
+
+  orderList.forEach((order) => {
+    if (!order) {
+      return;
+    }
+    const stage = order.progressStage;
+    const viewingDate = order.viewingTime ? new Date(order.viewingTime) : null;
+    const validViewing = viewingDate && !Number.isNaN(viewingDate.getTime()) ? viewingDate : null;
+    const timeValue = validViewing ? validViewing.getTime() : now;
+    const timeLabel = validViewing ? formatLocalDateTime(validViewing) : null;
+    const viewingSoon = validViewing ? timeValue <= soonThreshold : false;
+
+    if (role === 'SELLER') {
+      if (stage === 'DEPOSIT_PAID') {
+        list.push({
+          key: `${order.id}-schedule`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.awaitingScheduleSeller', {
+            buyer: order.buyerDisplayName ?? order.buyerUsername
+          }),
+          timeLabel: null,
+          timeValue: now - 1,
+          isSoon: true
+        });
+        return;
+      }
+      if (stage === 'VIEWING_SCHEDULED' && validViewing) {
+        list.push({
+          key: `${order.id}-seller-viewing`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.scheduledReminderSeller', { time: timeLabel }),
+          timeLabel,
+          timeValue,
+          isSoon: viewingSoon
+        });
+        return;
+      }
+    }
+
+    if (role === 'BUYER') {
+      if (stage === 'DEPOSIT_PAID') {
+        list.push({
+          key: `${order.id}-awaiting`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.awaitingScheduleBuyer'),
+          timeLabel: null,
+          timeValue: now - 1,
+          isSoon: true
+        });
+        return;
+      }
+      if (stage === 'VIEWING_SCHEDULED' && validViewing) {
+        list.push({
+          key: `${order.id}-buyer-viewing`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.scheduledReminderBuyer', { time: timeLabel }),
+          timeLabel,
+          timeValue,
+          isSoon: viewingSoon
+        });
+      }
+    }
+  });
+
+  return list
+    .sort((a, b) => a.timeValue - b.timeValue)
+    .slice(0, 5);
+});
+
+const showUrgentTasks = computed(() => isBuyer.value || isSeller.value);
 
 const pendingReviewHouses = computed(() =>
   houses.value.filter((house) => house.status === 'PENDING_REVIEW')
@@ -909,6 +1111,7 @@ const resetConversationState = () => {
   conversationMessagesLoading.value = false;
   conversationSending.value = false;
   conversationError.value = '';
+  conversationPrefill.value = '';
 };
 
 const loadConversations = async ({ silent = false } = {}) => {
@@ -1034,6 +1237,39 @@ const handleVerificationUpdate = async (response) => {
   await loadRecommendations({ silent: true });
 };
 
+const openConversation = async ({ buyerUsername, sellerUsername, initialMessage = '', prefill = '' }) => {
+  if (!currentUser.value || !canUseMessaging.value) {
+    conversationError.value = t('errors.messagingUnsupported');
+    return;
+  }
+  if (
+    currentUser.value.username !== buyerUsername &&
+    currentUser.value.username !== sellerUsername
+  ) {
+    conversationError.value = t('errors.messagingUnsupported');
+    return;
+  }
+  conversationPanelVisible.value = true;
+  conversationError.value = '';
+  const payload = { buyerUsername, sellerUsername };
+  const trimmedMessage = typeof initialMessage === 'string' ? initialMessage.trim() : '';
+  if (trimmedMessage) {
+    payload.initialMessage = trimmedMessage;
+  }
+  try {
+    const { data } = await client.post('/conversations', payload);
+    activeConversationId.value = data.id;
+    conversationPrefill.value = prefill ?? '';
+    await Promise.all([
+      loadConversationMessages(data.id),
+      loadConversations({ silent: true })
+    ]);
+  } catch (error) {
+    conversationError.value = error.response?.data?.detail ?? t('errors.createConversation');
+    conversationPrefill.value = '';
+  }
+};
+
 const handleContactSeller = async ({ sellerUsername }) => {
   if (!isBuyer.value || !currentUser.value) {
     messages.error = t('errors.contactSellerBuyerOnly');
@@ -1045,21 +1281,114 @@ const handleContactSeller = async ({ sellerUsername }) => {
     messages.success = '';
     return;
   }
-  conversationPanelVisible.value = true;
-  conversationError.value = '';
+  await openConversation({
+    buyerUsername: currentUser.value.username,
+    sellerUsername
+  });
+};
+
+const handleViewingConfirmation = async ({ orderId }) => {
+  if (!isBuyer.value || !currentUser.value) {
+    return;
+  }
+  const list = Array.isArray(orders.value) ? orders.value : [];
+  const order = list.find((item) => String(item.id) === String(orderId));
+  if (!order) {
+    return;
+  }
+  const timeLabel = order.viewingTime ? formatLocalDateTime(order.viewingTime) : '';
+  const message = timeLabel
+    ? t('orders.quickMessages.confirmViewing', { time: timeLabel })
+    : t('orders.quickMessages.confirmViewingNoTime');
+  await openConversation({
+    buyerUsername: currentUser.value.username,
+    sellerUsername: order.sellerUsername,
+    prefill: message
+  });
+};
+
+const handleScheduleViewing = async ({ orderId, viewingTime, message }) => {
+  if (!isSeller.value || !currentUser.value) {
+    messages.error = t('errors.scheduleViewing');
+    messages.success = '';
+    return;
+  }
+  const isoTime = convertLocalTimeToIso(viewingTime);
+  if (!isoTime) {
+    messages.error = t('errors.scheduleViewingInvalid');
+    messages.success = '';
+    return;
+  }
+  ordersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
   try {
-    const { data } = await client.post('/conversations', {
-      buyerUsername: currentUser.value.username,
-      sellerUsername
+    const payload = {
+      sellerUsername: currentUser.value.username,
+      viewingTime: isoTime
+    };
+    const remark = typeof message === 'string' ? message.trim() : '';
+    if (remark) {
+      payload.message = remark;
+    }
+    const { data } = await client.post(`/orders/${orderId}/viewing`, payload);
+    const timeLabel = formatLocalDateTime(data.viewingTime ?? isoTime);
+    messages.success = t('success.viewingScheduled', {
+      title: data.houseTitle,
+      time: timeLabel || formatLocalDateTime(isoTime)
     });
-    activeConversationId.value = data.id;
     await Promise.all([
-      loadConversationMessages(data.id),
+      fetchOrders({ silent: true }),
       loadConversations({ silent: true })
     ]);
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? t('errors.createConversation');
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? t('errors.scheduleViewing');
+    }
+  } finally {
+    ordersLoading.value = false;
   }
+};
+
+const handleAdvanceProgress = async ({ orderId, stage }) => {
+  if (!isSeller.value || !currentUser.value || !stage) {
+    return;
+  }
+  ordersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    const { data } = await client.post(`/orders/${orderId}/progress`, {
+      requesterUsername: currentUser.value.username,
+      stage
+    });
+    const stageLabel = orderProgressLabels.value?.[data.progressStage] ?? data.progressStage;
+    messages.success = t('success.progressUpdated', { stage: stageLabel });
+    await fetchOrders({ silent: true });
+  } catch (error) {
+    const detail = error.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      messages.error = detail?.detail ?? t('errors.progressUpdate');
+    }
+  } finally {
+    ordersLoading.value = false;
+  }
+};
+
+const closeConversationPanel = () => {
+  conversationPanelVisible.value = false;
+  conversationPrefill.value = '';
+};
+
+const handleConversationPrefillConsumed = () => {
+  conversationPrefill.value = '';
 };
 
 const refreshCurrentUser = async ({ silent = true } = {}) => {

@@ -38,6 +38,25 @@
         />
       </div>
 
+      <div class="field captcha-field">
+        <label for="login-captcha">{{ t('auth.fields.captcha') }}</label>
+        <div class="captcha-display">
+          <span>{{ captcha.question }}</span>
+          <button type="button" class="refresh" @click="refreshCaptcha" :disabled="loading">
+            {{ t('auth.captcha.refresh') }}
+          </button>
+        </div>
+        <input
+          id="login-captcha"
+          v-model.trim="loginForm.captcha"
+          type="text"
+          inputmode="numeric"
+          :placeholder="t('auth.placeholders.captchaAnswer')"
+          :disabled="loading"
+          required
+        />
+      </div>
+
       <p v-if="loginError" class="error">{{ loginError }}</p>
 
       <button class="submit" type="submit" :disabled="loading">
@@ -120,7 +139,7 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref } from 'vue';
+import { computed, inject, reactive, ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -140,7 +159,7 @@ const loading = ref(false);
 const loginError = ref('');
 const registerError = ref('');
 
-const loginForm = reactive({ username: '', password: '' });
+const loginForm = reactive({ username: '', password: '', captcha: '' });
 const registerForm = reactive({
   username: '',
   password: '',
@@ -148,6 +167,68 @@ const registerForm = reactive({
   displayName: '',
   role: 'SELLER'
 });
+
+const captcha = reactive({ question: '', answer: '0' });
+
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const generateCaptcha = () => {
+  const operations = ['+', '-', '*', '/'];
+  const op = operations[Math.floor(Math.random() * operations.length)];
+  let a = 0;
+  let b = 0;
+  let answer = 0;
+  switch (op) {
+    case '+': {
+      a = randomInt(0, 50);
+      b = randomInt(0, 50 - a);
+      answer = a + b;
+      break;
+    }
+    case '-': {
+      a = randomInt(0, 50);
+      b = randomInt(0, a);
+      answer = a - b;
+      break;
+    }
+    case '*': {
+      a = randomInt(0, 12);
+      b = randomInt(0, 12);
+      while (a * b > 50) {
+        a = randomInt(0, 12);
+        b = randomInt(0, 12);
+      }
+      answer = a * b;
+      break;
+    }
+    case '/': {
+      b = randomInt(1, 10);
+      answer = randomInt(0, 50);
+      while (answer * b > 50) {
+        answer = randomInt(0, 50);
+      }
+      a = answer * b;
+      break;
+    }
+    default: {
+      a = randomInt(0, 50);
+      b = randomInt(0, 50 - a);
+      answer = a + b;
+    }
+  }
+  const symbol = op === '*' ? '×' : op === '/' ? '÷' : op;
+  return {
+    question: `${a} ${symbol} ${b} = ?`,
+    answer: String(answer)
+  };
+};
+
+const refreshCaptcha = () => {
+  const next = generateCaptcha();
+  captcha.question = next.question;
+  captcha.answer = next.answer;
+  loginForm.captcha = '';
+};
 
 const tabs = computed(() => [
   { value: 'login', label: t('auth.tabs.login') },
@@ -164,9 +245,12 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+onMounted(refreshCaptcha);
+
 const resetForms = () => {
   loginForm.username = '';
   loginForm.password = '';
+  loginForm.captcha = '';
   registerForm.username = '';
   registerForm.password = '';
   registerForm.confirm = '';
@@ -180,11 +264,23 @@ const switchMode = (value) => {
   loginError.value = '';
   registerError.value = '';
   resetForms();
+  refreshCaptcha();
 };
 
 const submitLogin = async () => {
   if (!loginForm.username || !loginForm.password) {
     loginError.value = t('auth.errors.loginRequired');
+    return;
+  }
+
+  const captchaAnswer = (loginForm.captcha ?? '').replace(/\s+/g, '');
+  if (!captchaAnswer) {
+    loginError.value = t('auth.errors.captchaRequired');
+    return;
+  }
+  if (captchaAnswer !== captcha.answer) {
+    loginError.value = t('auth.errors.captchaInvalid');
+    refreshCaptcha();
     return;
   }
 
@@ -207,6 +303,7 @@ const submitLogin = async () => {
       loginError.value = detail?.detail ?? t('auth.errors.loginFailed');
     }
   } finally {
+    refreshCaptcha();
     loading.value = false;
   }
 };
@@ -337,6 +434,49 @@ const submitRegister = async () => {
 .field {
   display: grid;
   gap: 0.55rem;
+}
+
+.captcha-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: var(--radius-md);
+  background: rgba(241, 245, 249, 0.6);
+}
+
+.captcha-display span {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.captcha-display .refresh {
+  border: none;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background var(--transition-base), box-shadow var(--transition-base);
+}
+
+.captcha-display .refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.captcha-display .refresh:not(:disabled):hover,
+.captcha-display .refresh:not(:disabled):focus {
+  outline: none;
+  background: rgba(59, 130, 246, 0.2);
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.18);
+}
+
+.captcha-field input {
+  margin-top: 0.35rem;
 }
 
 .label,

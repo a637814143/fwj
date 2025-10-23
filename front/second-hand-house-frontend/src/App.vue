@@ -115,6 +115,7 @@
             v-if="showUrgentTasks"
             :tasks="urgentTasks"
             :progress-labels="orderProgressLabels"
+            @mark-read="handleUrgentTaskRead"
           />
           <WalletPanel
             :wallet="wallet"
@@ -207,6 +208,7 @@ const orders = ref([]);
 const ordersLoading = ref(false);
 const reservationLoading = ref(false);
 const reservationTarget = ref(null);
+const dismissedUrgentTaskKeys = ref([]);
 const messages = reactive({ error: '', success: '' });
 const recommendations = reactive({ sellers: [], buyers: [] });
 const adminUsers = ref([]);
@@ -230,6 +232,7 @@ const houseFilters = reactive({
   maxArea: ''
 });
 const storageKey = 'secondhand-house-current-user';
+const urgentDismissedStoragePrefix = 'shh-urgent-dismissed-';
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -342,14 +345,16 @@ const translations = {
         password: '密码',
         displayName: '昵称',
         confirmPassword: '确认密码',
-        role: '选择角色'
+        role: '选择角色',
+        captcha: '验证码'
       },
       placeholders: {
         username: '请输入用户名',
         password: '请输入密码',
         passwordWithHint: '请输入密码（至少6位）',
         displayName: '请输入昵称',
-        confirmPassword: '请再次输入密码'
+        confirmPassword: '请再次输入密码',
+        captchaAnswer: '请输入答案'
       },
       roles: {
         seller: '卖家',
@@ -361,13 +366,18 @@ const translations = {
         register: '注册并登录',
         registering: '注册中...'
       },
+      captcha: {
+        refresh: '换一题'
+      },
       errors: {
         loginRequired: '请输入用户名和密码',
         loginFailed: '登录失败，请稍后再试。',
         registerRequired: '请输入完整注册信息',
         passwordMismatch: '两次输入的密码不一致',
         passwordLength: '请输入至少6位密码',
-        registerFailed: '注册失败，请稍后重试'
+        registerFailed: '注册失败，请稍后重试',
+        captchaRequired: '请先完成验证码',
+        captchaInvalid: '验证码回答不正确，请重试'
       }
     },
     success: {
@@ -423,6 +433,7 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
+      installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
       returnLoginRequired: '请先登录后再申请退换。',
@@ -484,7 +495,11 @@ const translations = {
         listingDate: '挂牌日期',
         seller: '卖家',
         contact: '联系方式',
-        paymentMethod: '支付方式'
+        paymentMethod: '支付方式',
+        installmentCard: '分期银行卡号'
+      },
+      inputs: {
+        installmentCard: '请输入19位银行卡号'
       },
       payment: {
         full: '全款支付',
@@ -507,7 +522,10 @@ const translations = {
       tips: {
         requireVerification: '完成实名认证后才能查看完整信息并进行交易。',
         awaitingApproval: '该房源尚待管理员审核，通过后方可预定或购买。',
-        loginAsBuyer: '登录买家账号后可进行预定或购买。'
+        loginAsBuyer: '登录买家账号后可进行预定或购买。',
+        reservedByYou: '您已预定该房源，请留意卖家安排。',
+        reservedByOthers: '该房源已被其他买家预定，暂不可再次预定。',
+        installmentCardError: '填写19位数字'
       }
     },
     wallet: {
@@ -664,7 +682,8 @@ const translations = {
         awaitingScheduleBuyer: '等待卖家安排看房，如有需要可主动联系。',
         scheduledReminderSeller: '已预约 {time} 看房，请准时到场并提前准备房屋。',
         scheduledReminderBuyer: '已预约 {time} 看房，请及时确认并按时到场。',
-        upcomingViewing: '预约时间：{time}'
+        upcomingViewing: '预约时间：{time}',
+        markRead: '已读'
       },
       quickMessages: {
         confirmViewing: '我已确认 {time} 的看房安排，届时见。',
@@ -741,14 +760,16 @@ const translations = {
         password: 'Password',
         displayName: 'Display name',
         confirmPassword: 'Confirm password',
-        role: 'Choose role'
+        role: 'Choose role',
+        captcha: 'Verification question'
       },
       placeholders: {
         username: 'Enter username',
         password: 'Enter password',
         passwordWithHint: 'Enter password (min. 6 characters)',
         displayName: 'Enter display name',
-        confirmPassword: 'Re-enter password'
+        confirmPassword: 'Re-enter password',
+        captchaAnswer: 'Enter the answer'
       },
       roles: {
         seller: 'Seller',
@@ -760,13 +781,18 @@ const translations = {
         register: 'Register & log in',
         registering: 'Registering...'
       },
+      captcha: {
+        refresh: 'Try another question'
+      },
       errors: {
         loginRequired: 'Please enter username and password.',
         loginFailed: 'Sign-in failed. Please try again later.',
         registerRequired: 'Please complete all registration fields.',
         passwordMismatch: 'The passwords do not match.',
         passwordLength: 'Please enter a password with at least 6 characters.',
-        registerFailed: 'Registration failed. Please try again later.'
+        registerFailed: 'Registration failed. Please try again later.',
+        captchaRequired: 'Please solve the verification question first.',
+        captchaInvalid: 'Incorrect answer. Please try again.'
       }
     },
     success: {
@@ -822,6 +848,7 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
+      installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
       returnLoginRequired: 'Please sign in before requesting a refund.',
@@ -883,7 +910,11 @@ const translations = {
         listingDate: 'Listed on',
         seller: 'Seller',
         contact: 'Contact',
-        paymentMethod: 'Payment method'
+        paymentMethod: 'Payment method',
+        installmentCard: 'Installment card number'
+      },
+      inputs: {
+        installmentCard: 'Enter the 19-digit card number'
       },
       payment: {
         full: 'Full payment',
@@ -906,7 +937,10 @@ const translations = {
       tips: {
         requireVerification: 'Complete real-name verification to view full details and trade.',
         awaitingApproval: 'This listing is awaiting administrator approval before reservations and purchases are available.',
-        loginAsBuyer: 'Sign in with a buyer account to reserve or purchase listings.'
+        loginAsBuyer: 'Sign in with a buyer account to reserve or purchase listings.',
+        reservedByYou: 'You have already reserved this listing. Please watch for the seller’s updates.',
+        reservedByOthers: 'Another buyer has reserved this listing. Reservations are temporarily unavailable.',
+        installmentCardError: 'Enter a 19-digit number'
       }
     },
     wallet: {
@@ -1062,7 +1096,8 @@ const translations = {
         awaitingScheduleBuyer: 'Waiting for the seller to schedule a viewing. Feel free to reach out proactively.',
         scheduledReminderSeller: 'Viewing scheduled at {time}. Please prepare the property in advance.',
         scheduledReminderBuyer: 'Viewing scheduled at {time}. Remember to confirm and arrive on time.',
-        upcomingViewing: 'Appointment: {time}'
+        upcomingViewing: 'Appointment: {time}',
+        markRead: 'Mark as read'
       },
       quickMessages: {
         confirmViewing: 'I confirm the viewing at {time}. See you then!',
@@ -1095,7 +1130,8 @@ const serverMessageKeyMap = Object.freeze({
   '买家未完成实名认证，无法购买房源': 'errors.purchaseVerifyFirst',
   '房源尚未通过审核，暂不可预定。': 'errors.reserveNotApproved',
   '房源尚未通过审核，暂不可购买。': 'errors.purchaseNotApproved',
-  '请求参数校验失败': 'serverMessages.generic.validationFailed'
+  '请求参数校验失败': 'serverMessages.generic.validationFailed',
+  '填写19位数字': 'errors.installmentCardRequired'
 });
 
 const containsCJK = (text) => /[\u3400-\u9FFF]/.test(text);
@@ -1232,6 +1268,8 @@ const formatCurrencyYuan = (value) => {
   });
 };
 
+const sanitizeDigits = (value) => (value == null ? '' : String(value).replace(/\D/g, ''));
+
 const formatLocalDateTime = (value) => {
   if (!value) {
     return '';
@@ -1317,6 +1355,7 @@ const urgentTasks = computed(() => {
   if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
     return [];
   }
+  const dismissed = new Set((dismissedUrgentTaskKeys.value ?? []).map((key) => String(key)));
   const role = currentUser.value.role;
   const now = Date.now();
   const soonThreshold = now + 72 * 60 * 60 * 1000;
@@ -1395,11 +1434,13 @@ const urgentTasks = computed(() => {
   });
 
   return list
+    .filter((task) => !dismissed.has(String(task.key ?? task.id)))
     .sort((a, b) => a.timeValue - b.timeValue)
     .slice(0, 5);
 });
 
 const showUrgentTasks = computed(() => isBuyer.value || isSeller.value);
+const canAccessOrders = showUrgentTasks;
 
 const pendingReviewHouses = computed(() =>
   houses.value.filter((house) => house.status === 'PENDING_REVIEW')
@@ -1416,7 +1457,9 @@ const navigationTabs = computed(() => {
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: t('nav.manage') });
   }
-  tabs.push({ value: 'orders', label: t('nav.orders') });
+  if (canAccessOrders.value) {
+    tabs.push({ value: 'orders', label: t('nav.orders') });
+  }
   if (isAdmin.value) {
     const pendingLabel = pendingReviewHouses.value.length
       ? t('nav.reviewWithCount', { count: pendingReviewHouses.value.length })
@@ -1426,6 +1469,40 @@ const navigationTabs = computed(() => {
   }
   return tabs;
 });
+
+watch(
+  navigationTabs,
+  (tabs) => {
+    if (!tabs.some((tab) => tab.value === activeTab.value)) {
+      activeTab.value = tabs[0]?.value ?? 'home';
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => canAccessOrders.value,
+  (allowed) => {
+    if (!allowed) {
+      wallet.value = null;
+      orders.value = [];
+      walletLoading.value = false;
+      ordersLoading.value = false;
+    }
+  }
+);
+
+watch(
+  () => currentUser.value?.username,
+  (username) => {
+    if (!username) {
+      dismissedUrgentTaskKeys.value = [];
+      return;
+    }
+    dismissedUrgentTaskKeys.value = restoreDismissedUrgentTasks(username);
+  },
+  { immediate: true }
+);
 
 const switchTab = (tab) => {
   activeTab.value = tab;
@@ -1442,6 +1519,38 @@ const persistUser = (user) => {
     localStorage.setItem(storageKey, JSON.stringify(user));
   } catch (error) {
     console.warn(t('errors.persistUser'), error);
+  }
+};
+
+const buildUrgentDismissedKey = (username) => `${urgentDismissedStoragePrefix}${username}`;
+
+const restoreDismissedUrgentTasks = (username) => {
+  if (typeof window === 'undefined' || !username) {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(buildUrgentDismissedKey(username));
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item));
+    }
+  } catch (error) {
+    console.warn('Failed to restore urgent task preferences:', error);
+  }
+  return [];
+};
+
+const persistDismissedUrgentTasks = (username, keys) => {
+  if (typeof window === 'undefined' || !username) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(buildUrgentDismissedKey(username), JSON.stringify(keys));
+  } catch (error) {
+    console.warn('Failed to persist urgent task preferences:', error);
   }
 };
 
@@ -1522,8 +1631,9 @@ const loadRecommendations = async ({ silent = true } = {}) => {
 };
 
 const fetchWallet = async ({ silent = false } = {}) => {
-  if (!currentUser.value) {
+  if (!currentUser.value || !canAccessOrders.value) {
     wallet.value = null;
+    walletLoading.value = false;
     return;
   }
   if (!silent) {
@@ -1542,8 +1652,9 @@ const fetchWallet = async ({ silent = false } = {}) => {
 };
 
 const fetchOrders = async ({ silent = false } = {}) => {
-  if (!currentUser.value) {
+  if (!currentUser.value || !canAccessOrders.value) {
     orders.value = [];
+    ordersLoading.value = false;
     return;
   }
   if (!silent) {
@@ -1983,7 +2094,7 @@ const handleRemove = async (house) => {
   }
 };
 
-const handlePurchase = async ({ house, paymentMethod }) => {
+const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {
   if (!isBuyer.value) {
     messages.error = t('errors.purchaseBuyerOnly');
     messages.success = '';
@@ -2002,6 +2113,15 @@ const handlePurchase = async ({ house, paymentMethod }) => {
     messages.error = t('errors.purchaseSelectMethod');
     return;
   }
+  let sanitizedCardNumber = '';
+  if (paymentMethod === 'INSTALLMENT') {
+    sanitizedCardNumber = sanitizeDigits(installmentCardNumber);
+    if (sanitizedCardNumber.length !== 19) {
+      messages.error = t('errors.installmentCardRequired');
+      messages.success = '';
+      return;
+    }
+  }
   if (isSeller.value && currentUser.value.username === house.sellerUsername) {
     messages.error = t('errors.purchaseOwnListing');
     messages.success = '';
@@ -2011,11 +2131,15 @@ const handlePurchase = async ({ house, paymentMethod }) => {
   messages.error = '';
   messages.success = '';
   try {
-    const { data } = await client.post('/orders', {
+    const payload = {
       houseId: house.id,
       buyerUsername: currentUser.value.username,
       paymentMethod
-    });
+    };
+    if (paymentMethod === 'INSTALLMENT') {
+      payload.installmentCardNumber = sanitizedCardNumber;
+    }
+    const { data } = await client.post('/orders', payload);
     const payment = formatCurrencyYuan(data.amount);
     const methodLabel =
       data.paymentMethod === 'INSTALLMENT' ? t('payments.installment') : t('payments.full');
@@ -2036,6 +2160,22 @@ const handlePurchase = async ({ house, paymentMethod }) => {
   }
 };
 
+const handleUrgentTaskRead = (taskKey) => {
+  const username = currentUser.value?.username;
+  if (!username) {
+    return;
+  }
+  const key = String(taskKey);
+  const existing = new Set((dismissedUrgentTaskKeys.value ?? []).map((item) => String(item)));
+  if (existing.has(key)) {
+    return;
+  }
+  existing.add(key);
+  const updated = Array.from(existing);
+  dismissedUrgentTaskKeys.value = updated;
+  persistDismissedUrgentTasks(username, updated);
+};
+
 const handleReserve = async (house) => {
   if (!isBuyer.value) {
     messages.error = t('errors.reserveBuyerOnly');
@@ -2044,6 +2184,13 @@ const handleReserve = async (house) => {
   }
   if (!isRealNameVerified.value) {
     messages.error = t('errors.reserveVerifyFirst');
+    messages.success = '';
+    return;
+  }
+  if (house?.reservationActive) {
+    messages.error = house.reservationOwnedByRequester
+      ? t('serverMessages.orders.reservedSelf')
+      : t('serverMessages.orders.alreadyReserved');
     messages.success = '';
     return;
   }

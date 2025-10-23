@@ -22,6 +22,11 @@
         <p v-if="task.timeLabel" class="task-time">
           {{ t('orders.urgent.upcomingViewing', { time: task.timeLabel }) }}
         </p>
+        <div class="task-actions">
+          <button type="button" class="mark-read" @click="markRead(task)">
+            {{ t('orders.urgent.markRead') }}
+          </button>
+        </div>
       </li>
     </ul>
   </section>
@@ -29,6 +34,8 @@
 
 <script setup>
 import { computed, inject } from 'vue';
+
+const emit = defineEmits(['mark-read']);
 
 const props = defineProps({
   tasks: {
@@ -58,6 +65,17 @@ const emptyText = computed(() => t('orders.urgent.empty'));
 const badgeText = computed(() => t('orders.urgent.badge', { count: props.tasks.length }));
 
 const stageLabel = (stage) => props.progressLabels?.[stage] ?? stage ?? '';
+
+const markRead = (task) => {
+  if (!task) {
+    return;
+  }
+  const key = task.key ?? task.id;
+  if (key == null) {
+    return;
+  }
+  emit('mark-read', String(key));
+};
 </script>
 
 <style scoped>
@@ -163,5 +181,31 @@ const stageLabel = (stage) => props.progressLabels?.[stage] ?? stage ?? '';
   margin: 0;
   font-size: 0.9rem;
   color: var(--color-text-muted);
+}
+
+.task-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mark-read {
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.mark-read:hover,
+.mark-read:focus {
+  outline: none;
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
 }
 </style>

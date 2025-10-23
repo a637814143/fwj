@@ -59,6 +59,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue';
 
 const injectedSettings = inject('appSettings', null);
 const translate = inject('translate', (key) => key);
+const t = (key, vars) => translate(key, vars);
 
 const open = ref(false);
 const root = ref(null);
@@ -91,19 +92,19 @@ const fontSize = computed({
 });
 
 const themeOptions = computed(() => [
-  { value: 'light', label: translate('settings.theme.light') },
-  { value: 'dark', label: translate('settings.theme.dark') }
+  { value: 'light', label: t('settings.theme.light') },
+  { value: 'dark', label: t('settings.theme.dark') }
 ]);
 
 const languageOptions = computed(() => [
-  { value: 'zh', label: translate('settings.language.zh') },
-  { value: 'en', label: translate('settings.language.en') }
+  { value: 'zh', label: t('settings.language.zh') },
+  { value: 'en', label: t('settings.language.en') }
 ]);
 
 const fontSizeOptions = computed(() => [
-  { value: 'small', label: translate('settings.fontSize.small') },
-  { value: 'medium', label: translate('settings.fontSize.medium') },
-  { value: 'large', label: translate('settings.fontSize.large') }
+  { value: 'small', label: t('settings.fontSize.small') },
+  { value: 'medium', label: t('settings.fontSize.medium') },
+  { value: 'large', label: t('settings.fontSize.large') }
 ]);
 
 const togglePanel = () => {

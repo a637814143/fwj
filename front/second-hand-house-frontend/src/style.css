@@ -4,8 +4,8 @@
     'Microsoft YaHei', sans-serif;
   line-height: 1.6;
   font-weight: 400;
-  color: #0f172a;
-  background-color: #e2e8f0;
+  color: var(--color-text-strong);
+  background-color: var(--color-background);
 
   --font-sans: 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans SC', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
@@ -19,6 +19,9 @@
   --color-surface-tint: rgba(241, 245, 249, 0.6);
   --color-border: rgba(148, 163, 184, 0.28);
   --color-border-strong: rgba(148, 163, 184, 0.45);
+  --color-text-on-emphasis: #f8fafc;
+  --color-accent: #2563eb;
+  --color-accent-soft: rgba(37, 99, 235, 0.14);
   --glass-blur: 26px;
   --shadow-sm: 0 12px 28px rgba(15, 23, 42, 0.12);
   --shadow-md: 0 22px 48px rgba(15, 23, 42, 0.16);
@@ -50,12 +53,15 @@
   --color-text-strong: #e2e8f0;
   --color-text-muted: #cbd5f5;
   --color-text-soft: #94a3b8;
-  --color-background: #0f172a;
+  --color-background: #0b1120;
   --color-surface: rgba(30, 41, 59, 0.92);
   --color-surface-soft: rgba(15, 23, 42, 0.68);
   --color-surface-tint: rgba(30, 41, 59, 0.55);
   --color-border: rgba(148, 163, 184, 0.22);
   --color-border-strong: rgba(148, 163, 184, 0.35);
+  --color-text-on-emphasis: #f8fafc;
+  --color-accent: #60a5fa;
+  --color-accent-soft: rgba(96, 165, 250, 0.24);
   --gradient-primary: linear-gradient(135deg, #38bdf8 0%, #6366f1 55%, #8b5cf6 100%);
   --gradient-soft: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.2));
   --gradient-surface: linear-gradient(160deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88));
@@ -83,6 +89,7 @@ body {
   background-attachment: fixed;
   position: relative;
   overflow-x: hidden;
+  transition: background 0.6s ease, color 0.4s ease;
 }
 
 body::before,
@@ -126,13 +133,13 @@ body[data-theme='dark']::after {
 }
 
 a {
-  color: #1d4ed8;
+  color: var(--color-accent);
   text-decoration: none;
   transition: color var(--transition-base);
 }
 
 a:hover {
-  color: #0f172a;
+  color: var(--color-text-strong);
 }
 
 button,
@@ -162,7 +169,7 @@ select,
 textarea {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   color: var(--color-text-strong);
   padding: 0.65rem 0.85rem;
   transition: border-color var(--transition-base), box-shadow var(--transition-base),
@@ -175,8 +182,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(14, 165, 233, 0.7);
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.18);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 textarea {
@@ -206,8 +213,8 @@ textarea {
 }
 
 ::selection {
-  background: rgba(14, 165, 233, 0.28);
-  color: #0f172a;
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-text-on-emphasis);
 }
 
 @media (prefers-reduced-motion: reduce) {

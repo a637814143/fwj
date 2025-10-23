@@ -37,14 +37,27 @@
       </label>
 
       <label>
-        价格（万元）
+        价格（元）
         <input
           v-model.number="form.price"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="例如 200"
+          placeholder="例如 2000000"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        首付（元）
+        <input
+          v-model.number="form.downPayment"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          placeholder="例如 600000"
           :disabled="disabled"
         />
       </label>
@@ -63,14 +76,14 @@
       </label>
 
       <label>
-        分期月供（万元）
+        分期月供（元）
         <input
           v-model.number="form.installmentMonthlyPayment"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="例如 5.6"
+          placeholder="例如 5600"
           :disabled="disabled"
         />
       </label>
@@ -250,6 +263,7 @@ const form = reactive({
   title: '',
   address: '',
   price: '',
+  downPayment: '',
   area: '',
   description: '',
   sellerUsername: '',
@@ -304,6 +318,7 @@ const setFormDefaults = () => {
   form.title = '';
   form.address = '';
   form.price = '';
+  form.downPayment = '';
   form.area = '';
   form.description = '';
   form.sellerUsername = isSeller.value ? props.currentUser?.username ?? '' : '';
@@ -323,6 +338,7 @@ const fillFromHouse = (house) => {
   form.title = house.title ?? '';
   form.address = house.address ?? '';
   form.price = house.price ?? '';
+  form.downPayment = house.downPayment ?? '';
   form.area = house.area ?? '';
   form.description = house.description ?? '';
   form.sellerUsername = house.sellerUsername ?? '';
@@ -420,6 +436,14 @@ const validateForm = () => {
     formError.value = '请填写有效的房源价格。';
     return false;
   }
+  if (!ensurePositive(form.downPayment)) {
+    formError.value = '请填写有效的首付金额。';
+    return false;
+  }
+  if (Number(form.downPayment) > Number(form.price)) {
+    formError.value = '首付金额不能超过房源总价。';
+    return false;
+  }
   if (!ensurePositive(form.area)) {
     formError.value = '请填写有效的房源面积。';
     return false;
@@ -459,6 +483,7 @@ const submitForm = () => {
     title: form.title.trim(),
     address: form.address.trim(),
     price: normalizeNumber(form.price),
+    downPayment: normalizeNumber(form.downPayment),
     area: normalizeNumber(form.area),
     description: form.description ? form.description.trim() : '',
     sellerUsername: form.sellerUsername.trim(),

@@ -40,9 +40,10 @@
               <p class="image-count" v-if="house.imageUrls?.length">{{ house.imageUrls.length }} 张图片</p>
             </td>
             <td class="price-cell">
-              <span>全款：￥{{ formatNumber(house.price) }} 万</span>
+              <span>全款：￥{{ formatCurrency(house.price) }}</span>
+              <span v-if="house.downPayment">首付：￥{{ formatCurrency(house.downPayment) }}</span>
               <span v-if="house.installmentMonthlyPayment">
-                分期：￥{{ formatNumber(house.installmentMonthlyPayment) }} 万 × {{ house.installmentMonths || '—' }} 期
+                分期：￥{{ formatCurrency(house.installmentMonthlyPayment) }} × {{ house.installmentMonths || '—' }} 期
               </span>
             </td>
             <td>{{ formatNumber(house.area) }} ㎡</td>
@@ -82,6 +83,17 @@
                 <button class="btn warning" @click="handleReview(house, 'REJECTED')">驳回</button>
               </template>
               <template v-else-if="isBuyer">
+                <div class="payment-select">
+                  <label>
+                    支付方式
+                    <select v-model="selectedPayments[house.id]">
+                      <option value="FULL">全款</option>
+                      <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
+                        分期
+                      </option>
+                    </select>
+                  </label>
+                </div>
                 <button
                   class="btn primary"
                   :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
@@ -121,7 +133,7 @@
 </template>
 
 <script setup>
-import { computed, ref, toRefs } from 'vue';
+import { computed, reactive, ref, toRefs, watch } from 'vue';
 import HouseDetailModal from './HouseDetailModal.vue';
 
 const props = defineProps({
@@ -155,6 +167,8 @@ const emit = defineEmits(['edit', 'remove', 'purchase', 'contact-seller', 'revie
 
 const { houses, loading, canManage } = toRefs(props);
 
+const selectedPayments = reactive({});
+
 const sellerRoles = ['SELLER', 'LANDLORD'];
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const isAdmin = computed(() => props.currentUser?.role === 'ADMIN');
@@ -177,6 +191,20 @@ const formatNumber = (value) => {
   }
   return Number(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+};
+
+const formatCurrency = (value) => {
+  if (value == null || value === '') {
+    return '0.00';
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '0.00';
+  }
+  return num.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 };
@@ -299,11 +327,50 @@ const handleReview = (house, status) => {
   emit('review', { houseId: house.id, status });
 };
 
+watch(
+  () => props.houses,
+  (list) => {
+    const ids = new Set();
+    (list ?? []).forEach((house) => {
+      const id = house?.id;
+      if (id == null) {
+        return;
+      }
+      const key = String(id);
+      ids.add(key);
+      if (!selectedPayments[key]) {
+        selectedPayments[key] = 'FULL';
+      }
+      if (selectedPayments[key] === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
+        selectedPayments[key] = 'FULL';
+      }
+    });
+    Object.keys(selectedPayments).forEach((key) => {
+      if (!ids.has(key)) {
+        delete selectedPayments[key];
+      }
+    });
+  },
+  { immediate: true }
+);
+
+const resolvePaymentMethod = (house) => {
+  if (!house?.id) {
+    return 'FULL';
+  }
+  const key = String(house.id);
+  const method = selectedPayments[key] ?? 'FULL';
+  if (method === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
+    return 'FULL';
+  }
+  return method;
+};
+
 const handlePurchase = (house) => {
   if (!isBuyer.value || house.status !== 'APPROVED') {
     return;
   }
-  emit('purchase', { house, paymentMethod: 'FULL' });
+  emit('purchase', { house, paymentMethod: resolvePaymentMethod(house) });
 };
 
 const handleContactSeller = (house) => {
@@ -500,6 +567,27 @@ tbody tr:hover {
   flex-direction: column;
   gap: 0.45rem;
   min-width: 150px;
+}
+
+.payment-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.payment-select label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.payment-select select {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .btn {

@@ -461,7 +461,7 @@ const translations = {
         maxPrice: '最高价格',
         minArea: '最小面积',
         maxArea: '最大面积',
-        pricePlaceholder: '万元',
+        pricePlaceholder: '元',
         areaPlaceholder: '㎡'
       },
       actions: {
@@ -469,7 +469,7 @@ const translations = {
         applyFilters: '应用筛选',
         reset: '重置',
         contactSeller: '联系卖家',
-        reserve: '预定（定金 {deposit} 万）',
+        reserve: '预定（定金 ￥{deposit}）',
         reserving: '预定中…',
         purchase: '立即购买',
         processing: '处理中…'
@@ -477,6 +477,7 @@ const translations = {
       labels: {
         noImage: '暂无图片',
         fullPrice: '全款价格',
+        downPayment: '首付',
         installment: '分期（月供）',
         installmentMonths: '× {count} 期',
         area: '面积',
@@ -520,16 +521,15 @@ const translations = {
       },
       labels: {
         balance: '当前余额',
-        unitWan: '万',
         unitYuan: '元',
         virtualPort: '虚拟端口号',
         virtualPortHint: '该编号用于识别充值与收款'
       },
       topUp: {
         title: '充值钱包',
-        hint: '系统以万元为结算单位，界面会自动折算成人民币金额。',
-        amountLabel: '充值金额（万元）',
-        amountPlaceholder: '例如：50',
+        hint: '系统以人民币元为结算单位。',
+        amountLabel: '充值金额（元）',
+        amountPlaceholder: '例如：5000',
         referenceLabel: '备注（选填）',
         referencePlaceholder: '如：线上充值'
       },
@@ -860,7 +860,7 @@ const translations = {
         maxPrice: 'Maximum price',
         minArea: 'Minimum area',
         maxArea: 'Maximum area',
-        pricePlaceholder: '×10k CNY',
+        pricePlaceholder: 'CNY',
         areaPlaceholder: '㎡'
       },
       actions: {
@@ -868,7 +868,7 @@ const translations = {
         applyFilters: 'Apply filters',
         reset: 'Reset',
         contactSeller: 'Contact seller',
-        reserve: 'Reserve (deposit ¥{deposit} ×10k)',
+        reserve: 'Reserve (deposit ¥{deposit})',
         reserving: 'Reserving…',
         purchase: 'Buy now',
         processing: 'Processing…'
@@ -876,6 +876,7 @@ const translations = {
       labels: {
         noImage: 'No image',
         fullPrice: 'Full payment price',
+        downPayment: 'Down payment',
         installment: 'Installments (monthly)',
         installmentMonths: '× {count} months',
         area: 'Area',
@@ -919,16 +920,14 @@ const translations = {
       },
       labels: {
         balance: 'Current balance',
-        unitWan: '×10k',
-        unitYuan: 'CNY',
         virtualPort: 'Virtual account number',
         virtualPortHint: 'Use this identifier when adding funds or receiving payments.'
       },
       topUp: {
         title: 'Top up wallet',
-        hint: 'Balances are stored in units of ten-thousand yuan. Values are converted to CNY automatically.',
-        amountLabel: 'Amount (×10k CNY)',
-        amountPlaceholder: 'e.g. 50',
+        hint: 'Balances are stored in Chinese Yuan.',
+        amountLabel: 'Amount (CNY)',
+        amountPlaceholder: 'e.g. 5000',
         referenceLabel: 'Reference (optional)',
         referencePlaceholder: 'e.g. Online top-up'
       },
@@ -1227,7 +1226,7 @@ const formatCurrencyYuan = (value) => {
     return '0.00';
   }
   const locale = settings.language === 'en' ? 'en-US' : 'zh-CN';
-  return (numeric * 10000).toLocaleString(locale, {
+  return numeric.toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -1449,6 +1448,7 @@ const persistUser = (user) => {
 const normalizeHouse = (house) => ({
   ...house,
   price: house?.price != null ? Number(house.price) : null,
+  downPayment: house?.downPayment != null ? Number(house.downPayment) : null,
   installmentMonthlyPayment:
     house?.installmentMonthlyPayment != null ? Number(house.installmentMonthlyPayment) : null,
   installmentMonths: house?.installmentMonths != null ? Number(house.installmentMonths) : null,
@@ -1878,10 +1878,14 @@ const normalizeHousePayload = (payload) => {
         .filter((keyword) => keyword.length > 0)
     : [];
   result.price = Number(result.price ?? 0);
+  result.downPayment = Number(result.downPayment ?? 0);
   result.installmentMonthlyPayment = Number(result.installmentMonthlyPayment ?? 0);
   result.installmentMonths = Number.parseInt(result.installmentMonths ?? 0, 10);
   if (!Number.isFinite(result.price)) {
     result.price = 0;
+  }
+  if (!Number.isFinite(result.downPayment)) {
+    result.downPayment = 0;
   }
   if (!Number.isFinite(result.installmentMonthlyPayment)) {
     result.installmentMonthlyPayment = 0;

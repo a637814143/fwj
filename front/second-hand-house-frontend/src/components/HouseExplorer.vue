@@ -131,12 +131,16 @@
           <div class="pricing">
             <div class="pricing-item">
               <span class="label">{{ t('explorer.labels.fullPrice') }}</span>
-              <strong>￥{{ formatNumber(house.price) }} 万</strong>
+              <strong>￥{{ formatCurrency(house.price) }}</strong>
+            </div>
+            <div class="pricing-item" v-if="house.downPayment">
+              <span class="label">{{ t('explorer.labels.downPayment') }}</span>
+              <strong>￥{{ formatCurrency(house.downPayment) }}</strong>
             </div>
             <div class="pricing-item" v-if="house.installmentMonthlyPayment">
               <span class="label">{{ t('explorer.labels.installment') }}</span>
               <strong>
-                ￥{{ formatNumber(house.installmentMonthlyPayment) }} 万
+                ￥{{ formatCurrency(house.installmentMonthlyPayment) }}
                 <small v-if="house.installmentMonths">
                   {{ t('explorer.labels.installmentMonths', { count: house.installmentMonths }) }}
                 </small>
@@ -463,6 +467,20 @@ const coverImage = (house) => {
   return house.imageUrls.find((url) => url && url.trim().length > 0) ?? '';
 };
 
+const formatCurrency = (value) => {
+  if (value == null || value === '') {
+    return '0.00';
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '0.00';
+  }
+  return num.toLocaleString(locale.value, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
 const formatNumber = (value) => {
   if (value == null || value === '') {
     return '0';
@@ -489,11 +507,15 @@ const formatDate = (value) => {
 };
 
 const depositAmount = (house) => {
+  const downPayment = Number(house?.downPayment);
+  if (Number.isFinite(downPayment) && downPayment > 0) {
+    return formatCurrency(downPayment);
+  }
   const price = Number(house?.price ?? 0);
-  if (!Number.isFinite(price)) {
+  if (!Number.isFinite(price) || price <= 0) {
     return '0.00';
   }
-  return (price * 0.1).toFixed(2);
+  return formatCurrency(price * 0.1);
 };
 
 const maskName = (value) => {

@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS house_orders (
     amount DECIMAL(18,2) NOT NULL,
     payment_method VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL,
+    progress_stage VARCHAR(30) NOT NULL DEFAULT 'DEPOSIT_PAID',
     return_reason VARCHAR(255),
     viewing_time DATETIME(6) NULL,
     viewing_message VARCHAR(255) NULL,

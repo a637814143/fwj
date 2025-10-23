@@ -9,7 +9,12 @@
       <ul v-else class="order-list">
         <li v-for="order in orders" :key="order.id" class="order-card">
           <header>
-            <h3>{{ order.houseTitle }}</h3>
+            <div class="title-area">
+              <h3>{{ order.houseTitle }}</h3>
+              <span v-if="stageLabel(order.progressStage)" class="progress-chip">
+                {{ stageLabel(order.progressStage) }}
+              </span>
+            </div>
             <span class="status" :class="order.status.toLowerCase()">
               {{ statusLabels[order.status] ?? order.status }}
             </span>
@@ -48,6 +53,58 @@
               <dd>{{ order.returnReason }}</dd>
             </div>
           </dl>
+          <section class="progress-tracker">
+            <h4>交易进度</h4>
+            <ol class="progress-steps">
+              <li
+                v-for="(stage, index) in progressOrderNormalized"
+                :key="`${order.id}-${stage}`"
+                :class="['progress-step', { reached: isStageReached(order, stage), current: isCurrentStage(order, stage) }]"
+              >
+                <span class="step-index">{{ index + 1 }}</span>
+                <span class="step-label">{{ stageLabel(stage) }}</span>
+              </li>
+            </ol>
+          </section>
+          <section v-if="hasViewingSection(order)" class="viewing-section">
+            <header>
+              <h4>预约看房</h4>
+              <span v-if="order.viewingTime" class="viewing-time">{{ viewingTimeLabel(order) }}</span>
+            </header>
+            <p v-if="order.viewingTime" class="viewing-summary">
+              预约时间：{{ viewingTimeLabel(order) }}
+              <span v-if="order.viewingMessage">备注：{{ order.viewingMessage }}</span>
+            </p>
+            <div class="viewing-actions">
+              <button
+                v-if="canSchedule(order)"
+                type="button"
+                class="primary"
+                :disabled="loading"
+                @click="openScheduleDialog(order)"
+              >
+                选择看房时间
+              </button>
+              <button
+                v-if="canAdvance(order)"
+                type="button"
+                class="secondary"
+                :disabled="loading"
+                @click="advanceProgress(order)"
+              >
+                推进至{{ nextStageLabel(order) }}
+              </button>
+              <button
+                v-if="canConfirmViewing(order)"
+                type="button"
+                class="ghost"
+                :disabled="loading"
+                @click="confirmViewing(order)"
+              >
+                确认预约
+              </button>
+            </div>
+          </section>
           <footer v-if="canRequestReturn(order)" class="actions">
             <button type="button" :disabled="loading" @click="requestReturn(order)">
               申请退换
@@ -55,11 +112,43 @@
           </footer>
         </li>
       </ul>
+      <transition name="fade">
+        <div v-if="scheduleState.visible" class="schedule-overlay" @click.self="closeScheduleDialog">
+          <div class="schedule-dialog">
+            <header>
+              <h3>安排看房</h3>
+              <p>{{ scheduleState.title }}</p>
+            </header>
+            <form @submit.prevent="submitSchedule">
+              <label>
+                <span>看房时间</span>
+                <input v-model="scheduleState.time" type="datetime-local" required />
+              </label>
+              <label>
+                <span>备注（可选）</span>
+                <textarea
+                  v-model="scheduleState.message"
+                  rows="2"
+                  maxlength="120"
+                  placeholder="给买家的补充说明"
+                ></textarea>
+              </label>
+              <p v-if="scheduleError" class="form-error">{{ scheduleError }}</p>
+              <div class="dialog-actions">
+                <button type="button" class="ghost" @click="closeScheduleDialog">取消</button>
+                <button type="submit" class="primary" :disabled="loading">确认安排</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </transition>
     </div>
   </section>
 </template>
 
 <script setup>
+import { computed, reactive, ref } from 'vue';
+
 const props = defineProps({
   orders: {
     type: Array,
@@ -76,10 +165,18 @@ const props = defineProps({
   canViewSensitiveInfo: {
     type: Boolean,
     default: false
+  },
+  progressLabels: {
+    type: Object,
+    default: () => ({})
+  },
+  progressOrder: {
+    type: Array,
+    default: () => ['DEPOSIT_PAID', 'VIEWING_SCHEDULED', 'FEEDBACK_SUBMITTED', 'HANDOVER_COMPLETED']
   }
 });
 
-const emit = defineEmits(['request-return']);
+const emit = defineEmits(['request-return', 'schedule-viewing', 'advance-progress', 'confirm-viewing']);
 
 const statusLabels = {
   PENDING: '待支付',
@@ -93,6 +190,59 @@ const paymentMethodLabels = {
   FULL: '全款支付',
   INSTALLMENT: '分期付款'
 };
+
+const progressOrderDefault = ['DEPOSIT_PAID', 'VIEWING_SCHEDULED', 'FEEDBACK_SUBMITTED', 'HANDOVER_COMPLETED'];
+
+const progressOrderNormalized = computed(() => {
+  if (Array.isArray(props.progressOrder) && props.progressOrder.length > 0) {
+    return props.progressOrder;
+  }
+  return progressOrderDefault;
+});
+
+const stageLabel = (stage) => props.progressLabels?.[stage] ?? stage ?? '';
+
+const stageIndex = (stage) => progressOrderNormalized.value.indexOf(stage);
+
+const isStageReached = (order, stage) => {
+  if (!order) {
+    return false;
+  }
+  const currentIndex = stageIndex(order.progressStage);
+  const targetIndex = stageIndex(stage);
+  if (currentIndex < 0 || targetIndex < 0) {
+    return false;
+  }
+  return currentIndex >= targetIndex;
+};
+
+const isCurrentStage = (order, stage) => order?.progressStage === stage;
+
+const nextStage = (order) => {
+  const index = stageIndex(order?.progressStage);
+  if (index < 0) {
+    return null;
+  }
+  return progressOrderNormalized.value[index + 1] ?? null;
+};
+
+const nextStageLabel = (order) => {
+  const stage = nextStage(order);
+  return stage ? stageLabel(stage) : '';
+};
+
+const isSeller = computed(() => props.currentUser?.role === 'SELLER');
+const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
+
+const scheduleState = reactive({
+  visible: false,
+  orderId: null,
+  title: '',
+  time: '',
+  message: ''
+});
+
+const scheduleError = ref('');
 
 const canRequestReturn = (order) => {
   if (!order) {
@@ -201,6 +351,122 @@ const formatTime = (value) => {
   }
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
 };
+
+const toLocalInputValue = (value) => {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+};
+
+const openScheduleDialog = (order) => {
+  if (!order) {
+    return;
+  }
+  scheduleState.visible = true;
+  scheduleState.orderId = order.id;
+  scheduleState.title = order.houseTitle ?? '';
+  scheduleState.time = toLocalInputValue(order.viewingTime);
+  scheduleState.message = order.viewingMessage ?? '';
+  scheduleError.value = '';
+};
+
+const closeScheduleDialog = () => {
+  scheduleState.visible = false;
+  scheduleState.orderId = null;
+  scheduleState.title = '';
+  scheduleState.time = '';
+  scheduleState.message = '';
+  scheduleError.value = '';
+};
+
+const submitSchedule = () => {
+  if (!scheduleState.orderId) {
+    return;
+  }
+  if (!scheduleState.time) {
+    scheduleError.value = '请选择预约时间';
+    return;
+  }
+  emit('schedule-viewing', {
+    orderId: scheduleState.orderId,
+    viewingTime: scheduleState.time,
+    message: scheduleState.message
+  });
+  closeScheduleDialog();
+};
+
+const canSchedule = (order) => {
+  if (!order || !isSeller.value || props.loading) {
+    return false;
+  }
+  if (props.currentUser?.username !== order.sellerUsername) {
+    return false;
+  }
+  const firstStage = progressOrderNormalized.value[0];
+  return order.progressStage === firstStage;
+};
+
+const canAdvance = (order) => {
+  if (!order || !isSeller.value || props.loading) {
+    return false;
+  }
+  if (props.currentUser?.username !== order.sellerUsername) {
+    return false;
+  }
+  const firstStage = progressOrderNormalized.value[0];
+  if (order.progressStage === firstStage) {
+    return false;
+  }
+  return Boolean(nextStage(order));
+};
+
+const canConfirmViewing = (order) => {
+  if (!order || !isBuyer.value || props.loading) {
+    return false;
+  }
+  if (props.currentUser?.username !== order.buyerUsername) {
+    return false;
+  }
+  return order.progressStage === 'VIEWING_SCHEDULED';
+};
+
+const viewingTimeLabel = (order) => {
+  if (!order?.viewingTime) {
+    return '';
+  }
+  return formatTime(order.viewingTime);
+};
+
+const hasViewingSection = (order) => {
+  return (
+    Boolean(order?.viewingTime) ||
+    canSchedule(order) ||
+    canAdvance(order) ||
+    canConfirmViewing(order)
+  );
+};
+
+const advanceProgress = (order) => {
+  const target = nextStage(order);
+  if (!target || props.loading) {
+    return;
+  }
+  emit('advance-progress', { orderId: order.id, stage: target });
+};
+
+const confirmViewing = (order) => {
+  if (!order || props.loading) {
+    return;
+  }
+  emit('confirm-viewing', { orderId: order.id });
+};
 </script>
 
 <style scoped>
@@ -263,6 +529,24 @@ const formatTime = (value) => {
   gap: 1rem;
 }
 
+.title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.progress-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.8rem;
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .order-card h3 {
   margin: 0;
   color: var(--color-text-strong);
@@ -317,6 +601,238 @@ dl dt {
   color: var(--color-text-soft);
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.progress-tracker {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.progress-tracker h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+}
+
+.progress-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.8rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.65);
+  transition: background var(--transition-base), border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.progress-step.reached {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.12);
+}
+
+.progress-step.current {
+  border-color: rgba(37, 99, 235, 0.65);
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.step-label {
+  font-size: 0.92rem;
+  color: var(--color-text-strong);
+  font-weight: 600;
+}
+
+.viewing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: var(--radius-md);
+  background: rgba(248, 250, 252, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.viewing-section header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.viewing-section h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+}
+
+.viewing-time {
+  font-size: 0.9rem;
+  color: var(--color-text-soft);
+}
+
+.viewing-summary {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text-strong);
+}
+
+.viewing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.viewing-actions button {
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1.2rem;
+  border: none;
+  font-weight: 600;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.viewing-actions .primary {
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 16px 32px rgba(59, 130, 246, 0.25);
+}
+
+.viewing-actions .secondary {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+
+.viewing-actions .ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.viewing-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.schedule-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  padding: 1.5rem;
+}
+
+.schedule-dialog {
+  background: var(--gradient-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.8rem;
+  width: min(420px, 100%);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+}
+
+.schedule-dialog header {
+  margin-bottom: 1.2rem;
+}
+
+.schedule-dialog h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1.2rem;
+  color: var(--color-text-strong);
+}
+
+.schedule-dialog p {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.95rem;
+}
+
+.schedule-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.schedule-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.schedule-dialog input,
+.schedule-dialog textarea {
+  width: 100%;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.dialog-actions .primary {
+  background: var(--gradient-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.35rem;
+}
+
+.dialog-actions .ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.35rem;
+}
+
+.form-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 dl dd {

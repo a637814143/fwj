@@ -107,10 +107,17 @@ const props = defineProps({
   loadingMessages: { type: Boolean, default: false },
   sendingMessage: { type: Boolean, default: false },
   currentUser: { type: Object, default: null },
-  error: { type: String, default: '' }
+  error: { type: String, default: '' },
+  prefill: { type: String, default: '' }
 });
 
-const emit = defineEmits(['close', 'refresh-conversations', 'select-conversation', 'send-message']);
+const emit = defineEmits([
+  'close',
+  'refresh-conversations',
+  'select-conversation',
+  'send-message',
+  'prefill-consumed'
+]);
 
 const draft = ref('');
 const messageListRef = ref(null);
@@ -140,6 +147,12 @@ watch(
     if (!visible) {
       draft.value = '';
       lastMessageCount.value = props.messages.length;
+    } else {
+      const normalized = typeof props.prefill === 'string' ? props.prefill.trim() : '';
+      if (normalized) {
+        draft.value = normalized;
+        emit('prefill-consumed');
+      }
     }
   }
 );
@@ -161,6 +174,20 @@ watch(
     }
   },
   { deep: true }
+);
+
+watch(
+  () => props.prefill,
+  (value) => {
+    if (!props.visible) {
+      return;
+    }
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized && normalized !== draft.value.trim()) {
+      draft.value = normalized;
+      emit('prefill-consumed');
+    }
+  }
 );
 
 const selectConversation = (conversationId) => {

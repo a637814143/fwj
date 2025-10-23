@@ -6,8 +6,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -52,8 +50,8 @@ public class HouseOrder {
     private OrderStatus status = OrderStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "progress_stage", nullable = false, length = 20)
-    private OrderProgressStage progressStage = OrderProgressStage.RESERVED;
+    @Column(name = "progress_stage", nullable = false, length = 30)
+    private OrderProgressStage progressStage = OrderProgressStage.DEPOSIT_PAID;
 
     @Column(name = "return_reason", length = 255)
     private String returnReason;

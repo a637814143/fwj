@@ -1,73 +1,75 @@
 <template>
-  <section class="wallet-panel">
-    <h2>我的钱包</h2>
-    <p v-if="!currentUser" class="hint">请登录后查看钱包信息与充值功能。</p>
+  <section class="wallet-panel surface-card">
+    <h2>{{ t('wallet.title') }}</h2>
+    <p v-if="!currentUser" class="hint">{{ t('wallet.hints.login') }}</p>
 
     <div v-else>
-      <div v-if="loading" class="loading">钱包数据加载中...</div>
-      <div v-else-if="!wallet" class="empty">暂无钱包数据，稍后再试。</div>
+      <div v-if="loading" class="loading">{{ t('wallet.states.loading') }}</div>
+      <div v-else-if="!wallet" class="empty">{{ t('wallet.states.empty') }}</div>
       <div v-else class="content">
         <div class="summary">
           <div class="summary-card balance">
-            <span class="label">当前余额</span>
+            <span class="label">{{ t('wallet.labels.balance') }}</span>
             <div class="figures">
-              <strong class="amount-wan">￥{{ formatWan(wallet.balance) }}<small>万</small></strong>
-              <span class="amount-yuan">≈ ￥{{ formatYuan(wallet.balance) }} 元</span>
+              <strong class="amount-wan">￥{{ formatWan(wallet.balance) }}<small>{{ t('wallet.labels.unitWan') }}</small></strong>
+              <span class="amount-yuan">≈ ￥{{ formatYuan(wallet.balance) }} {{ t('wallet.labels.unitYuan') }}</span>
             </div>
           </div>
           <div class="summary-card port">
-            <span class="label">虚拟端口号</span>
+            <span class="label">{{ t('wallet.labels.virtualPort') }}</span>
             <code>{{ wallet.virtualPort }}</code>
-            <small>该编号用于识别充值与收款</small>
+            <small>{{ t('wallet.labels.virtualPortHint') }}</small>
           </div>
         </div>
 
         <form class="top-up" @submit.prevent="submitTopUp">
-          <h3>充值钱包</h3>
-          <p class="top-up-hint">系统以万元为结算单位，界面会自动折算成人民币金额。</p>
+          <h3>{{ t('wallet.topUp.title') }}</h3>
+          <p class="top-up-hint">{{ t('wallet.topUp.hint') }}</p>
           <label>
-            充值金额（万元）
+            {{ t('wallet.topUp.amountLabel') }}
             <input
               v-model.number="form.amount"
               type="number"
               min="0.01"
               step="0.01"
               required
-              placeholder="请输入金额，如 50"
+              :placeholder="t('wallet.topUp.amountPlaceholder')"
               :disabled="loading || submitting"
             />
-            <span v-if="amountPreview" class="amount-preview">≈ ￥{{ amountPreview }} 元</span>
+            <span v-if="amountPreview" class="amount-preview">≈ ￥{{ amountPreview }} {{ t('wallet.labels.unitYuan') }}</span>
           </label>
           <label>
-            备注（选填）
+            {{ t('wallet.topUp.referenceLabel') }}
             <input
               v-model.trim="form.reference"
               type="text"
               maxlength="100"
-              placeholder="如：线上充值"
+              :placeholder="t('wallet.topUp.referencePlaceholder')"
               :disabled="loading || submitting"
             />
           </label>
           <button type="submit" :disabled="loading || submitting">
-            {{ submitting ? '处理中...' : '立即充值' }}
+            {{ submitting ? t('wallet.actions.processing') : t('wallet.actions.submitTopUp') }}
           </button>
         </form>
 
         <div class="transactions">
-          <h3>最近流水</h3>
-          <p v-if="!wallet.transactions || wallet.transactions.length === 0" class="empty">暂无交易记录。</p>
+          <h3>{{ t('wallet.transactions.title') }}</h3>
+          <p v-if="!wallet.transactions || wallet.transactions.length === 0" class="empty">
+            {{ t('wallet.transactions.empty') }}
+          </p>
           <ul v-else>
             <li v-for="tx in transactions" :key="tx.id" :class="['transaction', transactionClass(tx)]">
               <div class="transaction-main">
-                <span class="type">{{ typeLabels[tx.type] ?? tx.type }}</span>
+                <span class="type">{{ transactionLabel(tx.type) }}</span>
                 <span class="time">{{ formatTime(tx.createdAt) }}</span>
               </div>
               <div class="transaction-amount">
-                <span class="wan">{{ tx.amountParts.sign }}{{ tx.amountParts.wan }} 万</span>
+                <span class="wan">{{ tx.amountParts.sign }}{{ tx.amountParts.wan }} {{ t('wallet.labels.unitWan') }}</span>
                 <span class="yuan">≈ {{ tx.amountParts.sign }}￥{{ tx.amountParts.yuan }}</span>
               </div>
-              <span class="reference" :title="tx.reference || tx.description || ''">
-                {{ tx.reference || tx.description || '—' }}
+              <span class="reference" :title="formatReference(tx)">
+                {{ formatReference(tx) }}
               </span>
             </li>
           </ul>
@@ -78,7 +80,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, inject, reactive, ref, watch } from 'vue';
 
 const props = defineProps({
   wallet: {
@@ -97,15 +99,21 @@ const props = defineProps({
 
 const emit = defineEmits(['top-up']);
 
+const settings = inject('appSettings', { language: 'zh' });
+const translate = inject('translate', (key) => key);
+const t = (key, vars) => translate(key, vars);
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+const containsCJK = (value) => /[\u3400-\u9FFF]/.test(value ?? '');
+
 const form = reactive({ amount: null, reference: '' });
 const submitting = ref(false);
 
-const typeLabels = {
-  TOP_UP: '充值',
-  PAYMENT: '支付',
-  RECEIVE: '收款',
-  REFUND: '退款'
-};
+const typeLabels = computed(() => ({
+  TOP_UP: t('wallet.transactions.types.topUp'),
+  PAYMENT: t('wallet.transactions.types.payment'),
+  RECEIVE: t('wallet.transactions.types.receive'),
+  REFUND: t('wallet.transactions.types.refund')
+}));
 
 const transactions = computed(() => {
   if (!props.wallet || !Array.isArray(props.wallet.transactions)) {
@@ -161,19 +169,7 @@ const submitTopUp = () => {
   });
 };
 
-const formatWan = (value) => {
-  if (value == null) {
-    return '0.00';
-  }
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return '0.00';
-  }
-  return num.toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-};
+const formatWan = (value) => formatCurrency(value, 2);
 
 const formatYuan = (value) => {
   if (value == null) {
@@ -183,9 +179,23 @@ const formatYuan = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return (num * 10000).toLocaleString('zh-CN', {
+  return (num * 10000).toLocaleString(locale.value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
+  });
+};
+
+const formatCurrency = (value, fractionDigits = 2) => {
+  if (value == null) {
+    return '0.00';
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '0.00';
+  }
+  return num.toLocaleString(locale.value, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
   });
 };
 
@@ -198,41 +208,58 @@ const currencyParts = (value) => {
     return { sign: '', wan: '0.00', yuan: '0.00' };
   }
   const sign = num > 0 ? '+' : num < 0 ? '−' : '';
-  const wan = Math.abs(num).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  const yuan = Math.abs(num * 10000).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  return { sign, wan, yuan };
+  const absolute = Math.abs(num);
+  return {
+    sign,
+    wan: formatCurrency(absolute, 2),
+    yuan: formatYuan(absolute)
+  };
+};
+
+const transactionClass = (tx) => {
+  if (!tx || !tx.amountParts) {
+    return '';
+  }
+  const sign = tx.amountParts.sign;
+  if (sign === '+') {
+    return 'positive';
+  }
+  if (sign === '−') {
+    return 'negative';
+  }
+  return '';
+};
+
+const transactionLabel = (type) => typeLabels.value[type] ?? type;
+
+const formatReference = (tx) => {
+  if (!tx) {
+    return t('wallet.transactions.noReference');
+  }
+  if (tx.reference && tx.reference.trim()) {
+    return tx.reference.trim();
+  }
+  if (tx.description && tx.description.trim()) {
+    const trimmed = tx.description.trim();
+    if (settings?.language === 'en' && containsCJK(trimmed)) {
+      return transactionLabel(tx.type);
+    }
+    return trimmed;
+  }
+  return t('wallet.transactions.noReference');
 };
 
 const formatTime = (value) => {
   if (!value) {
-    return '';
+    return t('wallet.transactions.unknownTime');
   }
-  return new Date(value).toLocaleString('zh-CN', {
-    hour12: false
-  });
-};
-
-const transactionClass = (tx) => {
-  if (!tx || tx.amount == null) {
-    return 'neutral';
+  try {
+    return new Date(value).toLocaleString(locale.value, {
+      hour12: settings?.language === 'en'
+    });
+  } catch (error) {
+    return String(value);
   }
-  const amount = Number(tx.amount);
-  if (!Number.isFinite(amount)) {
-    return 'neutral';
-  }
-  if (amount > 0) {
-    return 'positive';
-  }
-  if (amount < 0) {
-    return 'negative';
-  }
-  return 'neutral';
 };
 </script>
 
@@ -240,192 +267,148 @@ const transactionClass = (tx) => {
 .wallet-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.6rem;
-  background: var(--gradient-surface);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
-  padding: 2rem;
-  border: 1px solid var(--color-border);
-  backdrop-filter: blur(var(--glass-blur));
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .wallet-panel h2 {
   margin: 0;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--color-text-strong);
-  letter-spacing: 0.01em;
+  font-size: 1.45rem;
 }
 
 .hint {
   margin: 0;
-  color: var(--color-text-soft);
+  color: var(--color-text-muted);
 }
 
 .loading,
 .empty {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: 1.1rem 1.4rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  text-align: center;
   color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1.8rem;
+  gap: 1.5rem;
 }
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.2rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.1rem;
 }
 
 .summary-card {
-  position: relative;
-  border-radius: calc(var(--radius-lg) - 0.2rem);
-  padding: 1.5rem;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2));
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-}
-
-.summary-card.balance {
-  background: var(--gradient-primary);
-  color: var(--color-text-on-emphasis);
-  box-shadow: 0 28px 60px rgba(37, 99, 235, 0.32);
-}
-
-.summary-card.port {
-  background: var(--color-surface);
-  color: var(--color-text-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-surface);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .summary-card .label {
-  display: block;
   font-size: 0.9rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.75;
+  color: var(--color-text-muted);
 }
 
-.summary-card .figures {
+.figures {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  margin-top: 0.75rem;
+  gap: 0.35rem;
 }
 
 .amount-wan {
-  font-size: 2.25rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
+  font-size: 1.8rem;
+  color: var(--color-text-strong);
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
 }
 
 .amount-wan small {
   font-size: 1rem;
-  font-weight: 600;
-  opacity: 0.8;
 }
 
 .amount-yuan {
+  color: var(--color-text-soft);
   font-size: 0.95rem;
-  opacity: 0.85;
 }
 
 .summary-card.port code {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface-soft) 70%, transparent);
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-family: 'Fira Code', 'SFMono-Regular', monospace;
+  font-size: 1.1rem;
 }
 
 .summary-card.port small {
-  display: block;
-  margin-top: 0.6rem;
   color: var(--color-text-soft);
 }
 
 .top-up {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .top-up h3 {
   margin: 0;
-  font-size: 1.2rem;
-  color: var(--color-text-strong);
 }
 
 .top-up-hint {
   margin: 0;
-  font-size: 0.9rem;
   color: var(--color-text-soft);
 }
 
 .top-up label {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  color: var(--color-text-muted);
-  font-weight: 500;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
 }
 
 .top-up input {
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-radius: var(--radius-lg);
-  padding: 0.75rem 1rem;
-  font-size: 1.05rem;
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base),
-    background var(--transition-base);
-}
-
-.top-up input:focus {
-  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .amount-preview {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: var(--color-text-soft);
 }
 
 .top-up button {
-  justify-self: flex-start;
-  background: var(--gradient-primary);
+  align-self: flex-start;
+  padding: 0.65rem 1.5rem;
   border: none;
   border-radius: var(--radius-pill);
-  color: var(--color-text-on-emphasis);
   font-weight: 600;
-  padding: 0.7rem 1.8rem;
-  box-shadow: 0 22px 48px rgba(37, 99, 235, 0.3);
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
-}
-
-.top-up button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 30px 60px rgba(37, 99, 235, 0.35);
+  cursor: pointer;
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 15px 30px rgba(37, 99, 235, 0.24);
 }
 
 .top-up button:disabled {
-  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  opacity: 0.6;
+  cursor: not-allowed;
   box-shadow: none;
 }
 
-.transactions h3 {
-  margin: 0 0 0.75rem;
-  color: var(--color-text-strong);
+.transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .transactions ul {
@@ -434,28 +417,23 @@ const transactionClass = (tx) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.65rem;
 }
 
 .transaction {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  align-items: start;
-  gap: 0.75rem;
-  padding: 1rem 1.2rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .transaction-main {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.65rem;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .transaction-main .type {
@@ -463,61 +441,28 @@ const transactionClass = (tx) => {
   color: var(--color-text-strong);
 }
 
+.transaction-main .time {
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
+}
+
 .transaction-amount {
-  text-align: right;
-  font-weight: 600;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-  color: var(--color-text-strong);
-}
-
-.transaction-amount .wan {
-  font-size: 1.15rem;
-}
-
-.transaction-amount .yuan {
-  font-size: 0.88rem;
-  color: var(--color-text-soft);
+  gap: 0.2rem;
+  font-weight: 600;
 }
 
 .transaction.positive .transaction-amount {
-  color: #16a34a;
+  color: #047857;
 }
 
 .transaction.negative .transaction-amount {
-  color: #ef4444;
+  color: #dc2626;
 }
 
-.transaction .reference {
-  grid-column: 1 / -1;
+.reference {
   color: var(--color-text-soft);
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.transactions .empty {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-text-soft);
-}
-
-@media (max-width: 720px) {
-  .wallet-panel {
-    padding: 1.6rem;
-  }
-
-  .transaction {
-    grid-template-columns: 1fr;
-  }
-
-  .transaction-amount {
-    align-items: flex-start;
-    text-align: left;
-  }
+  font-size: 0.85rem;
 }
 </style>

@@ -139,9 +139,10 @@ const listingStatusLabels = {
   REJECTED: '已驳回'
 };
 
+const sellerRoles = ['SELLER', 'LANDLORD'];
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const isAdmin = computed(() => props.currentUser?.role === 'ADMIN');
-const isSeller = computed(() => props.currentUser?.role === 'SELLER');
+const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
 const canViewCertificate = computed(() => isAdmin.value || isSeller.value);
 
 const formatNumber = (value) => {

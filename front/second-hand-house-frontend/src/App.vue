@@ -71,6 +71,7 @@
           :purchase-loading="ordersLoading"
           :reservation-loading="reservationLoading"
           :reservation-target="reservationTarget"
+          :api-base-url="apiBaseUrl"
           @search="handleFilterSearch"
           @reserve="handleReserve"
           @purchase="handlePurchase"
@@ -433,7 +434,8 @@ const translations = {
       loadReputation: '加载信誉面板失败。',
       persistSettings: '界面设置保存失败。',
       persistUser: '无法持久化登录状态。',
-      restoreSession: '恢复登录状态失败。'
+      restoreSession: '恢复登录状态失败。',
+      genericServerError: '发生未知错误，请稍后再试。'
     },
     prompts: {
       reviewRejectReason: '请输入驳回原因',
@@ -446,6 +448,205 @@ const translations = {
     payments: {
       installment: '分期',
       full: '全款'
+    },
+    explorer: {
+      title: '购房首页',
+      subtitle: '按关键字、价格或面积筛选房源，系统将展示通过审核的优质房源并支持智能预测。',
+      searchPlaceholder: '输入房源关键词（标题、地址或描述）',
+      history: {
+        toggle: '历史搜索'
+      },
+      filters: {
+        minPrice: '最低价格',
+        maxPrice: '最高价格',
+        minArea: '最小面积',
+        maxArea: '最大面积',
+        pricePlaceholder: '万元',
+        areaPlaceholder: '㎡'
+      },
+      actions: {
+        search: '搜索房源',
+        applyFilters: '应用筛选',
+        reset: '重置',
+        contactSeller: '联系卖家',
+        reserve: '预定（定金 {deposit} 万）',
+        reserving: '预定中…',
+        purchase: '立即购买',
+        processing: '处理中…'
+      },
+      labels: {
+        noImage: '暂无图片',
+        fullPrice: '全款价格',
+        installment: '分期（月供）',
+        installmentMonths: '× {count} 期',
+        area: '面积',
+        listingDate: '挂牌日期',
+        seller: '卖家',
+        contact: '联系方式',
+        paymentMethod: '支付方式'
+      },
+      payment: {
+        full: '全款支付',
+        installment: '分期付款'
+      },
+      states: {
+        loading: '房源数据加载中…',
+        empty: '暂未查询到符合条件的房源。'
+      },
+      recommendations: {
+        sellers: {
+          title: '优质卖家',
+          score: '信誉分 {score}'
+        },
+        buyers: {
+          title: '优质买家',
+          score: '信誉分 {score}'
+        }
+      },
+      tips: {
+        requireVerification: '完成实名认证后才能查看完整信息并进行交易。',
+        awaitingApproval: '该房源尚待管理员审核，通过后方可预定或购买。',
+        loginAsBuyer: '登录买家账号后可进行预定或购买。'
+      }
+    },
+    wallet: {
+      title: '我的钱包',
+      hints: {
+        login: '请登录后查看钱包信息与充值功能。'
+      },
+      states: {
+        loading: '钱包数据加载中…',
+        empty: '暂无钱包数据，稍后再试。'
+      },
+      labels: {
+        balance: '当前余额',
+        unitWan: '万',
+        unitYuan: '元',
+        virtualPort: '虚拟端口号',
+        virtualPortHint: '该编号用于识别充值与收款'
+      },
+      topUp: {
+        title: '充值钱包',
+        hint: '系统以万元为结算单位，界面会自动折算成人民币金额。',
+        amountLabel: '充值金额（万元）',
+        amountPlaceholder: '例如：50',
+        referenceLabel: '备注（选填）',
+        referencePlaceholder: '如：线上充值'
+      },
+      actions: {
+        processing: '处理中…',
+        submitTopUp: '立即充值'
+      },
+      transactions: {
+        title: '最近流水',
+        empty: '暂无交易记录。',
+        noReference: '—',
+        unknownTime: '时间未知',
+        types: {
+          topUp: '充值',
+          payment: '支付',
+          receive: '收款',
+          refund: '退款'
+        }
+      }
+    },
+    prediction: {
+      title: '房价预测助手',
+      subtitle: '基于波士顿房价思路的轻量模型，结合房源特点预估成交价格区间。',
+      fields: {
+        area: {
+          label: '建筑面积（㎡）',
+          placeholder: '如：120'
+        },
+        rooms: {
+          label: '平均卧室数量',
+          placeholder: '如：3.2'
+        },
+        age: {
+          label: '房龄（年）',
+          placeholder: '如：10'
+        },
+        subway: {
+          label: '距离地铁（公里）',
+          placeholder: '如：1.5'
+        },
+        crime: {
+          label: '社区治安指数',
+          placeholder: '0 表示极佳，建议 0-30'
+        },
+        school: {
+          label: '学区评分',
+          placeholder: '0-100'
+        }
+      },
+      actions: {
+        submit: '开始预测',
+        calculating: '模型计算中…',
+        reset: '恢复默认参数'
+      },
+      result: {
+        estimate: '预测成交价',
+        lower: '参考下限',
+        upper: '参考上限',
+        confidence: '可信度',
+        contributionsTitle: '因素贡献分析'
+      },
+      features: {
+        area: '建筑面积',
+        rooms: '卧室数量',
+        age: '房龄影响',
+        subway: '交通便利度',
+        crime: '治安状况',
+        school: '教育资源'
+      },
+      errors: {
+        generic: '预测失败，请稍后再试或检查输入。',
+        areaRequired: '请填写房屋面积',
+        areaMin: '房屋面积必须大于 10 平方米',
+        roomsRequired: '请填写平均卧室数量',
+        roomsMin: '平均卧室数量必须大于 0',
+        ageRequired: '请填写房龄信息',
+        ageMin: '房龄不能为负数',
+        ageMax: '房龄不能超过 120 年',
+        subwayRequired: '请填写距离地铁的距离',
+        subwayMin: '地铁距离不能为负数',
+        crimeRequired: '请填写社区治安指数',
+        crimeMin: '治安指数不能为负数',
+        schoolRequired: '请填写学校评分',
+        schoolMin: '学校评分不能为负数',
+        schoolMax: '学校评分不能超过 100 分'
+      }
+    },
+    serverMessages: {
+      wallet: {
+        amountRequired: '充值金额不能为空',
+        amountPositive: '充值金额必须大于0',
+        paymentAmountPositive: '支付金额必须大于0',
+        refundAmountPositive: '退款金额必须大于0',
+        referenceLength: '备注长度不能超过100个字符',
+        balanceInsufficient: '买家钱包余额不足',
+        sellerInsufficient: '卖家钱包余额不足，无法完成退款'
+      },
+      accounts: {
+        notFound: '未找到指定用户账号',
+        buyerMissing: '买家账号不存在',
+        sellerMissing: '卖家账号不存在'
+      },
+      houses: {
+        notFound: '房源不存在',
+        missingSeller: '房源缺少卖家账号，无法发起支付',
+        priceInvalid: '房源价格异常，无法预定',
+        notApproved: '房源尚未通过审核，暂不可交易'
+      },
+      orders: {
+        alreadyReserved: '该房源已有其他买家预定',
+        reservedSelf: '您已预定该房源，请耐心等待卖家处理',
+        statusUnsupported: '当前订单状态不支持退换',
+        buyerOnlyReturn: '仅买家本人可以申请退换'
+      },
+      generic: {
+        validationFailed: '请求参数校验失败'
+      }
     },
     orders: {
       progress: {
@@ -632,7 +833,8 @@ const translations = {
       loadReputation: 'Failed to load reputation dashboard.',
       persistSettings: 'Failed to save interface settings.',
       persistUser: 'Unable to persist login state.',
-      restoreSession: 'Failed to restore previous session.'
+      restoreSession: 'Failed to restore previous session.',
+      genericServerError: 'An unexpected error occurred. Please try again later.'
     },
     prompts: {
       reviewRejectReason: 'Enter rejection reason',
@@ -645,6 +847,205 @@ const translations = {
     payments: {
       installment: 'instalments',
       full: 'full payment'
+    },
+    explorer: {
+      title: 'Home explorer',
+      subtitle: 'Filter approved listings by keyword, price or area and access instant price predictions.',
+      searchPlaceholder: 'Search listings by title, address, or description',
+      history: {
+        toggle: 'Search history'
+      },
+      filters: {
+        minPrice: 'Minimum price',
+        maxPrice: 'Maximum price',
+        minArea: 'Minimum area',
+        maxArea: 'Maximum area',
+        pricePlaceholder: '×10k CNY',
+        areaPlaceholder: '㎡'
+      },
+      actions: {
+        search: 'Search listings',
+        applyFilters: 'Apply filters',
+        reset: 'Reset',
+        contactSeller: 'Contact seller',
+        reserve: 'Reserve (deposit ¥{deposit} ×10k)',
+        reserving: 'Reserving…',
+        purchase: 'Buy now',
+        processing: 'Processing…'
+      },
+      labels: {
+        noImage: 'No image',
+        fullPrice: 'Full payment price',
+        installment: 'Installments (monthly)',
+        installmentMonths: '× {count} months',
+        area: 'Area',
+        listingDate: 'Listed on',
+        seller: 'Seller',
+        contact: 'Contact',
+        paymentMethod: 'Payment method'
+      },
+      payment: {
+        full: 'Full payment',
+        installment: 'Installments'
+      },
+      states: {
+        loading: 'Loading listings…',
+        empty: 'No listings matched the filters yet.'
+      },
+      recommendations: {
+        sellers: {
+          title: 'Top sellers',
+          score: 'Reputation {score}'
+        },
+        buyers: {
+          title: 'Top buyers',
+          score: 'Reputation {score}'
+        }
+      },
+      tips: {
+        requireVerification: 'Complete real-name verification to view full details and trade.',
+        awaitingApproval: 'This listing is awaiting administrator approval before reservations and purchases are available.',
+        loginAsBuyer: 'Sign in with a buyer account to reserve or purchase listings.'
+      }
+    },
+    wallet: {
+      title: 'Wallet',
+      hints: {
+        login: 'Please sign in to access wallet information and top-up features.'
+      },
+      states: {
+        loading: 'Loading wallet data…',
+        empty: 'No wallet information yet. Please try again later.'
+      },
+      labels: {
+        balance: 'Current balance',
+        unitWan: '×10k',
+        unitYuan: 'CNY',
+        virtualPort: 'Virtual account number',
+        virtualPortHint: 'Use this identifier when adding funds or receiving payments.'
+      },
+      topUp: {
+        title: 'Top up wallet',
+        hint: 'Balances are stored in units of ten-thousand yuan. Values are converted to CNY automatically.',
+        amountLabel: 'Amount (×10k CNY)',
+        amountPlaceholder: 'e.g. 50',
+        referenceLabel: 'Reference (optional)',
+        referencePlaceholder: 'e.g. Online top-up'
+      },
+      actions: {
+        processing: 'Processing…',
+        submitTopUp: 'Top up now'
+      },
+      transactions: {
+        title: 'Recent activity',
+        empty: 'No transactions recorded yet.',
+        noReference: 'No reference',
+        unknownTime: 'Unknown time',
+        types: {
+          topUp: 'Top-up',
+          payment: 'Payment',
+          receive: 'Incoming',
+          refund: 'Refund'
+        }
+      }
+    },
+    prediction: {
+      title: 'Price prediction assistant',
+      subtitle: 'A lightweight model inspired by the Boston housing dataset that estimates price ranges from your inputs.',
+      fields: {
+        area: {
+          label: 'Floor area (㎡)',
+          placeholder: 'e.g. 120'
+        },
+        rooms: {
+          label: 'Average bedrooms',
+          placeholder: 'e.g. 3.2'
+        },
+        age: {
+          label: 'Property age (years)',
+          placeholder: 'e.g. 10'
+        },
+        subway: {
+          label: 'Distance to subway (km)',
+          placeholder: 'e.g. 1.5'
+        },
+        crime: {
+          label: 'Safety index',
+          placeholder: '0 is best, typically 0-30'
+        },
+        school: {
+          label: 'School score',
+          placeholder: '0-100'
+        }
+      },
+      actions: {
+        submit: 'Predict price',
+        calculating: 'Calculating…',
+        reset: 'Reset to defaults'
+      },
+      result: {
+        estimate: 'Estimated price',
+        lower: 'Lower bound',
+        upper: 'Upper bound',
+        confidence: 'Confidence',
+        contributionsTitle: 'Feature contribution breakdown'
+      },
+      features: {
+        area: 'Floor area',
+        rooms: 'Rooms',
+        age: 'Property age',
+        subway: 'Transit access',
+        crime: 'Safety index',
+        school: 'School quality'
+      },
+      errors: {
+        generic: 'Unable to generate prediction. Please review the input values and try again.',
+        areaRequired: 'Floor area is required.',
+        areaMin: 'Floor area must be greater than 10㎡.',
+        roomsRequired: 'Average bedroom count is required.',
+        roomsMin: 'Average bedrooms must be greater than 0.',
+        ageRequired: 'Property age is required.',
+        ageMin: 'Property age cannot be negative.',
+        ageMax: 'Property age cannot exceed 120 years.',
+        subwayRequired: 'Distance to subway is required.',
+        subwayMin: 'Distance to subway cannot be negative.',
+        crimeRequired: 'Safety index is required.',
+        crimeMin: 'Safety index cannot be negative.',
+        schoolRequired: 'School score is required.',
+        schoolMin: 'School score cannot be negative.',
+        schoolMax: 'School score cannot exceed 100.'
+      }
+    },
+    serverMessages: {
+      wallet: {
+        amountRequired: 'Top-up amount is required',
+        amountPositive: 'Top-up amount must be greater than zero',
+        paymentAmountPositive: 'Payment amount must be greater than zero',
+        refundAmountPositive: 'Refund amount must be greater than zero',
+        referenceLength: 'Reference must not exceed 100 characters',
+        balanceInsufficient: 'Buyer wallet balance is insufficient',
+        sellerInsufficient: 'Seller wallet balance is insufficient to process the refund'
+      },
+      accounts: {
+        notFound: 'The specified user account could not be found',
+        buyerMissing: 'Buyer account not found',
+        sellerMissing: 'Seller account not found'
+      },
+      houses: {
+        notFound: 'Listing not found',
+        missingSeller: 'The listing is missing a seller account and cannot proceed',
+        priceInvalid: 'Invalid listing price. Reservation cannot continue.',
+        notApproved: 'The listing has not been approved yet.'
+      },
+      orders: {
+        alreadyReserved: 'Another buyer has already reserved this listing',
+        reservedSelf: 'You have already reserved this listing. Please wait for the seller.',
+        statusUnsupported: 'The current order status does not allow this action',
+        buyerOnlyReturn: 'Only the buyer can request a refund'
+      },
+      generic: {
+        validationFailed: 'Request validation failed'
+      }
     },
     orders: {
       progress: {
@@ -672,7 +1073,60 @@ const translations = {
   }
 };
 
+const serverMessageKeyMap = Object.freeze({
+  '充值金额不能为空': 'serverMessages.wallet.amountRequired',
+  '充值金额必须大于0': 'serverMessages.wallet.amountPositive',
+  '支付金额必须大于0': 'serverMessages.wallet.paymentAmountPositive',
+  '退款金额必须大于0': 'serverMessages.wallet.refundAmountPositive',
+  '备注长度不能超过100个字符': 'serverMessages.wallet.referenceLength',
+  '买家钱包余额不足': 'serverMessages.wallet.balanceInsufficient',
+  '卖家钱包余额不足，无法完成退款': 'serverMessages.wallet.sellerInsufficient',
+  '未找到指定用户账号': 'serverMessages.accounts.notFound',
+  '买家账号不存在': 'serverMessages.accounts.buyerMissing',
+  '卖家账号不存在': 'serverMessages.accounts.sellerMissing',
+  '房源不存在': 'serverMessages.houses.notFound',
+  '房源缺少卖家账号，无法发起支付': 'serverMessages.houses.missingSeller',
+  '房源价格异常，无法预定': 'serverMessages.houses.priceInvalid',
+  '房源尚未通过审核，暂不可交易': 'serverMessages.houses.notApproved',
+  '该房源已有其他买家预定': 'serverMessages.orders.alreadyReserved',
+  '您已预定该房源，请耐心等待卖家处理': 'serverMessages.orders.reservedSelf',
+  '当前订单状态不支持退换': 'serverMessages.orders.statusUnsupported',
+  '仅买家本人可以申请退换': 'serverMessages.orders.buyerOnlyReturn',
+  '买家未完成实名认证，无法预定房源': 'errors.reserveVerifyFirst',
+  '买家未完成实名认证，无法购买房源': 'errors.purchaseVerifyFirst',
+  '房源尚未通过审核，暂不可预定。': 'errors.reserveNotApproved',
+  '房源尚未通过审核，暂不可购买。': 'errors.purchaseNotApproved',
+  '请求参数校验失败': 'serverMessages.generic.validationFailed'
+});
+
+const containsCJK = (text) => /[\u3400-\u9FFF]/.test(text);
+
 const currentLocale = computed(() => settings.language || 'zh');
+
+const translateServerMessage = (message, fallbackKey) => {
+  if (!message) {
+    return fallbackKey ? t(fallbackKey) : '';
+  }
+  const trimmed = String(message).trim();
+  const key = serverMessageKeyMap[trimmed];
+  if (key) {
+    return t(key);
+  }
+  if (currentLocale.value === 'en' && containsCJK(trimmed)) {
+    return fallbackKey ? t(fallbackKey) : t('errors.genericServerError');
+  }
+  return trimmed;
+};
+
+const resolveError = (error, fallbackKey) => {
+  const detail = error?.response?.data;
+  if (detail?.errors) {
+    const firstError = Object.values(detail.errors)[0];
+    const raw = Array.isArray(firstError) ? firstError[0] : firstError;
+    return translateServerMessage(raw, fallbackKey);
+  }
+  return translateServerMessage(detail?.detail, fallbackKey);
+};
 
 const resolveTranslation = (locale, path) => {
   const segments = path.split('.');
@@ -809,8 +1263,12 @@ const convertLocalTimeToIso = (value) => {
   return date.toISOString();
 };
 
+const sellerRoles = ['SELLER', 'LANDLORD'];
+const isSellerRole = (role) => sellerRoles.includes(role);
+
 const roleLabels = computed(() => ({
   SELLER: t('roles.seller'),
+  LANDLORD: t('roles.seller'),
   BUYER: t('roles.buyer'),
   ADMIN: t('roles.admin')
 }));
@@ -835,10 +1293,13 @@ const orderProgressSequence = Object.freeze([
   'HANDOVER_COMPLETED'
 ]);
 
-const isSeller = computed(() => currentUser.value?.role === 'SELLER');
+const isSeller = computed(() => isSellerRole(currentUser.value?.role));
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN');
-const canUseMessaging = computed(() => currentUser.value && ['BUYER', 'SELLER'].includes(currentUser.value.role));
+const canUseMessaging = computed(() => {
+  const role = currentUser.value?.role;
+  return role === 'BUYER' || isSellerRole(role);
+});
 const isRealNameVerified = computed(() => Boolean(currentUser.value?.realNameVerified));
 const canViewSensitiveInfo = computed(() => {
   const user = currentUser.value;
@@ -851,10 +1312,10 @@ const canViewSensitiveInfo = computed(() => {
   return Boolean(user.realNameVerified);
 });
 
-const canManageHouses = computed(() => currentUser.value?.role === 'SELLER');
+const canManageHouses = computed(() => isSeller.value);
 
 const urgentTasks = computed(() => {
-  if (!currentUser.value || !['BUYER', 'SELLER'].includes(currentUser.value.role)) {
+  if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
     return [];
   }
   const role = currentUser.value.role;
@@ -874,7 +1335,7 @@ const urgentTasks = computed(() => {
     const timeLabel = validViewing ? formatLocalDateTime(validViewing) : null;
     const viewingSoon = validViewing ? timeValue <= soonThreshold : false;
 
-    if (role === 'SELLER') {
+    if (isSellerRole(role)) {
       if (stage === 'DEPOSIT_PAID') {
         list.push({
           key: `${order.id}-schedule`,
@@ -1040,7 +1501,7 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     const { data } = await client.get('/houses', { params });
     houses.value = data.map(normalizeHouse);
   } catch (error) {
-    messages.error = error.response?.data?.detail ?? t('errors.loadHouses');
+    messages.error = resolveError(error, 'errors.loadHouses');
   } finally {
     if (!silent) {
       loading.value = false;
@@ -1055,7 +1516,7 @@ const loadRecommendations = async ({ silent = true } = {}) => {
     recommendations.buyers = Array.isArray(data.buyers) ? data.buyers : [];
   } catch (error) {
     if (!silent) {
-      messages.error = error.response?.data?.detail ?? t('errors.loadRecommendations');
+      messages.error = resolveError(error, 'errors.loadRecommendations');
     }
   }
 };
@@ -1072,8 +1533,7 @@ const fetchWallet = async ({ silent = false } = {}) => {
     const { data } = await client.get(`/wallets/${currentUser.value.username}`);
     wallet.value = data;
   } catch (error) {
-    const detail = error.response?.data?.detail ?? t('errors.loadWallet');
-    messages.error = detail;
+    messages.error = resolveError(error, 'errors.loadWallet');
   } finally {
     if (!silent) {
       walletLoading.value = false;
@@ -1093,8 +1553,7 @@ const fetchOrders = async ({ silent = false } = {}) => {
     const { data } = await client.get(`/orders/by-user/${currentUser.value.username}`);
     orders.value = data;
   } catch (error) {
-    const detail = error.response?.data?.detail ?? t('errors.loadOrders');
-    messages.error = detail;
+    messages.error = resolveError(error, 'errors.loadOrders');
   } finally {
     if (!silent) {
       ordersLoading.value = false;
@@ -1139,7 +1598,7 @@ const loadConversations = async ({ silent = false } = {}) => {
       await loadConversationMessages(activeConversationId.value, { silent: true });
     }
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? t('errors.loadConversations');
+    conversationError.value = resolveError(error, 'errors.loadConversations');
   } finally {
     if (!silent) {
       conversationListLoading.value = false;
@@ -1162,7 +1621,7 @@ const loadConversationMessages = async (conversationId, { silent = false } = {})
     });
     conversationMessages.value = Array.isArray(data) ? data : [];
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? t('errors.loadMessages');
+    conversationError.value = resolveError(error, 'errors.loadMessages');
   } finally {
     if (!silent) {
       conversationMessagesLoading.value = false;
@@ -1211,7 +1670,7 @@ const handleSendConversationMessage = async ({ conversationId, content }) => {
       loadConversations({ silent: true })
     ]);
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? t('errors.sendMessage');
+    conversationError.value = resolveError(error, 'errors.sendMessage');
   } finally {
     conversationSending.value = false;
   }
@@ -1265,7 +1724,7 @@ const openConversation = async ({ buyerUsername, sellerUsername, initialMessage 
       loadConversations({ silent: true })
     ]);
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? t('errors.createConversation');
+    conversationError.value = resolveError(error, 'errors.createConversation');
     conversationPrefill.value = '';
   }
 };
@@ -1342,13 +1801,7 @@ const handleScheduleViewing = async ({ orderId, viewingTime, message }) => {
       loadConversations({ silent: true })
     ]);
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.scheduleViewing');
-    }
+    messages.error = resolveError(error, 'errors.scheduleViewing');
   } finally {
     ordersLoading.value = false;
   }
@@ -1370,13 +1823,7 @@ const handleAdvanceProgress = async ({ orderId, stage }) => {
     messages.success = t('success.progressUpdated', { stage: stageLabel });
     await fetchOrders({ silent: true });
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.progressUpdate');
-    }
+    messages.error = resolveError(error, 'errors.progressUpdate');
   } finally {
     ordersLoading.value = false;
   }
@@ -1406,7 +1853,7 @@ const refreshCurrentUser = async ({ silent = true } = {}) => {
     persistUser(updated);
   } catch (error) {
     if (!silent) {
-      messages.error = error.response?.data?.detail ?? t('errors.refreshUser');
+      messages.error = resolveError(error, 'errors.refreshUser');
     }
   }
 };
@@ -1482,13 +1929,7 @@ const handleSubmit = async (payload) => {
     await fetchHouses({ silent: true });
     await loadRecommendations();
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.saveHouse');
-    }
+    messages.error = resolveError(error, 'errors.saveHouse');
   } finally {
     loading.value = false;
   }
@@ -1532,7 +1973,7 @@ const handleRemove = async (house) => {
     await fetchHouses({ silent: true });
     await loadRecommendations();
   } catch (error) {
-    messages.error = error.response?.data?.detail ?? t('errors.deleteHouse');
+    messages.error = resolveError(error, 'errors.deleteHouse');
   } finally {
     loading.value = false;
   }
@@ -1585,13 +2026,7 @@ const handlePurchase = async ({ house, paymentMethod }) => {
     await loadRecommendations();
     await fetchHouses({ silent: true });
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.purchaseFailed');
-    }
+    messages.error = resolveError(error, 'errors.purchaseFailed');
   } finally {
     ordersLoading.value = false;
   }
@@ -1632,13 +2067,7 @@ const handleReserve = async (house) => {
     await refreshCurrentUser({ silent: true });
     await loadRecommendations();
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.reserveFailed');
-    }
+    messages.error = resolveError(error, 'errors.reserveFailed');
   } finally {
     reservationLoading.value = false;
     reservationTarget.value = null;
@@ -1662,13 +2091,7 @@ const handleTopUp = async ({ amount, reference }) => {
     wallet.value = data;
     messages.success = t('success.walletTopUp', { amount: formatCurrencyYuan(amount) });
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.walletTopUp');
-    }
+    messages.error = resolveError(error, 'errors.walletTopUp');
   } finally {
     walletLoading.value = false;
   }
@@ -1694,13 +2117,7 @@ const handleRequestReturn = async ({ orderId, reason }) => {
     await refreshCurrentUser({ silent: true });
     await loadRecommendations();
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.returnFailed');
-    }
+    messages.error = resolveError(error, 'errors.returnFailed');
   } finally {
     ordersLoading.value = false;
   }
@@ -1728,13 +2145,7 @@ const handleToggleBlacklist = async ({ username, blacklisted }) => {
     await loadAdminData();
     await loadRecommendations();
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.updateBlacklist');
-    }
+    messages.error = resolveError(error, 'errors.updateBlacklist');
   } finally {
     adminLoading.value = false;
   }
@@ -1762,13 +2173,7 @@ const handleDeleteUser = async ({ username }) => {
     ]);
     await fetchHouses({ silent: true });
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.deleteAccount');
-    }
+    messages.error = resolveError(error, 'errors.deleteAccount');
   } finally {
     adminLoading.value = false;
   }
@@ -1823,13 +2228,7 @@ const handleReview = async ({ houseId, status }) => {
       loadAdminData()
     ]);
   } catch (error) {
-    const detail = error.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      messages.error = detail?.detail ?? t('errors.submitReview');
-    }
+    messages.error = resolveError(error, 'errors.submitReview');
   } finally {
     adminLoading.value = false;
   }
@@ -1850,7 +2249,7 @@ const loadAdminData = async () => {
     adminUsers.value = Array.isArray(usersRes.data) ? usersRes.data : [];
     adminReputation.value = reputationRes.data ?? null;
   } catch (error) {
-    messages.error = error.response?.data?.detail ?? t('errors.loadReputation');
+    messages.error = resolveError(error, 'errors.loadReputation');
   } finally {
     adminLoading.value = false;
   }
@@ -1872,7 +2271,7 @@ const handleLoginSuccess = (user) => {
   fetchWallet();
   fetchOrders();
   loadRecommendations({ silent: false });
-  if (user.role === 'BUYER' || user.role === 'SELLER') {
+  if (user.role === 'BUYER' || isSellerRole(user.role)) {
     loadConversations({ silent: true });
   }
   if (user.role === 'ADMIN') {
@@ -1911,7 +2310,7 @@ watch(
       adminUsers.value = [];
       adminReputation.value = null;
     }
-    if (role === 'BUYER' || role === 'SELLER') {
+    if (role === 'BUYER' || isSellerRole(role)) {
       loadConversations({ silent: true });
     } else {
       resetConversationState();

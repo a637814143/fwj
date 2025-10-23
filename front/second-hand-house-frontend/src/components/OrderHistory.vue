@@ -231,7 +231,8 @@ const nextStageLabel = (order) => {
   return stage ? stageLabel(stage) : '';
 };
 
-const isSeller = computed(() => props.currentUser?.role === 'SELLER');
+const sellerRoles = ['SELLER', 'LANDLORD'];
+const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 
 const scheduleState = reactive({

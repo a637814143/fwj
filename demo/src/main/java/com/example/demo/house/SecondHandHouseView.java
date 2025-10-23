@@ -28,12 +28,22 @@ public record SecondHandHouseView(
         String reviewedBy,
         String reviewMessage,
         OffsetDateTime reviewedAt,
-        boolean sensitiveMasked
+        boolean sensitiveMasked,
+        boolean reservationActive,
+        boolean reservationOwnedByRequester
 ) {
 
     public static SecondHandHouseView fromEntity(SecondHandHouse house,
                                                  boolean maskSensitive,
                                                  boolean canViewCertificate) {
+        return fromEntity(house, maskSensitive, canViewCertificate, false, false);
+    }
+
+    public static SecondHandHouseView fromEntity(SecondHandHouse house,
+                                                 boolean maskSensitive,
+                                                 boolean canViewCertificate,
+                                                 boolean reservationActive,
+                                                 boolean reservationOwnedByRequester) {
         if (house == null) {
             return null;
         }
@@ -61,7 +71,9 @@ public record SecondHandHouseView(
                 house.getReviewedBy(),
                 house.getReviewMessage(),
                 house.getReviewedAt(),
-                maskSensitive
+                maskSensitive,
+                reservationActive,
+                reservationOwnedByRequester
         );
     }
 }

@@ -180,6 +180,26 @@
                   {{ t('explorer.payment.installment') }}
                 </option>
               </select>
+              <div
+                v-if="selectedPayments[house.id] === 'INSTALLMENT'"
+                class="installment-card-input"
+              >
+                <label :for="`installment-card-${house.id}`">
+                  {{ t('explorer.labels.installmentCard') }}
+                </label>
+                <input
+                  :id="`installment-card-${house.id}`"
+                  type="text"
+                  :value="cardNumberFor(house)"
+                  inputmode="numeric"
+                  maxlength="19"
+                  :placeholder="t('explorer.inputs.installmentCard')"
+                  @input="updateCardNumber(house, $event.target.value)"
+                />
+                <p v-if="hasCardError(house)" class="card-error">
+                  {{ t('explorer.tips.installmentCardError') }}
+                </p>
+              </div>
             </div>
             <div class="action-buttons">
               <button
@@ -209,7 +229,10 @@
                 {{ purchaseDisabled ? t('explorer.actions.processing') : t('explorer.actions.purchase') }}
               </button>
             </div>
-            <p v-if="requiresVerification" class="verification-tip">
+            <p v-if="house.reservationActive" class="verification-tip">
+              {{ reservationNotice(house) }}
+            </p>
+            <p v-else-if="requiresVerification" class="verification-tip">
               {{ t('explorer.tips.requireVerification') }}
             </p>
             <p v-else-if="!isApproved(house)" class="verification-tip">
@@ -298,6 +321,8 @@ const searchContainerRef = ref(null);
 const keywordInputRef = ref(null);
 
 const selectedPayments = reactive({});
+const installmentCards = reactive({});
+const cardErrors = reactive({});
 
 const canOperate = computed(() => props.currentUser?.role === 'BUYER');
 const requiresVerification = computed(
@@ -338,12 +363,25 @@ watch(
   (list) => {
     const ids = new Set();
     (list ?? []).forEach((house) => {
-      ids.add(String(house.id));
-      if (!selectedPayments[house.id]) {
-        selectedPayments[house.id] = 'FULL';
+      if (!house?.id) {
+        return;
       }
-      if (selectedPayments[house.id] === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
-        selectedPayments[house.id] = 'FULL';
+      const key = String(house.id);
+      ids.add(key);
+      if (!selectedPayments[key]) {
+        selectedPayments[key] = 'FULL';
+      }
+      if (selectedPayments[key] === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
+        selectedPayments[key] = 'FULL';
+      }
+      if (!(key in installmentCards)) {
+        installmentCards[key] = '';
+      }
+      if (!(key in cardErrors)) {
+        cardErrors[key] = false;
+      }
+      if (selectedPayments[key] !== 'INSTALLMENT') {
+        cardErrors[key] = false;
       }
     });
     Object.keys(selectedPayments).forEach((key) => {
@@ -351,8 +389,26 @@ watch(
         delete selectedPayments[key];
       }
     });
+    Object.keys(installmentCards).forEach((key) => {
+      if (!ids.has(String(key))) {
+        delete installmentCards[key];
+        delete cardErrors[key];
+      }
+    });
   },
   { immediate: true }
+);
+
+watch(
+  selectedPayments,
+  (methods) => {
+    Object.entries(methods).forEach(([key, method]) => {
+      if (method !== 'INSTALLMENT') {
+        cardErrors[key] = false;
+      }
+    });
+  },
+  { deep: true }
 );
 
 const submitFilters = () => {
@@ -551,6 +607,37 @@ const maskPhone = (value) => {
   return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
 };
 
+const sanitizeCardNumber = (value) => (value == null ? '' : String(value).replace(/\D/g, '').slice(0, 19));
+
+const cardKey = (house) => {
+  if (!house || house.id == null) {
+    return '';
+  }
+  return String(house.id);
+};
+
+const cardNumberFor = (house) => {
+  const key = cardKey(house);
+  return key ? installmentCards[key] ?? '' : '';
+};
+
+const updateCardNumber = (house, value) => {
+  const key = cardKey(house);
+  if (!key) {
+    return;
+  }
+  const sanitized = sanitizeCardNumber(value);
+  installmentCards[key] = sanitized;
+  if (sanitized.length === 19) {
+    cardErrors[key] = false;
+  }
+};
+
+const hasCardError = (house) => {
+  const key = cardKey(house);
+  return key ? Boolean(cardErrors[key]) : false;
+};
+
 const shouldMask = (house) => {
   if (props.canViewSensitiveInfo) {
     return false;
@@ -598,17 +685,49 @@ const reservationDisabled = (house) => {
   if (!isApproved(house)) {
     return true;
   }
+  if (house?.reservationActive) {
+    return true;
+  }
   if (!props.reservationLoading) {
     return false;
   }
   return !isReservingCurrent(house);
 };
 
+const reservationNotice = (house) => {
+  if (!house?.reservationActive) {
+    return '';
+  }
+  return house.reservationOwnedByRequester
+    ? t('explorer.tips.reservedByYou')
+    : t('explorer.tips.reservedByOthers');
+};
+
 const purchase = (house) => {
   if (!isApproved(house)) {
     return;
   }
-  const method = selectedPayments[house.id] || 'FULL';
+  const key = cardKey(house);
+  const method = (key && selectedPayments[key] !== undefined)
+    ? selectedPayments[key]
+    : selectedPayments[house?.id] || 'FULL';
+  if (method === 'INSTALLMENT') {
+    const cardNumber = cardNumberFor(house);
+    if (cardNumber.length !== 19) {
+      if (key) {
+        cardErrors[key] = true;
+      }
+      return;
+    }
+    if (key) {
+      cardErrors[key] = false;
+    }
+    emit('purchase', { house, paymentMethod: method, installmentCardNumber: cardNumber });
+    return;
+  }
+  if (key) {
+    cardErrors[key] = false;
+  }
   emit('purchase', { house, paymentMethod: method });
 };
 
@@ -1057,6 +1176,36 @@ const statusClass = (house) => {
   padding: 0.55rem 0.75rem;
   border-radius: var(--radius-md);
   border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.installment-card-input {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.installment-card-input label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.installment-card-input input {
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.installment-card-input input:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.55);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.card-error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.8rem;
 }
 
 .action-buttons {

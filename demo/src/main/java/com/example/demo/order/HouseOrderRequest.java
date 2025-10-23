@@ -2,10 +2,12 @@ package com.example.demo.order;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 public record HouseOrderRequest(
         @NotNull(message = "请选择要购买的房源") Long houseId,
         @NotBlank(message = "买家账号不能为空") String buyerUsername,
-        @NotNull(message = "请选择支付方式") PaymentMethod paymentMethod
+        @NotNull(message = "请选择支付方式") PaymentMethod paymentMethod,
+        @Pattern(regexp = "^\\d{19}$", message = "填写19位数字") String installmentCardNumber
 ) {
 }

@@ -194,6 +194,14 @@ public class HouseOrderService {
         ensureNotBlacklisted(buyer, "买家账号已被加入黑名单，无法购买房源");
         ensureNotBlacklisted(seller, "卖家账号已被加入黑名单，无法出售房源");
 
+        PaymentMethod paymentMethod = request.paymentMethod();
+        String sanitizedCardNumber = sanitizeDigits(request.installmentCardNumber());
+        if (paymentMethod == PaymentMethod.INSTALLMENT) {
+            if (sanitizedCardNumber.length() != 19) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "填写19位数字");
+            }
+        }
+
         orderRepository.findFirstByHouse_IdAndStatusOrderByCreatedAtDesc(house.getId(), OrderStatus.RESERVED)
                 .ifPresent(reservation -> handleExistingReservation(reservation, buyer, seller));
 
@@ -201,7 +209,6 @@ public class HouseOrderService {
         order.setHouse(house);
         order.setBuyer(buyer);
         order.setSeller(seller);
-        PaymentMethod paymentMethod = request.paymentMethod();
         order.setPaymentMethod(paymentMethod);
         BigDecimal amount = resolvePaymentAmount(house, paymentMethod);
         order.setAmount(amount);
@@ -209,7 +216,7 @@ public class HouseOrderService {
 
         String reference = "ORDER-" + order.getId();
         String description = paymentMethod == PaymentMethod.INSTALLMENT
-                ? String.format("房源《%s》分期付款（首期）", house.getTitle())
+                ? String.format("房源《%s》分期付款（首期，卡尾号%s）", house.getTitle(), sanitizedCardNumber.substring(15))
                 : String.format("房源《%s》购房全款支付", house.getTitle());
         walletService.processPayment(order, reference, description);
         order.markPaid();
@@ -325,6 +332,13 @@ public class HouseOrderService {
         }
         String trimmed = message.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String sanitizeDigits(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\D", "");
     }
 
     private void handleExistingReservation(HouseOrder reservation, UserAccount currentBuyer, UserAccount seller) {

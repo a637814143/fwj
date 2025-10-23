@@ -3,6 +3,7 @@ package com.example.demo.house;
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
 import com.example.demo.auth.UserRole;
+import com.example.demo.order.HouseOrder;
 import com.example.demo.order.HouseOrderRepository;
 import com.example.demo.order.OrderStatus;
 import org.slf4j.Logger;
@@ -57,11 +58,7 @@ public class SecondHandHouseService {
                 .filter(house -> filterByKeyword(house, normalized))
                 .filter(house -> filterByRange(house.getPrice(), minPrice, maxPrice))
                 .filter(house -> filterByRange(house.getArea(), minArea, maxArea))
-                .map(house -> SecondHandHouseView.fromEntity(
-                        house,
-                        shouldMaskSensitive(house, requester),
-                        canViewCertificate(house, requester)
-                ))
+                .map(house -> buildViewForRequester(house, requester))
                 .toList();
     }
 
@@ -72,11 +69,7 @@ public class SecondHandHouseService {
         if (!isVisibleToRequester(house, requester)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "房源不存在或尚未通过审核");
         }
-        return SecondHandHouseView.fromEntity(
-                house,
-                shouldMaskSensitive(house, requester),
-                canViewCertificate(house, requester)
-        );
+        return buildViewForRequester(house, requester);
     }
 
     public SecondHandHouse findById(Long id) {
@@ -184,6 +177,33 @@ public class SecondHandHouseService {
             repository.deleteAll(toRemove);
         }
         return toRemove.size();
+    }
+
+    private SecondHandHouseView buildViewForRequester(SecondHandHouse house, UserAccount requester) {
+        boolean maskSensitive = shouldMaskSensitive(house, requester);
+        boolean canViewCertificate = canViewCertificate(house, requester);
+        boolean reservationActive = false;
+        boolean reservationOwnedByRequester = false;
+        if (house.getId() != null) {
+            HouseOrder reservation = houseOrderRepository
+                    .findFirstByHouse_IdAndStatusOrderByCreatedAtDesc(house.getId(), OrderStatus.RESERVED)
+                    .orElse(null);
+            if (reservation != null) {
+                reservationActive = true;
+                if (requester != null && reservation.getBuyer() != null
+                        && reservation.getBuyer().getUsername() != null) {
+                    reservationOwnedByRequester = reservation.getBuyer().getUsername()
+                            .equalsIgnoreCase(requester.getUsername());
+                }
+            }
+        }
+        return SecondHandHouseView.fromEntity(
+                house,
+                maskSensitive,
+                canViewCertificate,
+                reservationActive,
+                reservationOwnedByRequester
+        );
     }
 
     private boolean filterByKeyword(SecondHandHouse house, String keyword) {

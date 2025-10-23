@@ -9,7 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -42,11 +44,12 @@ public class WalletService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "充值金额必须大于0");
         }
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
         UserAccount account = getAccount(username);
         UserWallet wallet = ensureWallet(account);
         wallet.increase(amount);
         walletRepository.save(wallet);
-        createTransaction(wallet, WalletTransactionType.TOP_UP, amount, reference, "钱包充值");
+        createTransaction(wallet, WalletTransactionType.TOP_UP, amount, normalizeReference(reference), "钱包充值");
         return toSummary(account, wallet);
     }
 
@@ -55,6 +58,7 @@ public class WalletService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "支付金额必须大于0");
         }
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
         UserWallet buyerWallet = ensureWallet(order.getBuyer());
         if (buyerWallet.getBalance().compareTo(amount) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "买家钱包余额不足");
@@ -64,8 +68,9 @@ public class WalletService {
         sellerWallet.increase(amount);
         walletRepository.save(buyerWallet);
         walletRepository.save(sellerWallet);
-        createTransaction(buyerWallet, WalletTransactionType.PAYMENT, amount.negate(), reference, description);
-        createTransaction(sellerWallet, WalletTransactionType.RECEIVE, amount, reference, description);
+        String normalizedReference = normalizeReference(reference);
+        createTransaction(buyerWallet, WalletTransactionType.PAYMENT, amount.negate(), normalizedReference, description);
+        createTransaction(sellerWallet, WalletTransactionType.RECEIVE, amount, normalizedReference, description);
     }
 
     public void processRefund(HouseOrder order, String reference, String description) {
@@ -73,6 +78,7 @@ public class WalletService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "退款金额必须大于0");
         }
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
         UserWallet sellerWallet = ensureWallet(order.getSeller());
         if (sellerWallet.getBalance().compareTo(amount) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家钱包余额不足，无法完成退款");
@@ -82,8 +88,9 @@ public class WalletService {
         buyerWallet.increase(amount);
         walletRepository.save(sellerWallet);
         walletRepository.save(buyerWallet);
-        createTransaction(sellerWallet, WalletTransactionType.REFUND, amount.negate(), reference, description);
-        createTransaction(buyerWallet, WalletTransactionType.REFUND, amount, reference, description);
+        String normalizedReference = normalizeReference(reference);
+        createTransaction(sellerWallet, WalletTransactionType.REFUND, amount.negate(), normalizedReference, description);
+        createTransaction(buyerWallet, WalletTransactionType.REFUND, amount, normalizedReference, description);
     }
 
     private UserAccount getAccount(String username) {
@@ -135,5 +142,12 @@ public class WalletService {
         transaction.setReference(reference);
         transaction.setDescription(description);
         transactionRepository.save(transaction);
+    }
+
+    private String normalizeReference(String reference) {
+        return Optional.ofNullable(reference)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .orElse(null);
     }
 }

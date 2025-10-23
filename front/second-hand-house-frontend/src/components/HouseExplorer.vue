@@ -7,15 +7,17 @@
             ref="keywordInputRef"
             v-model.trim="localFilters.keyword"
             type="search"
-            placeholder="输入房源关键词（标题、地址或描述）"
+            :placeholder="t('explorer.searchPlaceholder')"
             @focus="showHistory"
             @click="showHistory"
           />
           <button type="button" class="history-toggle" @click.stop="toggleHistory">
-            历史搜索
+            {{ t('explorer.history.toggle') }}
           </button>
         </div>
-        <button type="submit" class="search-submit">搜索房源</button>
+        <button type="submit" class="search-submit">
+          {{ t('explorer.actions.search') }}
+        </button>
         <transition name="fade">
           <ul v-if="historyVisible && searchHistory.length" class="history-dropdown">
             <li v-for="item in searchHistory" :key="item">
@@ -26,59 +28,91 @@
       </div>
       <header class="explorer-header">
         <div>
-          <h2>购房首页</h2>
-          <p>按关键字、价格或面积筛选房源，系统将展示通过审核的优质房源并支持一键预定与支付。</p>
+          <h2>{{ t('explorer.title') }}</h2>
+          <p>{{ t('explorer.subtitle') }}</p>
         </div>
       </header>
       <div class="range">
         <label>
-          最低价格
-          <input v-model.number="localFilters.minPrice" type="number" min="0" step="0.01" placeholder="万元" />
+          {{ t('explorer.filters.minPrice') }}
+          <input
+            v-model.number="localFilters.minPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            :placeholder="t('explorer.filters.pricePlaceholder')"
+          />
         </label>
         <label>
-          最高价格
-          <input v-model.number="localFilters.maxPrice" type="number" min="0" step="0.01" placeholder="万元" />
+          {{ t('explorer.filters.maxPrice') }}
+          <input
+            v-model.number="localFilters.maxPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            :placeholder="t('explorer.filters.pricePlaceholder')"
+          />
         </label>
         <label>
-          最小面积
-          <input v-model.number="localFilters.minArea" type="number" min="0" step="0.1" placeholder="㎡" />
+          {{ t('explorer.filters.minArea') }}
+          <input
+            v-model.number="localFilters.minArea"
+            type="number"
+            min="0"
+            step="0.1"
+            :placeholder="t('explorer.filters.areaPlaceholder')"
+          />
         </label>
         <label>
-          最大面积
-          <input v-model.number="localFilters.maxArea" type="number" min="0" step="0.1" placeholder="㎡" />
+          {{ t('explorer.filters.maxArea') }}
+          <input
+            v-model.number="localFilters.maxArea"
+            type="number"
+            min="0"
+            step="0.1"
+            :placeholder="t('explorer.filters.areaPlaceholder')"
+          />
         </label>
       </div>
       <div class="actions">
-        <button type="submit">应用筛选</button>
-        <button type="button" class="secondary" @click="resetFilters">重置</button>
+        <button type="submit">{{ t('explorer.actions.applyFilters') }}</button>
+        <button type="button" class="secondary" @click="resetFilters">
+          {{ t('explorer.actions.reset') }}
+        </button>
       </div>
     </form>
 
     <section v-if="hasRecommendations" class="recommendations">
       <div class="recommendation">
-        <h3>优质卖家</h3>
+        <h3>{{ t('explorer.recommendations.sellers.title') }}</h3>
         <ul>
           <li v-for="seller in recommendations.sellers" :key="`seller-${seller.username}`">
             <strong>{{ seller.displayName }}</strong>
             <span class="username">@{{ seller.username }}</span>
-            <span class="score">信誉分 {{ seller.reputationScore }}</span>
+            <span class="score">
+              {{ t('explorer.recommendations.sellers.score', { score: seller.reputationScore ?? '—' }) }}
+            </span>
           </li>
         </ul>
       </div>
       <div class="recommendation">
-        <h3>优质买家</h3>
+        <h3>{{ t('explorer.recommendations.buyers.title') }}</h3>
         <ul>
           <li v-for="buyer in recommendations.buyers" :key="`buyer-${buyer.username}`">
             <strong>{{ buyer.displayName }}</strong>
             <span class="username">@{{ buyer.username }}</span>
-            <span class="score">信誉分 {{ buyer.reputationScore }}</span>
+            <span class="score">
+              {{ t('explorer.recommendations.buyers.score', { score: buyer.reputationScore ?? '—' }) }}
+            </span>
           </li>
         </ul>
       </div>
     </section>
 
-    <div v-if="loading" class="loading">房源数据加载中...</div>
-    <div v-else-if="!houses || houses.length === 0" class="empty">暂未查询到符合条件的房源。</div>
+    <PricePredictor :api-base-url="apiBaseUrl" />
+
+    <div v-if="loading" class="loading">{{ t('explorer.states.loading') }}</div>
+    <div v-else-if="!houses || houses.length === 0" class="empty">{{ t('explorer.states.empty') }}</div>
 
     <div v-else class="house-grid">
       <article v-for="house in houses" :key="house.id" class="house-card">
@@ -87,7 +121,7 @@
           <img :src="coverImage(house)" :alt="house.title" loading="lazy" />
         </div>
         <div class="cover placeholder" v-else>
-          <span>暂无图片</span>
+          <span>{{ t('explorer.labels.noImage') }}</span>
         </div>
         <div class="details">
           <header>
@@ -96,33 +130,35 @@
           </header>
           <div class="pricing">
             <div class="pricing-item">
-              <span class="label">全款价格</span>
+              <span class="label">{{ t('explorer.labels.fullPrice') }}</span>
               <strong>￥{{ formatNumber(house.price) }} 万</strong>
             </div>
             <div class="pricing-item" v-if="house.installmentMonthlyPayment">
-              <span class="label">分期（月供）</span>
+              <span class="label">{{ t('explorer.labels.installment') }}</span>
               <strong>
                 ￥{{ formatNumber(house.installmentMonthlyPayment) }} 万
-                <small v-if="house.installmentMonths">× {{ house.installmentMonths }} 期</small>
+                <small v-if="house.installmentMonths">
+                  {{ t('explorer.labels.installmentMonths', { count: house.installmentMonths }) }}
+                </small>
               </strong>
             </div>
           </div>
           <p class="description" v-if="house.description">{{ house.description }}</p>
           <dl class="meta">
             <div>
-              <dt>面积</dt>
+              <dt>{{ t('explorer.labels.area') }}</dt>
               <dd>{{ formatNumber(house.area) }} ㎡</dd>
             </div>
             <div>
-              <dt>挂牌日期</dt>
+              <dt>{{ t('explorer.labels.listingDate') }}</dt>
               <dd>{{ formatDate(house.listingDate) }}</dd>
             </div>
             <div>
-              <dt>卖家</dt>
+              <dt>{{ t('explorer.labels.seller') }}</dt>
               <dd>{{ sellerNameDisplay(house) }}（{{ sellerUsernameDisplay(house) }}）</dd>
             </div>
             <div>
-              <dt>联系方式</dt>
+              <dt>{{ t('explorer.labels.contact') }}</dt>
               <dd>{{ contactNumberDisplay(house) }}</dd>
             </div>
           </dl>
@@ -133,11 +169,11 @@
         <footer class="card-actions">
           <template v-if="canOperate">
             <div class="payment" v-if="isApproved(house)">
-              <label for="payment-select">支付方式</label>
+              <label>{{ t('explorer.labels.paymentMethod') }}</label>
               <select v-model="selectedPayments[house.id]">
-                <option value="FULL">全款支付</option>
+                <option value="FULL">{{ t('explorer.payment.full') }}</option>
                 <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
-                  分期付款
+                  {{ t('explorer.payment.installment') }}
                 </option>
               </select>
             </div>
@@ -148,7 +184,7 @@
                 :disabled="contactDisabled || !isApproved(house)"
                 @click="contactSeller(house)"
               >
-                联系卖家
+                {{ t('explorer.actions.contactSeller') }}
               </button>
               <button
                 class="reserve"
@@ -157,8 +193,8 @@
               >
                 {{
                   isReservingCurrent(house)
-                    ? '预定中...'
-                    : `预定（定金 ${depositAmount(house)} 万）`
+                    ? t('explorer.actions.reserving')
+                    : t('explorer.actions.reserve', { deposit: depositAmount(house) })
                 }}
               </button>
               <button
@@ -166,17 +202,17 @@
                 :disabled="purchaseDisabled || !isApproved(house)"
                 @click="purchase(house)"
               >
-                {{ purchaseDisabled ? '处理中...' : '立即购买' }}
+                {{ purchaseDisabled ? t('explorer.actions.processing') : t('explorer.actions.purchase') }}
               </button>
             </div>
             <p v-if="requiresVerification" class="verification-tip">
-              完成实名认证后才能查看完整信息并进行交易。
+              {{ t('explorer.tips.requireVerification') }}
             </p>
             <p v-else-if="!isApproved(house)" class="verification-tip">
-              该房源尚待管理员审核，通过后方可预定或购买。
+              {{ t('explorer.tips.awaitingApproval') }}
             </p>
           </template>
-          <span v-else class="hint">登录买家账号后可进行预定或购买</span>
+          <span v-else class="hint">{{ t('explorer.tips.loginAsBuyer') }}</span>
         </footer>
       </article>
     </div>
@@ -184,7 +220,8 @@
 </template>
 
 <script setup>
-import { computed, reactive, watch, ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, inject, reactive, watch, ref, onMounted, onBeforeUnmount } from 'vue';
+import PricePredictor from './PricePredictor.vue';
 
 const props = defineProps({
   houses: {
@@ -222,16 +259,25 @@ const props = defineProps({
   reservationTarget: {
     type: [Number, String],
     default: null
+  },
+  apiBaseUrl: {
+    type: String,
+    required: true
   }
 });
 
 const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller']);
 
-const listingStatusLabels = {
-  PENDING_REVIEW: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已驳回'
-};
+const settings = inject('appSettings', { language: 'zh' });
+const translate = inject('translate', (key) => key);
+const t = (key, vars) => translate(key, vars);
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+
+const statusLabels = computed(() => ({
+  PENDING_REVIEW: t('statuses.pending'),
+  APPROVED: t('statuses.approved'),
+  REJECTED: t('statuses.rejected')
+}));
 
 const localFilters = reactive({
   keyword: '',
@@ -257,6 +303,7 @@ const purchaseDisabled = computed(
   () => props.purchaseLoading || props.loading || requiresVerification.value
 );
 const contactDisabled = computed(() => requiresVerification.value);
+
 const hasRecommendations = computed(() => {
   const sellers = Array.isArray(props.recommendations?.sellers)
     ? props.recommendations.sellers.length
@@ -424,7 +471,7 @@ const formatNumber = (value) => {
   if (!Number.isFinite(num)) {
     return '0';
   }
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString(locale.value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -432,9 +479,13 @@ const formatNumber = (value) => {
 
 const formatDate = (value) => {
   if (!value) {
-    return '-';
+    return '—';
   }
-  return new Date(value).toLocaleDateString('zh-CN');
+  try {
+    return new Date(value).toLocaleDateString(locale.value);
+  } catch (error) {
+    return String(value);
+  }
 };
 
 const depositAmount = (house) => {
@@ -539,7 +590,7 @@ const purchase = (house) => {
   emit('purchase', { house, paymentMethod: method });
 };
 
-const statusLabel = (house) => listingStatusLabels[house?.status] ?? '待审核';
+const statusLabel = (house) => statusLabels.value[house?.status] ?? t('statuses.pending');
 
 const statusClass = (house) => {
   switch (house?.status) {
@@ -799,169 +850,146 @@ const statusClass = (house) => {
 
 .loading,
 .empty {
-  padding: 2.2rem 1.5rem;
-  text-align: center;
+  padding: 2rem;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(226, 232, 240, 0.65);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
   color: var(--color-text-muted);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  text-align: center;
 }
 
 .house-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.4rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
 }
 
 .house-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--gradient-surface);
-  border-radius: calc(var(--radius-lg) + 0.2rem);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.18);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
-}
-
-.house-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 36px 80px rgba(15, 23, 42, 0.22);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 22px 45px rgba(148, 163, 184, 0.22);
 }
 
 .status {
-  position: absolute;
-  top: 1.1rem;
-  left: 1.1rem;
-  padding: 0.35rem 0.85rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.78rem;
+  padding: 0.45rem 0.9rem;
   font-weight: 600;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.2);
-  z-index: 1;
-}
-
-.status.approved {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
 }
 
 .status.pending {
-  background: linear-gradient(135deg, #fbbf24, #f97316);
+  background: rgba(234, 179, 8, 0.15);
+  color: #b45309;
+}
+
+.status.approved {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
 }
 
 .status.rejected {
-  background: linear-gradient(135deg, #f87171, #ef4444);
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
 }
 
 .cover {
-  height: 210px;
-  background: linear-gradient(135deg, rgba(226, 232, 240, 0.8), rgba(203, 213, 225, 0.6));
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  padding-top: 66%;
+  overflow: hidden;
 }
 
 .cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
 .cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(226, 232, 240, 0.6);
   color: var(--color-text-muted);
-  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .details {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  padding: 1.35rem 1.4rem;
-}
-
-.details header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  padding: 1.25rem;
 }
 
 .details h3 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   color: var(--color-text-strong);
 }
 
-.details .address {
-  margin: 0;
-  color: var(--color-text-soft);
-  font-size: 0.92rem;
+.address {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
 }
 
 .pricing {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.9rem;
+  display: grid;
+  gap: 0.65rem;
 }
 
 .pricing-item {
   display: flex;
-  flex-direction: column;
-  background: rgba(248, 250, 252, 0.8);
-  border-radius: var(--radius-md);
-  padding: 0.8rem 1rem;
-  min-width: 150px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  justify-content: space-between;
+  align-items: baseline;
 }
 
 .pricing-item .label {
-  font-size: 0.82rem;
-  color: var(--color-text-soft);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .pricing-item strong {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   color: var(--color-text-strong);
 }
 
 .pricing-item small {
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
   margin-left: 0.25rem;
-  color: var(--color-text-muted);
 }
 
 .description {
   margin: 0;
   color: var(--color-text-muted);
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 .meta {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
   margin: 0;
 }
 
 .meta div {
-  background: rgba(241, 245, 249, 0.75);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 0.9rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .meta dt {
-  margin: 0;
+  font-weight: 600;
   color: var(--color-text-soft);
-  font-size: 0.82rem;
 }
 
 .meta dd {
   margin: 0;
-  font-weight: 600;
   color: var(--color-text-strong);
 }
 
@@ -969,26 +997,26 @@ const statusClass = (house) => {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.45rem;
   margin: 0;
   padding: 0;
 }
 
 .keyword-list li {
-  padding: 0.3rem 0.8rem;
-  background: rgba(224, 231, 255, 0.75);
-  color: #4338ca;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  padding: 0.3rem 0.65rem;
   border-radius: var(--radius-pill);
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .card-actions {
+  margin-top: auto;
+  padding: 1.15rem;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
-  padding: 1.4rem;
-  border-top: 1px solid rgba(226, 232, 240, 0.7);
+  gap: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(248, 250, 252, 0.85);
 }
 
@@ -996,80 +1024,77 @@ const statusClass = (house) => {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  font-size: 0.92rem;
+}
+
+.payment label {
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
 }
 
 .payment select {
-  padding: 0.6rem 0.85rem;
+  padding: 0.55rem 0.75rem;
   border-radius: var(--radius-md);
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255, 255, 255, 0.9);
 }
 
 .action-buttons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .action-buttons button {
-  flex: 1 1 130px;
-  padding: 0.7rem 1.1rem;
+  padding: 0.6rem 0.9rem;
   border-radius: var(--radius-pill);
   border: none;
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--transition-base), box-shadow var(--transition-base),
-    background var(--transition-base);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
-.action-buttons button.contact {
-  background: rgba(224, 242, 254, 0.9);
-  color: #0369a1;
-  border: 1px solid rgba(14, 165, 233, 0.3);
+.action-buttons .contact {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
 }
 
-.action-buttons button.reserve {
-  background: rgba(254, 243, 199, 0.9);
+.action-buttons .reserve {
+  background: rgba(250, 204, 21, 0.18);
   color: #b45309;
-  border: 1px solid rgba(234, 179, 8, 0.28);
 }
 
-.action-buttons button.purchase {
+.action-buttons .purchase {
   background: var(--gradient-primary);
   color: #fff;
-  box-shadow: 0 20px 38px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 15px 30px rgba(37, 99, 235, 0.18);
 }
 
 .action-buttons button:disabled {
-  background: rgba(226, 232, 240, 0.9);
-  color: rgba(148, 163, 184, 0.9);
+  opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
 }
 
-.action-buttons button:not(:disabled):hover {
+.action-buttons button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 26px 44px rgba(37, 99, 235, 0.28);
 }
 
 .verification-tip {
   margin: 0;
-  font-size: 0.88rem;
-  color: #b45309;
-  background: rgba(254, 215, 170, 0.35);
-  border-radius: var(--radius-md);
-  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .hint {
   color: var(--color-text-soft);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 
-@media (max-width: 640px) {
-  .house-grid {
-    grid-template-columns: 1fr;
+@media (min-width: 768px) {
+  .action-buttons {
+    flex-direction: row;
+  }
+  .action-buttons button {
+    flex: 1;
   }
 }
 </style>

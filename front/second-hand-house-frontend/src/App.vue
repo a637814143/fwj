@@ -2,30 +2,37 @@
   <div class="app">
     <header class="header">
       <div class="branding">
-        <h1>二手房屋售卖系统</h1>
-        <p>支持线上预定、购房支付与信誉评估的综合平台。</p>
+        <h1>{{ t('header.title') }}</h1>
+        <p>{{ t('header.subtitle') }}</p>
       </div>
-      <div v-if="currentUser" class="session">
-        <div class="identity">
-          <span>
-            当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
-          </span>
-          <span class="reputation">信誉分：{{ currentUser.reputationScore ?? '—' }}</span>
-          <span class="verification-status">
-            实名认证：
-            <strong>{{ currentUser.realNameVerified ? '已完成' : '待完成' }}</strong>
-          </span>
-        </div>
-        <div class="session-actions">
-          <button
-            v-if="canUseMessaging"
-            type="button"
-            class="messages-trigger"
-            @click="openConversationPanel"
-          >
-            消息中心
-          </button>
-          <button type="button" class="logout" @click="handleLogout">退出登录</button>
+      <div class="header-actions">
+        <InterfaceSettings />
+        <div v-if="currentUser" class="session">
+          <div class="identity">
+            <span>
+              {{ t('header.currentRoleLabel') }}
+              <strong>{{ roleLabels[currentUser.role] }}</strong>
+              {{ parentheses.left }}{{ currentUser.displayName }}{{ parentheses.right }}
+            </span>
+            <span class="reputation">
+              {{ t('header.reputationLabel') }}{{ currentUser.reputationScore ?? '—' }}
+            </span>
+            <span class="verification-status">
+              {{ t('header.verificationLabel') }}
+              <strong>{{ currentUser.realNameVerified ? t('header.verified') : t('header.pending') }}</strong>
+            </span>
+          </div>
+          <div class="session-actions">
+            <button
+              v-if="canUseMessaging"
+              type="button"
+              class="messages-trigger"
+              @click="openConversationPanel"
+            >
+              {{ t('header.messages') }}
+            </button>
+            <button type="button" class="logout" @click="handleLogout">{{ t('header.logout') }}</button>
+          </div>
         </div>
       </div>
       <p v-if="messages.success" class="success">{{ messages.success }}</p>
@@ -49,7 +56,7 @@
       </nav>
 
       <section v-if="messages.error" class="alert">
-        <strong>提示：</strong> {{ messages.error }}
+        <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
       </section>
 
       <main class="main-content">
@@ -155,13 +162,13 @@
     />
 
     <footer class="footer">
-      <small>后端接口地址：{{ apiBaseUrl }}</small>
+      <small>{{ t('footer.apiBaseLabel') }}{{ apiBaseUrl }}</small>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
@@ -173,6 +180,7 @@ import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
+import InterfaceSettings from './components/InterfaceSettings.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -213,28 +221,505 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+const settingsStorageKey = 'shh-interface-settings';
+const defaultSettings = Object.freeze({
+  fontSize: 'medium',
+  language: 'zh',
+  theme: 'light'
+});
+
+const loadStoredSettings = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(settingsStorageKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Failed to restore interface settings:', error);
+  }
+  return null;
+};
+
+const storedSettings = loadStoredSettings();
+
+const settings = reactive({
+  fontSize: storedSettings?.fontSize ?? defaultSettings.fontSize,
+  language: storedSettings?.language ?? defaultSettings.language,
+  theme: storedSettings?.theme ?? defaultSettings.theme
+});
+
+provide('appSettings', settings);
+
+const translations = {
+  zh: {
+    header: {
+      title: '二手房屋售卖系统',
+      subtitle: '支持线上预定、购房支付与信誉评估的综合平台。',
+      currentRoleLabel: '当前角色：',
+      reputationLabel: '信誉分：',
+      verificationLabel: '实名认证：',
+      verified: '已完成',
+      pending: '待完成',
+      messages: '消息中心',
+      logout: '退出登录'
+    },
+    nav: {
+      home: '购买首页',
+      verify: '实名认证',
+      verifyCompleted: '实名认证（已完成）',
+      manage: '房源管理',
+      orders: '订单与钱包',
+      review: '房源审核',
+      reviewWithCount: '房源审核（{count}）',
+      admin: '信誉面板'
+    },
+    footer: {
+      apiBaseLabel: '后端接口地址：'
+    },
+    alerts: {
+      errorPrefix: '提示：'
+    },
+    roles: {
+      buyer: '买家',
+      seller: '卖家',
+      admin: '系统管理员'
+    },
+    statuses: {
+      pending: '待审核',
+      approved: '已通过',
+      rejected: '已驳回'
+    },
+    settings: {
+      trigger: '界面设置',
+      title: '界面设置',
+      close: '收起设置',
+      theme: {
+        title: '主题',
+        light: '默认主题',
+        dark: '深色主题'
+      },
+      language: {
+        title: '语言',
+        zh: '中文',
+        en: 'English'
+      },
+      fontSize: {
+        title: '字体大小',
+        small: '小',
+        medium: '中',
+        large: '大'
+      }
+    },
+    auth: {
+      tabs: {
+        login: '账号登录',
+        register: '注册新账号'
+      },
+      fields: {
+        username: '用户名',
+        password: '密码',
+        displayName: '昵称',
+        confirmPassword: '确认密码',
+        role: '选择角色'
+      },
+      placeholders: {
+        username: '请输入用户名',
+        password: '请输入密码',
+        passwordWithHint: '请输入密码（至少6位）',
+        displayName: '请输入昵称',
+        confirmPassword: '请再次输入密码'
+      },
+      roles: {
+        seller: '卖家',
+        buyer: '买家'
+      },
+      actions: {
+        login: '登录',
+        loggingIn: '登录中...',
+        register: '注册并登录',
+        registering: '注册中...'
+      },
+      errors: {
+        loginRequired: '请输入用户名和密码',
+        loginFailed: '登录失败，请稍后再试。',
+        registerRequired: '请输入完整注册信息',
+        passwordMismatch: '两次输入的密码不一致',
+        passwordLength: '请输入至少6位密码',
+        registerFailed: '注册失败，请稍后重试'
+      }
+    },
+    success: {
+      verificationUpdated: '实名认证信息已更新。',
+      deleteHouse: '已删除房源《{title}》。',
+      houseUpdatedApproved: '房源《{title}》已更新并重新上架。',
+      houseUpdatedPending: '房源《{title}》已更新，当前状态：{status}。',
+      houseCreatedApproved: '已新增房源《{title}》，已通过审核并上架。',
+      houseCreatedPending: '已提交房源《{title}》，当前状态：{status}。',
+      purchase: '成功以{method}方式购买房源《{title}》，支付金额 ￥{amount}。',
+      reservation: '已成功预定房源《{title}》，定金 ￥{amount}。',
+      walletTopUp: '钱包充值成功，充值金额 ￥{amount}。',
+      orderReturned: '订单《{title}》已退换成功。',
+      blacklistAdded: '已将账号 {username} 加入黑名单。',
+      blacklistRemoved: '已解除账号 {username} 的黑名单状态。',
+      accountDeleted: '账号 {username} 已被删除。',
+      reviewApproved: '已审核通过房源《{title}》。',
+      reviewRejected: '已驳回房源《{title}》，状态：{status}，原因：{reason}。',
+      login: '登录成功。',
+      loginReputationSuffix: ' 当前信誉分：{score}。',
+      restoredSession: '已恢复上次的登录状态。'
+    },
+    errors: {
+      loadHouses: '加载房源数据失败，请检查后端服务。',
+      loadRecommendations: '加载推荐用户失败。',
+      loadWallet: '加载钱包信息失败。',
+      loadOrders: '加载订单信息失败。',
+      loadConversations: '加载对话失败。',
+      loadMessages: '加载消息失败。',
+      messagingUnsupported: '当前角色暂不支持对话功能。',
+      sendMessage: '发送消息失败。',
+      contactSellerBuyerOnly: '只有买家可以主动联系卖家。',
+      contactSellerVerifyFirst: '请先完成实名认证后再联系卖家。',
+      createConversation: '创建对话失败，请稍后再试。',
+      refreshUser: '刷新用户信息失败。',
+      manageHousesPermission: '当前角色仅支持浏览房源，如需维护房源请使用卖家账号。',
+      saveHouse: '保存房源信息失败。',
+      editOwnHouse: '卖家只能编辑自己发布的房源。',
+      deleteOwnHouse: '卖家只能删除自己发布的房源。',
+      deleteHouse: '删除房源失败。',
+      purchaseBuyerOnly: '只有买家角色可以发起购买。',
+      purchaseVerifyFirst: '购买前请先完成实名认证。',
+      purchaseNotApproved: '房源尚未通过审核，暂不可购买。',
+      purchaseSelectMethod: '请选择支付方式后再尝试购买。',
+      purchaseOwnListing: '不能购买自己发布的房源。',
+      purchaseFailed: '支付失败，请稍后再试。',
+      reserveBuyerOnly: '只有买家角色可以预定房源。',
+      reserveVerifyFirst: '预定前请先完成实名认证。',
+      reserveNotApproved: '房源尚未通过审核，暂不可预定。',
+      reserveFailed: '预定失败，请稍后再试。',
+      walletLoginRequired: '请先登录后再使用钱包功能。',
+      walletTopUp: '钱包充值失败。',
+      returnLoginRequired: '请先登录后再申请退换。',
+      returnFailed: '退换请求失败。',
+      updateBlacklist: '更新黑名单状态失败。',
+      deleteAccount: '删除账号失败。',
+      reviewRequireReason: '驳回操作需要填写原因。',
+      submitReview: '提交审核结果失败。',
+      loadReputation: '加载信誉面板失败。',
+      persistSettings: '界面设置保存失败。',
+      persistUser: '无法持久化登录状态。',
+      restoreSession: '恢复登录状态失败。'
+    },
+    prompts: {
+      reviewRejectReason: '请输入驳回原因',
+      reviewRemark: '审核备注（可选）',
+      reviewDefaultRemark: '审核通过',
+      reviewFallbackReason: '未填写',
+      deleteHouseConfirm: '确定要删除房源《{title}》吗？',
+      deleteAccountConfirm: '确定要删除账号 {username} 吗？该操作不可撤销。'
+    },
+    payments: {
+      installment: '分期',
+      full: '全款'
+    }
+  },
+  en: {
+    header: {
+      title: 'Second-hand Housing Platform',
+      subtitle: 'An integrated platform supporting reservations, payments, and reputation evaluation.',
+      currentRoleLabel: 'Role:',
+      reputationLabel: 'Reputation:',
+      verificationLabel: 'Real-name verification:',
+      verified: 'Completed',
+      pending: 'Pending',
+      messages: 'Messages',
+      logout: 'Log out'
+    },
+    nav: {
+      home: 'Home',
+      verify: 'Real-name verification',
+      verifyCompleted: 'Real-name verification (completed)',
+      manage: 'Listing management',
+      orders: 'Orders & wallet',
+      review: 'Listing review',
+      reviewWithCount: 'Listing review ({count})',
+      admin: 'Reputation board'
+    },
+    footer: {
+      apiBaseLabel: 'API endpoint:'
+    },
+    alerts: {
+      errorPrefix: 'Notice:'
+    },
+    roles: {
+      buyer: 'Buyer',
+      seller: 'Seller',
+      admin: 'Administrator'
+    },
+    statuses: {
+      pending: 'Pending review',
+      approved: 'Approved',
+      rejected: 'Rejected'
+    },
+    settings: {
+      trigger: 'Interface settings',
+      title: 'Interface settings',
+      close: 'Hide settings',
+      theme: {
+        title: 'Theme',
+        light: 'Default theme',
+        dark: 'Dark theme'
+      },
+      language: {
+        title: 'Language',
+        zh: '中文',
+        en: 'English'
+      },
+      fontSize: {
+        title: 'Font size',
+        small: 'Small',
+        medium: 'Medium',
+        large: 'Large'
+      }
+    },
+    auth: {
+      tabs: {
+        login: 'Account login',
+        register: 'Register new account'
+      },
+      fields: {
+        username: 'Username',
+        password: 'Password',
+        displayName: 'Display name',
+        confirmPassword: 'Confirm password',
+        role: 'Choose role'
+      },
+      placeholders: {
+        username: 'Enter username',
+        password: 'Enter password',
+        passwordWithHint: 'Enter password (min. 6 characters)',
+        displayName: 'Enter display name',
+        confirmPassword: 'Re-enter password'
+      },
+      roles: {
+        seller: 'Seller',
+        buyer: 'Buyer'
+      },
+      actions: {
+        login: 'Log in',
+        loggingIn: 'Logging in...',
+        register: 'Register & log in',
+        registering: 'Registering...'
+      },
+      errors: {
+        loginRequired: 'Please enter username and password.',
+        loginFailed: 'Sign-in failed. Please try again later.',
+        registerRequired: 'Please complete all registration fields.',
+        passwordMismatch: 'The passwords do not match.',
+        passwordLength: 'Please enter a password with at least 6 characters.',
+        registerFailed: 'Registration failed. Please try again later.'
+      }
+    },
+    success: {
+      verificationUpdated: 'Real-name verification updated successfully.',
+      deleteHouse: 'Listing “{title}” has been removed.',
+      houseUpdatedApproved: 'Listing “{title}” has been updated and republished.',
+      houseUpdatedPending: 'Listing “{title}” has been updated. Current status: {status}.',
+      houseCreatedApproved: 'Listing “{title}” has been created and approved.',
+      houseCreatedPending: 'Listing “{title}” has been submitted. Current status: {status}.',
+      purchase: 'Successfully purchased “{title}” via {method}, amount paid ¥{amount}.',
+      reservation: 'Successfully reserved “{title}” with a deposit of ¥{amount}.',
+      walletTopUp: 'Wallet top-up successful, amount ¥{amount}.',
+      orderReturned: 'Order “{title}” has been refunded.',
+      blacklistAdded: 'Account {username} added to blacklist.',
+      blacklistRemoved: 'Account {username} removed from blacklist.',
+      accountDeleted: 'Account {username} has been deleted.',
+      reviewApproved: 'Listing “{title}” approved.',
+      reviewRejected: 'Rejected listing “{title}”, status: {status}, reason: {reason}.',
+      login: 'Signed in successfully.',
+      loginReputationSuffix: ' Current reputation score: {score}.',
+      restoredSession: 'Previous session restored.'
+    },
+    errors: {
+      loadHouses: 'Failed to load listings. Please check the backend service.',
+      loadRecommendations: 'Failed to load recommended users.',
+      loadWallet: 'Failed to load wallet information.',
+      loadOrders: 'Failed to load orders.',
+      loadConversations: 'Failed to load conversations.',
+      loadMessages: 'Failed to load messages.',
+      messagingUnsupported: 'Messaging is not available for this role.',
+      sendMessage: 'Failed to send message.',
+      contactSellerBuyerOnly: 'Only buyers can contact sellers.',
+      contactSellerVerifyFirst: 'Please complete real-name verification before contacting sellers.',
+      createConversation: 'Failed to start conversation. Please try again later.',
+      refreshUser: 'Failed to refresh user information.',
+      manageHousesPermission: 'This role can only browse listings. Please switch to a seller account to manage listings.',
+      saveHouse: 'Failed to save listing.',
+      editOwnHouse: 'Sellers can only edit their own listings.',
+      deleteOwnHouse: 'Sellers can only delete their own listings.',
+      deleteHouse: 'Failed to delete listing.',
+      purchaseBuyerOnly: 'Only buyers can make purchases.',
+      purchaseVerifyFirst: 'Please complete real-name verification before purchasing.',
+      purchaseNotApproved: 'The listing has not been approved yet.',
+      purchaseSelectMethod: 'Please choose a payment method first.',
+      purchaseOwnListing: 'You cannot purchase your own listing.',
+      purchaseFailed: 'Payment failed. Please try again later.',
+      reserveBuyerOnly: 'Only buyers can reserve listings.',
+      reserveVerifyFirst: 'Please complete real-name verification before reserving.',
+      reserveNotApproved: 'The listing has not been approved yet.',
+      reserveFailed: 'Failed to reserve listing. Please try again later.',
+      walletLoginRequired: 'Please sign in before using wallet features.',
+      walletTopUp: 'Wallet top-up failed.',
+      returnLoginRequired: 'Please sign in before requesting a refund.',
+      returnFailed: 'Failed to submit refund request.',
+      updateBlacklist: 'Failed to update blacklist status.',
+      deleteAccount: 'Failed to delete account.',
+      reviewRequireReason: 'A reason is required to reject a listing.',
+      submitReview: 'Failed to submit review decision.',
+      loadReputation: 'Failed to load reputation dashboard.',
+      persistSettings: 'Failed to save interface settings.',
+      persistUser: 'Unable to persist login state.',
+      restoreSession: 'Failed to restore previous session.'
+    },
+    prompts: {
+      reviewRejectReason: 'Enter rejection reason',
+      reviewRemark: 'Review remark (optional)',
+      reviewDefaultRemark: 'Approved',
+      reviewFallbackReason: 'Not provided',
+      deleteHouseConfirm: 'Are you sure you want to delete listing “{title}”?',
+      deleteAccountConfirm: 'Delete account {username}? This action cannot be undone.'
+    },
+    payments: {
+      installment: 'instalments',
+      full: 'full payment'
+    }
+  }
+};
+
+const currentLocale = computed(() => settings.language || 'zh');
+
+const resolveTranslation = (locale, path) => {
+  const segments = path.split('.');
+  return segments.reduce((acc, key) => {
+    if (acc && typeof acc === 'object' && key in acc) {
+      return acc[key];
+    }
+    return undefined;
+  }, translations[locale]);
+};
+
+const formatTranslation = (template, vars = {}) =>
+  template.replace(/\{(\w+)\}/g, (_, key) => (vars[key] ?? `{${key}}`));
+
+const t = (path, vars = {}) => {
+  const locale = currentLocale.value;
+  const fallback = 'zh';
+  const template =
+    resolveTranslation(locale, path) ?? resolveTranslation(fallback, path) ?? path;
+  if (typeof template === 'string') {
+    return formatTranslation(template, vars);
+  }
+  return template;
+};
+
+provide('translate', t);
+
+const persistSettings = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify({ ...settings }));
+  } catch (error) {
+    console.warn(t('errors.persistSettings'), error);
+  }
+};
+
+const applyTheme = (theme) => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  document.documentElement.setAttribute('data-theme', theme);
+  document.body?.setAttribute('data-theme', theme);
+};
+
+const applyFontSize = (size) => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  document.documentElement.setAttribute('data-font', size);
+};
+
+const applyLanguage = (language) => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const langCode = language === 'en' ? 'en' : 'zh-CN';
+  document.documentElement.setAttribute('lang', langCode);
+};
+
+watch(
+  () => settings.theme,
+  (theme) => {
+    applyTheme(theme);
+    persistSettings();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => settings.fontSize,
+  (size) => {
+    applyFontSize(size);
+    persistSettings();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => settings.language,
+  (lang) => {
+    applyLanguage(lang);
+    persistSettings();
+  },
+  { immediate: true }
+);
+
+const parentheses = computed(() =>
+  settings.language === 'en'
+    ? { left: '(', right: ')' }
+    : { left: '（', right: '）' }
+);
+
 const formatCurrencyYuan = (value) => {
   const numeric = Number(value ?? 0);
   if (!Number.isFinite(numeric)) {
     return '0.00';
   }
-  return (numeric * 10000).toLocaleString('zh-CN', {
+  const locale = settings.language === 'en' ? 'en-US' : 'zh-CN';
+  return (numeric * 10000).toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 };
 
-const roleLabels = {
-  SELLER: '卖家',
-  BUYER: '买家',
-  ADMIN: '系统管理员'
-};
+const roleLabels = computed(() => ({
+  SELLER: t('roles.seller'),
+  BUYER: t('roles.buyer'),
+  ADMIN: t('roles.admin')
+}));
 
-const listingStatusLabels = {
-  PENDING_REVIEW: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已驳回'
-};
+const listingStatusLabels = computed(() => ({
+  PENDING_REVIEW: t('statuses.pending'),
+  APPROVED: t('statuses.approved'),
+  REJECTED: t('statuses.rejected')
+}));
 
 const isSeller = computed(() => currentUser.value?.role === 'SELLER');
 const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
@@ -261,21 +746,21 @@ const pendingReviewHouses = computed(() =>
 const reviewLoading = computed(() => loading.value || adminLoading.value);
 
 const navigationTabs = computed(() => {
-  const tabs = [{ value: 'home', label: '购买首页' }];
+  const tabs = [{ value: 'home', label: t('nav.home') }];
   tabs.push({
     value: 'verify',
-    label: currentUser.value?.realNameVerified ? '实名认证（已完成）' : '实名认证'
+    label: currentUser.value?.realNameVerified ? t('nav.verifyCompleted') : t('nav.verify')
   });
   if (canManageHouses.value) {
-    tabs.push({ value: 'manage', label: '房源管理' });
+    tabs.push({ value: 'manage', label: t('nav.manage') });
   }
-  tabs.push({ value: 'orders', label: '订单与钱包' });
+  tabs.push({ value: 'orders', label: t('nav.orders') });
   if (isAdmin.value) {
     const pendingLabel = pendingReviewHouses.value.length
-      ? `房源审核（${pendingReviewHouses.value.length}）`
-      : '房源审核';
+      ? t('nav.reviewWithCount', { count: pendingReviewHouses.value.length })
+      : t('nav.review');
     tabs.push({ value: 'review', label: pendingLabel });
-    tabs.push({ value: 'admin', label: '信誉面板' });
+    tabs.push({ value: 'admin', label: t('nav.admin') });
   }
   return tabs;
 });
@@ -294,7 +779,7 @@ const persistUser = (user) => {
   try {
     localStorage.setItem(storageKey, JSON.stringify(user));
   } catch (error) {
-    console.warn('无法持久化登录状态：', error);
+    console.warn(t('errors.persistUser'), error);
   }
 };
 
@@ -353,7 +838,7 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     const { data } = await client.get('/houses', { params });
     houses.value = data.map(normalizeHouse);
   } catch (error) {
-    messages.error = error.response?.data?.detail ?? '加载房源数据失败，请检查后端服务。';
+    messages.error = error.response?.data?.detail ?? t('errors.loadHouses');
   } finally {
     if (!silent) {
       loading.value = false;
@@ -368,7 +853,7 @@ const loadRecommendations = async ({ silent = true } = {}) => {
     recommendations.buyers = Array.isArray(data.buyers) ? data.buyers : [];
   } catch (error) {
     if (!silent) {
-      messages.error = error.response?.data?.detail ?? '加载推荐用户失败。';
+      messages.error = error.response?.data?.detail ?? t('errors.loadRecommendations');
     }
   }
 };
@@ -385,7 +870,7 @@ const fetchWallet = async ({ silent = false } = {}) => {
     const { data } = await client.get(`/wallets/${currentUser.value.username}`);
     wallet.value = data;
   } catch (error) {
-    const detail = error.response?.data?.detail ?? '加载钱包信息失败。';
+    const detail = error.response?.data?.detail ?? t('errors.loadWallet');
     messages.error = detail;
   } finally {
     if (!silent) {
@@ -406,7 +891,7 @@ const fetchOrders = async ({ silent = false } = {}) => {
     const { data } = await client.get(`/orders/by-user/${currentUser.value.username}`);
     orders.value = data;
   } catch (error) {
-    const detail = error.response?.data?.detail ?? '加载订单信息失败。';
+    const detail = error.response?.data?.detail ?? t('errors.loadOrders');
     messages.error = detail;
   } finally {
     if (!silent) {
@@ -451,7 +936,7 @@ const loadConversations = async ({ silent = false } = {}) => {
       await loadConversationMessages(activeConversationId.value, { silent: true });
     }
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? '加载对话失败。';
+    conversationError.value = error.response?.data?.detail ?? t('errors.loadConversations');
   } finally {
     if (!silent) {
       conversationListLoading.value = false;
@@ -474,7 +959,7 @@ const loadConversationMessages = async (conversationId, { silent = false } = {})
     });
     conversationMessages.value = Array.isArray(data) ? data : [];
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? '加载消息失败。';
+    conversationError.value = error.response?.data?.detail ?? t('errors.loadMessages');
   } finally {
     if (!silent) {
       conversationMessagesLoading.value = false;
@@ -484,7 +969,7 @@ const loadConversationMessages = async (conversationId, { silent = false } = {})
 
 const openConversationPanel = async () => {
   if (!currentUser.value || !canUseMessaging.value) {
-    messages.error = '当前角色暂不支持对话功能。';
+    messages.error = t('errors.messagingUnsupported');
     return;
   }
   conversationPanelVisible.value = true;
@@ -523,7 +1008,7 @@ const handleSendConversationMessage = async ({ conversationId, content }) => {
       loadConversations({ silent: true })
     ]);
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? '发送消息失败。';
+    conversationError.value = error.response?.data?.detail ?? t('errors.sendMessage');
   } finally {
     conversationSending.value = false;
   }
@@ -536,7 +1021,7 @@ const handleVerificationUpdate = async (response) => {
   };
   currentUser.value = updated;
   persistUser(updated);
-  messages.success = response.message ?? '实名认证信息已更新。';
+  messages.success = response.message ?? t('success.verificationUpdated');
   messages.error = '';
   if (activeTab.value === 'verify' && updated.realNameVerified) {
     activeTab.value = 'home';
@@ -551,12 +1036,12 @@ const handleVerificationUpdate = async (response) => {
 
 const handleContactSeller = async ({ sellerUsername }) => {
   if (!isBuyer.value || !currentUser.value) {
-    messages.error = '只有买家可以主动联系卖家。';
+    messages.error = t('errors.contactSellerBuyerOnly');
     messages.success = '';
     return;
   }
   if (!isRealNameVerified.value) {
-    messages.error = '请先完成实名认证后再联系卖家。';
+    messages.error = t('errors.contactSellerVerifyFirst');
     messages.success = '';
     return;
   }
@@ -573,7 +1058,7 @@ const handleContactSeller = async ({ sellerUsername }) => {
       loadConversations({ silent: true })
     ]);
   } catch (error) {
-    conversationError.value = error.response?.data?.detail ?? '创建对话失败，请稍后再试。';
+    conversationError.value = error.response?.data?.detail ?? t('errors.createConversation');
   }
 };
 
@@ -592,14 +1077,14 @@ const refreshCurrentUser = async ({ silent = true } = {}) => {
     persistUser(updated);
   } catch (error) {
     if (!silent) {
-      messages.error = error.response?.data?.detail ?? '刷新用户信息失败。';
+      messages.error = error.response?.data?.detail ?? t('errors.refreshUser');
     }
   }
 };
 
 const guardReadOnly = () => {
   if (!canManageHouses.value) {
-    messages.error = '当前角色仅支持浏览房源，如需维护房源请使用卖家账号。';
+    messages.error = t('errors.manageHousesPermission');
     messages.success = '';
     return false;
   }
@@ -651,18 +1136,18 @@ const handleSubmit = async (payload) => {
   try {
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
-      const statusLabel = listingStatusLabels[data.status] ?? '待审核';
+      const statusLabel = listingStatusLabels.value[data.status] ?? t('statuses.pending');
       messages.success =
         data.status === 'APPROVED'
-          ? `房源《${data.title}》已更新并重新上架。`
-          : `房源《${data.title}》已更新，当前状态：${statusLabel}。`;
+          ? t('success.houseUpdatedApproved', { title: data.title })
+          : t('success.houseUpdatedPending', { title: data.title, status: statusLabel });
     } else {
       const { data } = await client.post('/houses', requestPayload);
-      const statusLabel = listingStatusLabels[data.status] ?? '待审核';
+      const statusLabel = listingStatusLabels.value[data.status] ?? t('statuses.pending');
       messages.success =
         data.status === 'APPROVED'
-          ? `已新增房源《${data.title}》，已通过审核并上架。`
-          : `已提交房源《${data.title}》，当前状态：${statusLabel}。`;
+          ? t('success.houseCreatedApproved', { title: data.title })
+          : t('success.houseCreatedPending', { title: data.title, status: statusLabel });
     }
     selectedHouse.value = null;
     await fetchHouses({ silent: true });
@@ -673,7 +1158,7 @@ const handleSubmit = async (payload) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '保存房源信息失败。';
+      messages.error = detail?.detail ?? t('errors.saveHouse');
     }
   } finally {
     loading.value = false;
@@ -682,7 +1167,7 @@ const handleSubmit = async (payload) => {
 
 const handleEdit = (house) => {
   if (isSeller.value && currentUser.value.username !== house.sellerUsername) {
-    messages.error = '卖家只能编辑自己发布的房源。';
+    messages.error = t('errors.editOwnHouse');
     return;
   }
   selectedHouse.value = {
@@ -701,10 +1186,10 @@ const handleRemove = async (house) => {
     return;
   }
   if (isSeller.value && currentUser.value.username !== house.sellerUsername) {
-    messages.error = '卖家只能删除自己发布的房源。';
+    messages.error = t('errors.deleteOwnHouse');
     return;
   }
-  if (!window.confirm(`确定要删除房源：${house.title} 吗？`)) {
+  if (!window.confirm(t('prompts.deleteHouseConfirm', { title: house.title }))) {
     return;
   }
   loading.value = true;
@@ -714,11 +1199,11 @@ const handleRemove = async (house) => {
     await client.delete(`/houses/${house.id}`, {
       params: { requester: currentUser.value.username }
     });
-    messages.success = `已删除房源《${house.title}》。`;
+    messages.success = t('success.deleteHouse', { title: house.title });
     await fetchHouses({ silent: true });
     await loadRecommendations();
   } catch (error) {
-    messages.error = error.response?.data?.detail ?? '删除房源失败。';
+    messages.error = error.response?.data?.detail ?? t('errors.deleteHouse');
   } finally {
     loading.value = false;
   }
@@ -726,25 +1211,25 @@ const handleRemove = async (house) => {
 
 const handlePurchase = async ({ house, paymentMethod }) => {
   if (!isBuyer.value) {
-    messages.error = '只有买家角色可以发起购买。';
+    messages.error = t('errors.purchaseBuyerOnly');
     messages.success = '';
     return;
   }
   if (!isRealNameVerified.value) {
-    messages.error = '购买前请先完成实名认证。';
+    messages.error = t('errors.purchaseVerifyFirst');
     messages.success = '';
     return;
   }
   if (!house || house.status !== 'APPROVED') {
-    messages.error = '房源尚未通过审核，暂不可购买。';
+    messages.error = t('errors.purchaseNotApproved');
     return;
   }
   if (!paymentMethod) {
-    messages.error = '请选择支付方式后再尝试购买。';
+    messages.error = t('errors.purchaseSelectMethod');
     return;
   }
   if (isSeller.value && currentUser.value.username === house.sellerUsername) {
-    messages.error = '不能购买自己发布的房源。';
+    messages.error = t('errors.purchaseOwnListing');
     messages.success = '';
     return;
   }
@@ -758,8 +1243,13 @@ const handlePurchase = async ({ house, paymentMethod }) => {
       paymentMethod
     });
     const payment = formatCurrencyYuan(data.amount);
-    const methodLabel = data.paymentMethod === 'INSTALLMENT' ? '分期' : '全款';
-    messages.success = `成功以${methodLabel}方式购买房源《${data.houseTitle}》，支付金额 ￥${payment}。`;
+    const methodLabel =
+      data.paymentMethod === 'INSTALLMENT' ? t('payments.installment') : t('payments.full');
+    messages.success = t('success.purchase', {
+      method: methodLabel,
+      title: data.houseTitle,
+      amount: payment
+    });
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -771,7 +1261,7 @@ const handlePurchase = async ({ house, paymentMethod }) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '支付失败，请稍后再试。';
+      messages.error = detail?.detail ?? t('errors.purchaseFailed');
     }
   } finally {
     ordersLoading.value = false;
@@ -780,17 +1270,17 @@ const handlePurchase = async ({ house, paymentMethod }) => {
 
 const handleReserve = async (house) => {
   if (!isBuyer.value) {
-    messages.error = '只有买家角色可以预定房源。';
+    messages.error = t('errors.reserveBuyerOnly');
     messages.success = '';
     return;
   }
   if (!isRealNameVerified.value) {
-    messages.error = '预定前请先完成实名认证。';
+    messages.error = t('errors.reserveVerifyFirst');
     messages.success = '';
     return;
   }
   if (!house || house.status !== 'APPROVED') {
-    messages.error = '房源尚未通过审核，暂不可预定。';
+    messages.error = t('errors.reserveNotApproved');
     messages.success = '';
     return;
   }
@@ -804,7 +1294,10 @@ const handleReserve = async (house) => {
       buyerUsername: currentUser.value.username
     });
     const deposit = formatCurrencyYuan(data.amount);
-    messages.success = `已成功预定房源《${data.houseTitle}》，定金 ￥${deposit}。`;
+    messages.success = t('success.reservation', {
+      title: data.houseTitle,
+      amount: deposit
+    });
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -815,7 +1308,7 @@ const handleReserve = async (house) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '预定失败，请稍后再试。';
+      messages.error = detail?.detail ?? t('errors.reserveFailed');
     }
   } finally {
     reservationLoading.value = false;
@@ -825,7 +1318,7 @@ const handleReserve = async (house) => {
 
 const handleTopUp = async ({ amount, reference }) => {
   if (!currentUser.value) {
-    messages.error = '请先登录后再使用钱包功能。';
+    messages.error = t('errors.walletLoginRequired');
     messages.success = '';
     return;
   }
@@ -838,14 +1331,14 @@ const handleTopUp = async ({ amount, reference }) => {
       reference
     });
     wallet.value = data;
-    messages.success = `钱包充值成功，充值金额 ￥${formatCurrencyYuan(amount)}。`;
+    messages.success = t('success.walletTopUp', { amount: formatCurrencyYuan(amount) });
   } catch (error) {
     const detail = error.response?.data;
     if (detail?.errors) {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '钱包充值失败。';
+      messages.error = detail?.detail ?? t('errors.walletTopUp');
     }
   } finally {
     walletLoading.value = false;
@@ -854,7 +1347,7 @@ const handleTopUp = async ({ amount, reference }) => {
 
 const handleRequestReturn = async ({ orderId, reason }) => {
   if (!currentUser.value) {
-    messages.error = '请先登录后再申请退换。';
+    messages.error = t('errors.returnLoginRequired');
     messages.success = '';
     return;
   }
@@ -866,7 +1359,7 @@ const handleRequestReturn = async ({ orderId, reason }) => {
       requesterUsername: currentUser.value.username,
       reason
     });
-    messages.success = `订单《${data.houseTitle}》已退换成功。`;
+    messages.success = t('success.orderReturned', { title: data.houseTitle });
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -877,7 +1370,7 @@ const handleRequestReturn = async ({ orderId, reason }) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '退换请求失败。';
+      messages.error = detail?.detail ?? t('errors.returnFailed');
     }
   } finally {
     ordersLoading.value = false;
@@ -900,7 +1393,9 @@ const handleToggleBlacklist = async ({ username, blacklisted }) => {
       requesterUsername: currentUser.value.username,
       blacklisted
     });
-    messages.success = blacklisted ? `已将账号 ${username} 加入黑名单。` : `已解除账号 ${username} 的黑名单状态。`;
+    messages.success = blacklisted
+      ? t('success.blacklistAdded', { username })
+      : t('success.blacklistRemoved', { username });
     await loadAdminData();
     await loadRecommendations();
   } catch (error) {
@@ -909,7 +1404,7 @@ const handleToggleBlacklist = async ({ username, blacklisted }) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '更新黑名单状态失败。';
+      messages.error = detail?.detail ?? t('errors.updateBlacklist');
     }
   } finally {
     adminLoading.value = false;
@@ -920,7 +1415,7 @@ const handleDeleteUser = async ({ username }) => {
   if (!isAdmin.value || !currentUser.value || !username || username === currentUser.value.username) {
     return;
   }
-  const confirmed = window.confirm(`确定要删除账号 ${username} 吗？该操作不可撤销。`);
+  const confirmed = window.confirm(t('prompts.deleteAccountConfirm', { username }));
   if (!confirmed) {
     return;
   }
@@ -931,7 +1426,7 @@ const handleDeleteUser = async ({ username }) => {
     await client.delete(`/admin/users/${username}`, {
       params: { requester: currentUser.value.username }
     });
-    messages.success = `账号 ${username} 已被删除。`;
+    messages.success = t('success.accountDeleted', { username });
     await Promise.all([
       loadAdminData(),
       loadRecommendations()
@@ -943,7 +1438,7 @@ const handleDeleteUser = async ({ username }) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '删除账号失败。';
+      messages.error = detail?.detail ?? t('errors.deleteAccount');
     }
   } finally {
     adminLoading.value = false;
@@ -957,17 +1452,20 @@ const handleReview = async ({ houseId, status }) => {
   const target = houses.value.find((item) => item.id === houseId);
   let reviewMessage = '';
   if (status === 'REJECTED') {
-    const reason = window.prompt('请输入驳回原因', target?.reviewMessage ?? '');
+    const reason = window.prompt(t('prompts.reviewRejectReason'), target?.reviewMessage ?? '');
     if (reason === null) {
       return;
     }
     reviewMessage = reason.trim();
     if (!reviewMessage) {
-      messages.error = '驳回操作需要填写原因。';
+      messages.error = t('errors.reviewRequireReason');
       return;
     }
   } else {
-    const remark = window.prompt('审核备注（可选）', target?.reviewMessage ?? '审核通过');
+    const remark = window.prompt(
+      t('prompts.reviewRemark'),
+      target?.reviewMessage ?? t('prompts.reviewDefaultRemark')
+    );
     if (remark === null) {
       return;
     }
@@ -982,11 +1480,15 @@ const handleReview = async ({ houseId, status }) => {
       status,
       message: reviewMessage
     });
-    const statusLabel = listingStatusLabels[data.status] ?? '';
+    const statusLabel = listingStatusLabels.value[data.status] ?? '';
     messages.success =
       data.status === 'APPROVED'
-        ? `已审核通过房源《${data.title}》。`
-        : `已驳回房源《${data.title}》，状态：${statusLabel}，原因：${data.reviewMessage ?? (reviewMessage || '未填写')}`;
+        ? t('success.reviewApproved', { title: data.title })
+        : t('success.reviewRejected', {
+            title: data.title,
+            status: statusLabel,
+            reason: data.reviewMessage ?? (reviewMessage || t('prompts.reviewFallbackReason'))
+          });
     await Promise.all([
       fetchHouses({ silent: true }),
       loadAdminData()
@@ -997,7 +1499,7 @@ const handleReview = async ({ houseId, status }) => {
       const firstError = Object.values(detail.errors)[0];
       messages.error = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      messages.error = detail?.detail ?? '提交审核结果失败。';
+      messages.error = detail?.detail ?? t('errors.submitReview');
     }
   } finally {
     adminLoading.value = false;
@@ -1019,7 +1521,7 @@ const loadAdminData = async () => {
     adminUsers.value = Array.isArray(usersRes.data) ? usersRes.data : [];
     adminReputation.value = reputationRes.data ?? null;
   } catch (error) {
-    messages.error = error.response?.data?.detail ?? '加载信誉面板失败。';
+    messages.error = error.response?.data?.detail ?? t('errors.loadReputation');
   } finally {
     adminLoading.value = false;
   }
@@ -1028,8 +1530,12 @@ const loadAdminData = async () => {
 const handleLoginSuccess = (user) => {
   currentUser.value = user;
   resetConversationState();
-  const reputationText = user.reputationScore != null ? ` 当前信誉分：${user.reputationScore}` : '';
-  messages.success = `${user.message ?? '登录成功。'}${reputationText}`;
+  const reputationText =
+    user.reputationScore != null
+      ? t('success.loginReputationSuffix', { score: user.reputationScore })
+      : '';
+  const loginMessage = user.message ?? t('success.login');
+  messages.success = `${loginMessage}${reputationText}`;
   messages.error = '';
   persistUser(user);
   activeTab.value = 'home';
@@ -1090,7 +1596,7 @@ onMounted(() => {
     if (cached) {
       const user = JSON.parse(cached);
       currentUser.value = user;
-      messages.success = '已恢复上次的登录状态。';
+      messages.success = t('success.restoredSession');
       fetchHouses();
       fetchWallet();
       fetchOrders();
@@ -1101,7 +1607,7 @@ onMounted(() => {
       return;
     }
   } catch (error) {
-    console.warn('恢复登录状态失败：', error);
+    console.warn(t('errors.restoreSession'), error);
     localStorage.removeItem(storageKey);
   }
   fetchHouses();
@@ -1162,7 +1668,7 @@ onMounted(() => {
   display: grid;
   gap: 1.5rem;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .header::before,
@@ -1206,6 +1712,31 @@ onMounted(() => {
   margin: 0.35rem 0 0;
   font-size: 1.02rem;
   opacity: 0.92;
+}
+
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.header-actions :deep(.interface-settings) {
+  align-self: flex-end;
+}
+
+.header-actions :deep(.settings-toggle) {
+  background: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+}
+
+.header-actions :deep(.settings-toggle:hover) {
+  background: rgba(255, 255, 255, 0.34);
+  color: #fff;
 }
 
 .session {
@@ -1353,6 +1884,10 @@ onMounted(() => {
   .header {
     padding: 2rem 1.75rem;
   }
+
+  .header-actions {
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1368,6 +1903,11 @@ onMounted(() => {
 
   .identity {
     align-items: center;
+  }
+
+  .header-actions {
+    align-items: center;
+    gap: 1.25rem;
   }
 
   .logout,

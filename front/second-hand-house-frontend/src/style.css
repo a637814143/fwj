@@ -9,6 +9,7 @@
 
   --font-sans: 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans SC', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
+  --base-font-size: 16px;
   --color-text-strong: #0f172a;
   --color-text-muted: #475569;
   --color-text-soft: #64748b;
@@ -32,6 +33,37 @@
   --transition-base: 0.22s ease;
 }
 
+:root[data-font='small'] {
+  --base-font-size: 14px;
+}
+
+:root[data-font='medium'] {
+  --base-font-size: 16px;
+}
+
+:root[data-font='large'] {
+  --base-font-size: 18px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-text-strong: #e2e8f0;
+  --color-text-muted: #cbd5f5;
+  --color-text-soft: #94a3b8;
+  --color-background: #0f172a;
+  --color-surface: rgba(30, 41, 59, 0.92);
+  --color-surface-soft: rgba(15, 23, 42, 0.68);
+  --color-surface-tint: rgba(30, 41, 59, 0.55);
+  --color-border: rgba(148, 163, 184, 0.22);
+  --color-border-strong: rgba(148, 163, 184, 0.35);
+  --gradient-primary: linear-gradient(135deg, #38bdf8 0%, #6366f1 55%, #8b5cf6 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.2));
+  --gradient-surface: linear-gradient(160deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88));
+  --shadow-sm: 0 12px 28px rgba(2, 6, 23, 0.4);
+  --shadow-md: 0 22px 48px rgba(2, 6, 23, 0.45);
+  --shadow-lg: 0 32px 80px rgba(2, 6, 23, 0.5);
+}
+
 *,
 *::before,
 *::after {
@@ -42,6 +74,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: var(--font-sans);
+  font-size: var(--base-font-size);
   color: var(--color-text-strong);
   background: radial-gradient(circle at 12% 18%, rgba(59, 130, 246, 0.22), transparent 55%),
     radial-gradient(circle at 88% 12%, rgba(14, 165, 233, 0.18), transparent 62%),
@@ -75,6 +108,21 @@ body::after {
   bottom: -160px;
   right: -120px;
   background: radial-gradient(circle, rgba(99, 102, 241, 0.55), rgba(99, 102, 241, 0));
+}
+
+body[data-theme='dark'] {
+  background: linear-gradient(180deg, #0b1120 0%, #0f172a 40%, #020617 100%);
+  color: var(--color-text-strong);
+}
+
+body[data-theme='dark']::before {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.32), rgba(15, 23, 42, 0));
+  opacity: 0.4;
+}
+
+body[data-theme='dark']::after {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.3), rgba(2, 6, 23, 0));
+  opacity: 0.38;
 }
 
 a {

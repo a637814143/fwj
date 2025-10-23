@@ -4,7 +4,7 @@
       <div>
         <h2>{{ isEditing ? '编辑房源' : '新增房源' }}</h2>
         <p v-if="!canManage" class="notice">
-          当前角色仅支持浏览房源，如需发布或维护房源请使用卖家账号。
+          当前角色仅支持浏览房源，如需发布或维护房源请使用卖家或管理员账号。
         </p>
       </div>
       <div v-if="isEditing" class="status-indicator" :class="statusClass">
@@ -13,208 +13,204 @@
       </div>
     </header>
 
-    <nav class="stepper" aria-label="发布步骤">
-      <button
-        v-for="step in steps"
-        :key="step.value"
-        type="button"
-        :class="['step', { active: step.value === currentStep, done: step.value < currentStep }]"
-        @click="goToStep(step.value)"
-      >
-        <span class="index">{{ step.value }}</span>
-        <span>{{ step.label }}</span>
-      </button>
-    </nav>
-
-    <section v-if="currentStep === 1" class="step-panel">
-      <h3>填写房源基础信息</h3>
-      <p class="hint">请完善房源的核心资料，确保系统管理员能够快速完成审核。</p>
-      <div class="form-grid">
-        <label>
-          标题
-          <input v-model.trim="form.title" type="text" required :disabled="disabled" placeholder="请输入房源标题" />
-        </label>
-        <label>
-          地址
-          <input v-model.trim="form.address" type="text" required :disabled="disabled" placeholder="请输入房源地址" />
-        </label>
-        <label>
-          价格（万元）
-          <input
-            v-model.number="form.price"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            :disabled="disabled"
-            placeholder="例如 200"
-          />
-        </label>
-        <label>
-          房源面积（㎡）
-          <input v-model.number="form.area" type="number" min="0" step="0.01" required :disabled="disabled" placeholder="例如 89" />
-        </label>
-        <label>
-          分期月供（万元）
-          <input
-            v-model.number="form.installmentMonthlyPayment"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            :disabled="disabled"
-            placeholder="例如 5.6"
-          />
-        </label>
-        <label>
-          分期期数
-          <input
-            v-model.number="form.installmentMonths"
-            type="number"
-            min="1"
-            required
-            :disabled="disabled"
-            placeholder="例如 24"
-          />
-        </label>
-        <label>
-          卖家账号
-          <input
-            v-model.trim="form.sellerUsername"
-            type="text"
-            required
-            :disabled="disabled || disableSellerAccount"
-            placeholder="请输入卖家账号"
-          />
-        </label>
-        <label>
-          卖家姓名
-          <input v-model.trim="form.sellerName" type="text" required :disabled="disabled" placeholder="请输入卖家姓名" />
-        </label>
-        <label>
-          联系方式
-          <input v-model.trim="form.contactNumber" type="text" required :disabled="disabled" placeholder="请输入联系方式" />
-        </label>
-        <label>
-          挂牌日期
-          <input v-model="form.listingDate" type="date" required :disabled="disabled" />
-        </label>
-        <label>
-          楼层（选填）
-          <input v-model.number="form.floor" type="number" min="0" :disabled="disabled" placeholder="例如 10" />
-        </label>
-      </div>
-      <label class="block">
-        房源描述
-        <textarea
-          v-model.trim="form.description"
-          rows="3"
-          :disabled="disabled"
-          placeholder="补充房源亮点或其他信息"
-        ></textarea>
-      </label>
-      <section class="images-section">
-        <div class="images-header">
-          <h4>房源图片链接</h4>
-          <button type="button" class="btn add" :disabled="disabled" @click="addImageField">添加图片</button>
-        </div>
-        <p class="hint">支持填写多张图片的网络链接，提交前会自动忽略空白链接。</p>
-        <div class="image-inputs">
-          <div v-for="(image, index) in form.imageUrls" :key="index" class="image-input">
-            <input
-              v-model.trim="form.imageUrls[index]"
-              type="url"
-              :disabled="disabled"
-              placeholder="例如：https://example.com/house.jpg"
-            />
-            <button
-              type="button"
-              class="btn remove"
-              :disabled="disabled || form.imageUrls.length === 1"
-              @click="removeImageField(index)"
-            >
-              删除
-            </button>
-          </div>
-        </div>
-      </section>
-      <p v-if="stepErrors[1]" class="error">{{ stepErrors[1] }}</p>
-      <div class="navigation">
-        <span></span>
-        <button type="button" class="btn primary" :disabled="disabled" @click="nextStep">下一步</button>
-      </div>
-    </section>
-
-    <section v-else-if="currentStep === 2" class="step-panel">
-      <h3>填写房源关键词</h3>
-      <p class="hint">为房源补充精准关键词，便于买家通过检索快速找到该房源。</p>
-      <div class="keyword-editor">
-        <label class="block">
-          关键词（使用逗号、空格或顿号分隔）
-          <textarea
-            v-model.trim="form.keywordInput"
-            rows="3"
-            :disabled="disabled"
-            placeholder="例如：学区房，南北通透，地铁沿线"
-          ></textarea>
-        </label>
-        <div v-if="keywordsList.length" class="keyword-preview">
-          <h4>将提交的关键词</h4>
-          <ul class="keyword-chips">
-            <li v-for="(keyword, index) in keywordsList" :key="index" class="keyword-chip">{{ keyword }}</li>
-          </ul>
-        </div>
-        <p v-else class="keyword-empty">尚未添加关键词。</p>
-      </div>
-      <p v-if="stepErrors[2]" class="error">{{ stepErrors[2] }}</p>
-      <div class="navigation">
-        <button type="button" class="btn secondary" @click="previousStep">上一步</button>
-        <button type="button" class="btn primary" :disabled="disabled" @click="nextStep">下一步</button>
-      </div>
-    </section>
-
-    <section v-else class="step-panel">
-      <h3>上传产权证明并提交审核</h3>
-      <p class="hint">请上传产权证或其他证明材料的访问链接，提交后系统管理员将进行审核。</p>
-      <label class="block">
-        产权证明链接
+    <div class="form-grid">
+      <label>
+        标题
         <input
-          v-model.trim="form.propertyCertificateUrl"
-          type="url"
+          v-model.trim="form.title"
+          type="text"
           required
+          placeholder="请输入房源标题"
           :disabled="disabled"
-          placeholder="请输入网盘或文件访问链接"
         />
       </label>
-      <article class="summary">
-        <h4>提交前确认</h4>
-        <ul>
-          <li>房源标题：{{ form.title || '—' }}</li>
-          <li>全款价格：￥{{ formatNumber(form.price) }} 万</li>
-          <li>分期方案：￥{{ formatNumber(form.installmentMonthlyPayment) }} 万 × {{ form.installmentMonths || '—' }} 期</li>
-          <li>图片链接：{{ sanitizedImageUrls.length }} 条</li>
-          <li>关键词：{{ keywordsPreview }}</li>
-        </ul>
-      </article>
-      <p v-if="stepErrors[3]" class="error">{{ stepErrors[3] }}</p>
-      <div class="navigation">
-        <button type="button" class="btn secondary" @click="previousStep">上一步</button>
-        <div class="actions">
-          <button class="btn primary" type="submit" :disabled="disabled">
-            {{ loading ? '提交中...' : isEditing ? '保存修改' : '提交审核' }}
-          </button>
-          <button
-            v-if="isEditing"
-            class="btn ghost"
-            type="button"
+
+      <label>
+        地址
+        <input
+          v-model.trim="form.address"
+          type="text"
+          required
+          placeholder="请输入房源地址"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        价格（万元）
+        <input
+          v-model.number="form.price"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          placeholder="例如 200"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        房源面积（㎡）
+        <input
+          v-model.number="form.area"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          placeholder="例如 89"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        分期月供（万元）
+        <input
+          v-model.number="form.installmentMonthlyPayment"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          placeholder="例如 5.6"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        分期期数
+        <input
+          v-model.number="form.installmentMonths"
+          type="number"
+          min="1"
+          required
+          placeholder="例如 24"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        卖家账号
+        <input
+          v-model.trim="form.sellerUsername"
+          type="text"
+          required
+          placeholder="请输入卖家账号"
+          :disabled="disabled || disableSellerAccount"
+        />
+      </label>
+
+      <label>
+        卖家姓名
+        <input
+          v-model.trim="form.sellerName"
+          type="text"
+          required
+          placeholder="请输入卖家姓名"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        联系方式
+        <input
+          v-model.trim="form.contactNumber"
+          type="text"
+          required
+          placeholder="请输入联系方式"
+          :disabled="disabled"
+        />
+      </label>
+
+      <label>
+        挂牌日期
+        <input v-model="form.listingDate" type="date" required :disabled="disabled" />
+      </label>
+
+      <label>
+        楼层（选填）
+        <input
+          v-model.number="form.floor"
+          type="number"
+          min="0"
+          placeholder="例如 10"
+          :disabled="disabled"
+        />
+      </label>
+    </div>
+
+    <label class="block">
+      房源描述
+      <textarea
+        v-model.trim="form.description"
+        rows="3"
+        placeholder="补充房源亮点或其他信息"
+        :disabled="disabled"
+      ></textarea>
+    </label>
+
+    <label class="block">
+      关键词（使用逗号、空格或顿号分隔）
+      <input
+        v-model="keywordInput"
+        type="text"
+        placeholder="例如：学区房，地铁沿线，南北通透"
+        :disabled="disabled"
+      />
+    </label>
+    <div v-if="keywordsPreview.length" class="keyword-preview">
+      <span class="preview-label">将提交的关键词：</span>
+      <ul class="keyword-chips">
+        <li v-for="(keyword, index) in keywordsPreview" :key="`${keyword}-${index}`">{{ keyword }}</li>
+      </ul>
+    </div>
+
+    <label class="block">
+      产权证明链接
+      <input
+        v-model.trim="form.propertyCertificateUrl"
+        type="url"
+        required
+        placeholder="请输入房屋产权证明或其他附件链接"
+        :disabled="disabled"
+      />
+    </label>
+
+    <section class="images-section">
+      <div class="images-header">
+        <h4>房源图片链接</h4>
+        <button type="button" class="btn add" :disabled="disabled" @click="addImageField">添加图片</button>
+      </div>
+      <p class="hint">支持填写多张图片的网络链接，提交前会自动忽略空白链接。</p>
+      <div class="image-inputs">
+        <div v-for="(image, index) in form.imageUrls" :key="`${index}-${image}`" class="image-input">
+          <input
+            v-model.trim="form.imageUrls[index]"
+            type="url"
             :disabled="disabled"
-            @click="cancelEdit"
+            placeholder="例如：https://example.com/house.jpg"
+          />
+          <button
+            type="button"
+            class="btn remove"
+            :disabled="disabled || form.imageUrls.length === 1"
+            @click="removeImageField(index)"
           >
-            取消编辑
+            删除
           </button>
+          <img v-if="isPreviewable(image)" :src="image" alt="预览" />
         </div>
       </div>
     </section>
+
+    <p v-if="formError" class="error">{{ formError }}</p>
+
+    <div class="actions">
+      <button class="btn primary" type="submit" :disabled="disabled">
+        {{ loading ? '提交中...' : isEditing ? '保存修改' : '提交审核' }}
+      </button>
+      <button v-if="isEditing" class="btn ghost" type="button" :disabled="disabled" @click="cancelEdit">
+        取消编辑
+      </button>
+    </div>
   </form>
 </template>
 
@@ -242,25 +238,37 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel']);
 
-const steps = [
-  { value: 1, label: '基础信息' },
-  { value: 2, label: '关键词设置' },
-  { value: 3, label: '产权资料' }
-];
-
 const listingStatusLabels = {
   PENDING_REVIEW: '待审核',
   APPROVED: '已通过',
   REJECTED: '已驳回'
 };
 
-const currentStep = ref(1);
-const stepErrors = reactive({ 1: '', 2: '', 3: '' });
-
 const sellerRoles = ['SELLER', 'LANDLORD'];
-const disabled = computed(() => !props.canManage || props.loading);
-const isEditing = computed(() => Boolean(props.initialHouse));
+
+const form = reactive({
+  title: '',
+  address: '',
+  price: '',
+  area: '',
+  description: '',
+  sellerUsername: '',
+  sellerName: '',
+  contactNumber: '',
+  listingDate: '',
+  floor: '',
+  installmentMonthlyPayment: '',
+  installmentMonths: '',
+  propertyCertificateUrl: '',
+  imageUrls: ['']
+});
+
+const keywordInput = ref('');
+const formError = ref('');
+
 const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
+const isEditing = computed(() => Boolean(props.initialHouse));
+const disabled = computed(() => !props.canManage || props.loading);
 const disableSellerAccount = computed(() => isSeller.value);
 const initialHouse = computed(() => props.initialHouse);
 const statusLabel = computed(() => listingStatusLabels[props.initialHouse?.status] ?? '待审核');
@@ -275,10 +283,81 @@ const statusClass = computed(() => {
   }
 });
 
+const keywordsPreview = computed(() => parseKeywords(keywordInput.value));
+const sanitizedImageUrls = computed(() =>
+  form.imageUrls
+    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+    .filter((url) => url.length > 0)
+);
+
 const createInitialImages = (images = []) => {
   const list = Array.isArray(images) && images.length > 0 ? [...images] : [''];
   return list;
 };
+
+const applyImageUrls = (images = []) => {
+  const list = createInitialImages(images);
+  form.imageUrls.splice(0, form.imageUrls.length, ...list);
+};
+
+const setFormDefaults = () => {
+  form.title = '';
+  form.address = '';
+  form.price = '';
+  form.area = '';
+  form.description = '';
+  form.sellerUsername = isSeller.value ? props.currentUser?.username ?? '' : '';
+  form.sellerName = isSeller.value ? props.currentUser?.displayName ?? '' : '';
+  form.contactNumber = '';
+  form.listingDate = '';
+  form.floor = '';
+  form.installmentMonthlyPayment = '';
+  form.installmentMonths = '';
+  form.propertyCertificateUrl = '';
+  applyImageUrls();
+  keywordInput.value = '';
+  formError.value = '';
+};
+
+const fillFromHouse = (house) => {
+  form.title = house.title ?? '';
+  form.address = house.address ?? '';
+  form.price = house.price ?? '';
+  form.area = house.area ?? '';
+  form.description = house.description ?? '';
+  form.sellerUsername = house.sellerUsername ?? '';
+  form.sellerName = house.sellerName ?? '';
+  form.contactNumber = house.contactNumber ?? '';
+  form.listingDate = house.listingDate ?? '';
+  form.floor = house.floor ?? '';
+  form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
+  form.installmentMonths = house.installmentMonths ?? '';
+  form.propertyCertificateUrl = house.propertyCertificateUrl ?? '';
+  applyImageUrls(house.imageUrls ?? []);
+  keywordInput.value = Array.isArray(house.keywords) ? house.keywords.join('、') : '';
+  formError.value = '';
+};
+
+watch(
+  () => props.initialHouse,
+  (house) => {
+    if (house) {
+      fillFromHouse(house);
+    } else {
+      setFormDefaults();
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.currentUser,
+  () => {
+    if (!props.initialHouse) {
+      setFormDefaults();
+    }
+  }
+);
 
 const parseKeywords = (value) => {
   if (!value) {
@@ -288,163 +367,6 @@ const parseKeywords = (value) => {
     .split(/[，,、\s]+/)
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
-};
-
-const emptyForm = () => ({
-  title: '',
-  address: '',
-  price: '',
-  area: '',
-  description: '',
-  sellerUsername: isSeller.value ? props.currentUser?.username ?? '' : '',
-  sellerName: isSeller.value ? props.currentUser?.displayName ?? '' : '',
-  contactNumber: '',
-  listingDate: '',
-  floor: '',
-  keywordInput: '',
-  keywords: [],
-  installmentMonthlyPayment: '',
-  installmentMonths: '',
-  propertyCertificateUrl: '',
-  imageUrls: createInitialImages()
-});
-
-const form = reactive(emptyForm());
-
-watch(
-  () => props.initialHouse,
-  (house) => {
-    currentStep.value = 1;
-    if (house) {
-      Object.assign(form, {
-        title: house.title ?? '',
-        address: house.address ?? '',
-        price: house.price ?? '',
-        area: house.area ?? '',
-        description: house.description ?? '',
-        sellerUsername: house.sellerUsername ?? '',
-        sellerName: house.sellerName ?? '',
-        contactNumber: house.contactNumber ?? '',
-        listingDate: house.listingDate ?? '',
-        floor: house.floor ?? '',
-        installmentMonthlyPayment: house.installmentMonthlyPayment ?? '',
-        installmentMonths: house.installmentMonths ?? '',
-        propertyCertificateUrl: house.propertyCertificateUrl ?? '',
-        keywordInput: Array.isArray(house.keywords) ? house.keywords.join('、') : '',
-        imageUrls: createInitialImages(house.imageUrls ?? [])
-      });
-    } else {
-      Object.assign(form, emptyForm());
-    }
-    clearErrors();
-  },
-  { immediate: true }
-);
-
-watch(
-  () => props.currentUser,
-  () => {
-    if (!props.initialHouse) {
-      Object.assign(form, emptyForm());
-    }
-  }
-);
-
-const goToStep = (step) => {
-  if (step < currentStep.value && step >= 1) {
-    currentStep.value = step;
-    return;
-  }
-  if (step > currentStep.value) {
-    const valid = validateStep(currentStep.value);
-    if (valid) {
-      currentStep.value = step;
-    }
-  }
-};
-
-const nextStep = () => {
-  if (validateStep(currentStep.value) && currentStep.value < steps.length) {
-    currentStep.value += 1;
-  }
-};
-
-const previousStep = () => {
-  if (currentStep.value > 1) {
-    currentStep.value -= 1;
-  }
-};
-
-const clearErrors = () => {
-  stepErrors[1] = '';
-  stepErrors[2] = '';
-  stepErrors[3] = '';
-};
-
-const validateStep = (step) => {
-  clearErrors();
-  if (step === 1) {
-    if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber || !form.listingDate) {
-      stepErrors[1] = '请完整填写必填信息。';
-      return false;
-    }
-    if (!form.price || Number(form.price) <= 0) {
-      stepErrors[1] = '请填写有效的房源价格。';
-      return false;
-    }
-    if (!form.installmentMonthlyPayment || Number(form.installmentMonthlyPayment) <= 0) {
-      stepErrors[1] = '请填写有效的分期月供。';
-      return false;
-    }
-    if (!form.installmentMonths || Number(form.installmentMonths) <= 0) {
-      stepErrors[1] = '分期期数必须大于0。';
-      return false;
-    }
-    if (!form.area || Number(form.area) <= 0) {
-      stepErrors[1] = '请填写有效的房源面积。';
-      return false;
-    }
-  }
-  if (step === 2) {
-    if (keywordsList.value.length === 0) {
-      stepErrors[2] = '请至少填写一个房源关键词。';
-      return false;
-    }
-  }
-  if (step === 3) {
-    if (!form.propertyCertificateUrl) {
-      stepErrors[3] = '请提供房屋产权证明链接。';
-      return false;
-    }
-  }
-  return true;
-};
-
-const submitForm = () => {
-  if (!validateStep(3)) {
-    return;
-  }
-  if (!props.canManage) {
-    return;
-  }
-  const payload = {
-    ...form,
-    keywords: parseKeywords(form.keywordInput),
-    imageUrls: form.imageUrls
-      .map((url) => url?.trim())
-      .filter((url) => url && url.length > 0)
-  };
-  emit('submit', payload);
-  if (!isEditing.value) {
-    Object.assign(form, emptyForm());
-    currentStep.value = 1;
-  }
-};
-
-const cancelEdit = () => {
-  emit('cancel');
-  Object.assign(form, emptyForm());
-  currentStep.value = 1;
 };
 
 const addImageField = () => {
@@ -461,32 +383,105 @@ const removeImageField = (index) => {
   form.imageUrls.splice(index, 1);
 };
 
-const formatNumber = (value) => {
-  if (value == null || value === '') {
-    return '0';
+const isPreviewable = (url) => {
+  if (typeof url !== 'string') {
+    return false;
   }
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return '0';
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return false;
   }
-  return num.toLocaleString('zh-CN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  });
+  try {
+    new URL(trimmed);
+    return true;
+  } catch (error) {
+    return trimmed.startsWith('data:image/');
+  }
 };
 
-const keywordsList = computed(() => parseKeywords(form.keywordInput));
+const ensurePositive = (value) => {
+  if (value === '' || value == null) {
+    return false;
+  }
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0;
+};
 
-const sanitizedImageUrls = computed(() =>
-  form.imageUrls
-    .map((url) => (typeof url === 'string' ? url.trim() : ''))
-    .filter((url) => url.length > 0)
-);
+const validateForm = () => {
+  if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
+    formError.value = '请完整填写房源基础信息。';
+    return false;
+  }
+  if (!form.listingDate) {
+    formError.value = '请选择挂牌日期。';
+    return false;
+  }
+  if (!ensurePositive(form.price)) {
+    formError.value = '请填写有效的房源价格。';
+    return false;
+  }
+  if (!ensurePositive(form.area)) {
+    formError.value = '请填写有效的房源面积。';
+    return false;
+  }
+  if (!ensurePositive(form.installmentMonthlyPayment)) {
+    formError.value = '请填写有效的分期月供。';
+    return false;
+  }
+  if (!ensurePositive(form.installmentMonths)) {
+    formError.value = '分期期数必须大于0。';
+    return false;
+  }
+  if (!form.propertyCertificateUrl) {
+    formError.value = '请提供房屋产权证明链接。';
+    return false;
+  }
+  formError.value = '';
+  return true;
+};
 
-const keywordsPreview = computed(() => {
-  const list = parseKeywords(form.keywordInput);
-  return list.length > 0 ? list.join('、') : '未设置';
-});
+const normalizeNumber = (value) => {
+  if (value === '' || value == null) {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const submitForm = () => {
+  if (disabled.value) {
+    return;
+  }
+  if (!validateForm()) {
+    return;
+  }
+  const payload = {
+    title: form.title.trim(),
+    address: form.address.trim(),
+    price: normalizeNumber(form.price),
+    area: normalizeNumber(form.area),
+    description: form.description ? form.description.trim() : '',
+    sellerUsername: form.sellerUsername.trim(),
+    sellerName: form.sellerName.trim(),
+    contactNumber: form.contactNumber.trim(),
+    listingDate: form.listingDate,
+    floor: normalizeNumber(form.floor),
+    keywords: [...keywordsPreview.value],
+    imageUrls: sanitizedImageUrls.value,
+    installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
+    installmentMonths: normalizeNumber(form.installmentMonths),
+    propertyCertificateUrl: form.propertyCertificateUrl.trim()
+  };
+  emit('submit', payload);
+  if (!isEditing.value) {
+    setFormDefaults();
+  }
+};
+
+const cancelEdit = () => {
+  emit('cancel');
+  setFormDefaults();
+};
 </script>
 
 <style scoped>
@@ -520,109 +515,38 @@ const keywordsPreview = computed(() => {
   background: rgba(224, 231, 255, 0.8);
   border-radius: var(--radius-pill);
   color: #4338ca;
-  font-size: 0.92rem;
-  border: 1px solid rgba(129, 140, 248, 0.35);
+  font-size: 0.95rem;
 }
 
 .status-indicator {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 0.3rem;
-  padding: 0.55rem 0.85rem;
+  padding: 0.5rem 0.95rem;
   border-radius: var(--radius-pill);
   font-size: 0.85rem;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(148, 163, 184, 0.3);
 }
 
 .status-indicator.status.approved {
   background: rgba(34, 197, 94, 0.18);
   color: #166534;
-  border-color: rgba(34, 197, 94, 0.32);
-}
-
-.status-indicator.status.rejected {
-  background: rgba(248, 113, 113, 0.2);
-  color: #b91c1c;
-  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .status-indicator.status.pending {
-  background: rgba(251, 191, 36, 0.2);
+  background: rgba(250, 204, 21, 0.18);
   color: #92400e;
-  border-color: rgba(251, 191, 36, 0.35);
 }
 
-.stepper {
-  display: flex;
-  gap: 0.85rem;
-}
-
-.step {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--color-text-soft);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-base), box-shadow var(--transition-base),
-    color var(--transition-base);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-}
-
-.step .index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(148, 163, 184, 0.18);
-  color: #1e3a8a;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.step.active {
-  background: var(--gradient-primary);
-  color: #fff;
-  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.25);
-  border-color: transparent;
-}
-
-.step.active .index {
-  background: rgba(255, 255, 255, 0.28);
-  color: #fff;
-}
-
-.step.done {
-  background: rgba(34, 197, 94, 0.18);
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.3);
-}
-
-.step-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.step-panel h3 {
-  margin: 0;
-  color: var(--color-text-strong);
+.status-indicator.status.rejected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #991b1b;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 label {
@@ -635,31 +559,52 @@ label {
 
 input,
 textarea {
-  padding: 0.75rem 0.85rem;
+  padding: 0.7rem 0.9rem;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(255, 255, 255, 0.9);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base),
-    background var(--transition-base);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(248, 250, 252, 0.92);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 input:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(37, 99, 235, 0.6);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
-  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(59, 130, 246, 0.65);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
-textarea {
+.block textarea {
+  min-height: 120px;
   resize: vertical;
 }
 
-.block {
+.keyword-preview {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.preview-label {
+  font-weight: 600;
+  color: var(--color-text-soft);
+}
+
+.keyword-chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyword-chips li {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-size: 0.9rem;
 }
 
 .images-section {
@@ -700,67 +645,24 @@ textarea {
   flex: 1;
 }
 
+.image-input img {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
 .hint {
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
-.keyword-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 1.1rem;
-  border: 1px dashed rgba(148, 163, 184, 0.45);
-  border-radius: var(--radius-lg);
-  background: rgba(248, 250, 252, 0.85);
-}
-
-.keyword-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.keyword-preview h4 {
-  margin: 0;
-  font-size: 1rem;
-  color: var(--color-text-strong);
-}
-
-.keyword-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.keyword-chip {
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-pill);
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.keyword-empty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-}
-
-.navigation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .actions {
   display: flex;
   gap: 0.85rem;
+  justify-content: flex-end;
 }
 
 .btn {
@@ -776,12 +678,6 @@ textarea {
   background: var(--gradient-primary);
   color: #fff;
   box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
-}
-
-.btn.secondary {
-  background: rgba(226, 232, 240, 0.85);
-  color: var(--color-text-strong);
-  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .btn.ghost {
@@ -800,50 +696,39 @@ textarea {
   background: rgba(254, 226, 226, 0.9);
   color: #b91c1c;
   padding: 0.45rem 0.95rem;
-  border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
 .btn:disabled {
-  opacity: 0.65;
+  opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
 }
 
-.btn:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
-}
-
 .error {
   margin: 0;
-  color: #ef4444;
-  font-size: 0.9rem;
-  background: rgba(254, 226, 226, 0.65);
-  border-radius: var(--radius-md);
-  padding: 0.6rem 0.9rem;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #dc2626;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
-.summary {
-  background: rgba(248, 250, 252, 0.85);
-  border-radius: var(--radius-lg);
-  padding: 1.15rem;
-  border: 1px solid rgba(226, 232, 240, 0.65);
-}
+@media (max-width: 768px) {
+  .house-form {
+    padding: 1.35rem;
+  }
 
-.summary h4 {
-  margin: 0 0 0.6rem;
-}
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 
-.summary ul {
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--color-text-muted);
-}
-
-@media (max-width: 640px) {
-  .stepper {
+  .images-header {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

@@ -5,12 +5,12 @@
         <h2>房源列表</h2>
         <p>共 {{ houses.length }} 套房源</p>
       </div>
-      <span v-if="!canManage" class="hint">切换至卖家或管理员账号以管理房源</span>
+      <span v-if="!canManage && !isAdmin" class="hint">切换至卖家或管理员账号以管理房源</span>
     </div>
 
     <div v-if="loading" class="loading">数据加载中...</div>
     <div v-else-if="houses.length === 0" class="empty">
-      {{ canManage ? '暂未添加房源，请先通过右侧表单发布。' : '暂无可浏览的房源记录。' }}
+      {{ canManage ? '暂未添加房源，请先通过左侧表单发布。' : '暂无可浏览的房源记录。' }}
     </div>
 
     <div v-else class="table-wrapper">
@@ -18,7 +18,10 @@
         <thead>
           <tr>
             <th>房源信息</th>
-            <th>定价方案</th>
+            <th>价格方案</th>
+            <th>面积</th>
+            <th>楼层</th>
+            <th>挂牌日期</th>
             <th>状态</th>
             <th>卖家</th>
             <th>联系方式</th>
@@ -29,23 +32,25 @@
         </thead>
         <tbody>
           <tr v-for="house in houses" :key="house.id">
-            <td>
-              <strong>{{ house.title }}</strong>
-              <p class="sub">地址：{{ house.address }}</p>
+            <td class="title-cell">
+              <button class="title-button" type="button" @click="openDetail(house)">
+                <strong>{{ house.title }}</strong>
+              </button>
               <p class="description" v-if="house.description">{{ house.description }}</p>
-              <p class="meta" v-if="house.listingDate">挂牌日期：{{ formatDate(house.listingDate) }}</p>
+              <p class="image-count" v-if="house.imageUrls?.length">{{ house.imageUrls.length }} 张图片</p>
             </td>
-            <td>
-              <div class="pricing">
-                <span>全款：￥{{ formatNumber(house.price) }} 万</span>
-                <span v-if="house.installmentMonthlyPayment">
-                  分期：￥{{ formatNumber(house.installmentMonthlyPayment) }} 万 × {{ house.installmentMonths }} 期
-                </span>
-              </div>
+            <td class="price-cell">
+              <span>全款：￥{{ formatNumber(house.price) }} 万</span>
+              <span v-if="house.installmentMonthlyPayment">
+                分期：￥{{ formatNumber(house.installmentMonthlyPayment) }} 万 × {{ house.installmentMonths || '—' }} 期
+              </span>
             </td>
+            <td>{{ formatNumber(house.area) }} ㎡</td>
+            <td>{{ formatFloor(house.floor) }}</td>
+            <td>{{ formatDate(house.listingDate) }}</td>
             <td>
               <span :class="['status', statusClass(house)]">{{ statusLabel(house) }}</span>
-              <p class="status-tip" v-if="house.reviewMessage">{{ house.reviewMessage }}</p>
+              <small v-if="house.reviewMessage" class="status-tip">{{ house.reviewMessage }}</small>
             </td>
             <td>
               <div>{{ sellerUsernameDisplay(house) }}</div>
@@ -53,54 +58,71 @@
             </td>
             <td>{{ contactNumberDisplay(house) }}</td>
             <td>
-              <ul v-if="house.keywords && house.keywords.length" class="keywords">
-                <li v-for="keyword in house.keywords" :key="`${house.id}-${keyword}`">{{ keyword }}</li>
-              </ul>
+              <span v-if="formatKeywords(house.keywords)">{{ formatKeywords(house.keywords) }}</span>
               <span v-else class="muted">未设置</span>
             </td>
-            <td v-if="canViewCertificate">
+            <td v-if="canViewCertificate" class="certificate-cell">
               <a
                 v-if="house.propertyCertificateUrl"
                 :href="house.propertyCertificateUrl"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                查看证明
+                查看
               </a>
               <span v-else class="muted">未上传</span>
             </td>
             <td class="actions">
-              <div class="button-group" v-if="canManage">
+              <template v-if="canManage">
+                <button class="btn" :disabled="!canEditHouse(house)" @click="handleEdit(house)">编辑</button>
+                <button class="btn danger" :disabled="!canDeleteHouse(house)" @click="handleRemove(house)">删除</button>
+              </template>
+              <template v-else-if="isAdmin">
+                <button class="btn success" @click="handleReview(house, 'APPROVED')">审核通过</button>
+                <button class="btn warning" @click="handleReview(house, 'REJECTED')">驳回</button>
+              </template>
+              <template v-else-if="isBuyer">
                 <button
-                  v-if="canEditHouse(house)"
-                  class="btn"
-                  @click="handleEdit(house)"
+                  class="btn primary"
+                  :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
+                  @click="handlePurchase(house)"
                 >
-                  编辑
+                  {{
+                    house.status !== 'APPROVED'
+                      ? '待审核'
+                      : ordersLoading
+                      ? '处理中...'
+                      : '立即购买'
+                  }}
                 </button>
                 <button
-                  v-if="canDeleteHouse(house)"
-                  class="btn danger"
-                  @click="handleRemove(house)"
+                  class="btn ghost"
+                  :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
+                  @click="handleContactSeller(house)"
                 >
-                  删除
+                  联系卖家
                 </button>
-                <template v-if="isAdmin && house.status !== 'APPROVED'">
-                  <button class="btn success" @click="handleReview(house, 'APPROVED')">审核通过</button>
-                  <button class="btn warning" @click="handleReview(house, 'REJECTED')">驳回</button>
-                </template>
-              </div>
-              <div v-else class="muted">无管理权限</div>
+              </template>
+              <span v-else class="muted">仅支持浏览</span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <HouseDetailModal
+      v-if="detailHouse"
+      :house="detailHouse"
+      :can-view-sensitive-info="detailCanViewSensitive"
+      :can-view-certificate="detailCanViewCertificate"
+      @close="closeDetail"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, toRefs } from 'vue';
+import { computed, ref, toRefs } from 'vue';
+import HouseDetailModal from './HouseDetailModal.vue';
 
 const props = defineProps({
   houses: {
@@ -133,17 +155,21 @@ const emit = defineEmits(['edit', 'remove', 'purchase', 'contact-seller', 'revie
 
 const { houses, loading, canManage } = toRefs(props);
 
-const listingStatusLabels = {
-  PENDING_REVIEW: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已驳回'
-};
-
 const sellerRoles = ['SELLER', 'LANDLORD'];
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const isAdmin = computed(() => props.currentUser?.role === 'ADMIN');
 const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
 const canViewCertificate = computed(() => isAdmin.value || isSeller.value);
+
+const detailHouse = ref(null);
+const detailCanViewSensitive = ref(false);
+const detailCanViewCertificate = ref(false);
+
+const listingStatusLabels = {
+  PENDING_REVIEW: '待审核',
+  APPROVED: '已通过',
+  REJECTED: '已驳回'
+};
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
@@ -160,6 +186,20 @@ const formatDate = (value) => {
     return '-';
   }
   return new Date(value).toLocaleDateString('zh-CN');
+};
+
+const formatFloor = (value) => {
+  if (value == null || value === '') {
+    return '—';
+  }
+  return `${value} 层`;
+};
+
+const formatKeywords = (keywords) => {
+  if (!Array.isArray(keywords) || keywords.length === 0) {
+    return '';
+  }
+  return keywords.join('、');
 };
 
 const maskName = (value) => {
@@ -205,6 +245,9 @@ const shouldMask = (house) => {
   if (props.currentUser?.username && props.currentUser.username === house.sellerUsername) {
     return false;
   }
+  if (isAdmin.value) {
+    return false;
+  }
   return true;
 };
 
@@ -233,15 +276,7 @@ const canEditHouse = (house) => {
   return isSeller.value && props.currentUser?.username === house.sellerUsername;
 };
 
-const canDeleteHouse = (house) => {
-  if (!canManage.value) {
-    return false;
-  }
-  if (isAdmin.value) {
-    return true;
-  }
-  return isSeller.value && props.currentUser?.username === house.sellerUsername;
-};
+const canDeleteHouse = (house) => canEditHouse(house);
 
 const handleEdit = (house) => {
   if (!canEditHouse(house)) {
@@ -264,6 +299,20 @@ const handleReview = (house, status) => {
   emit('review', { houseId: house.id, status });
 };
 
+const handlePurchase = (house) => {
+  if (!isBuyer.value || house.status !== 'APPROVED') {
+    return;
+  }
+  emit('purchase', { house, paymentMethod: 'FULL' });
+};
+
+const handleContactSeller = (house) => {
+  if (!isBuyer.value || house.status !== 'APPROVED') {
+    return;
+  }
+  emit('contact-seller', { sellerUsername: house.sellerUsername, house });
+};
+
 const statusLabel = (house) => listingStatusLabels[house?.status] ?? '待审核';
 
 const statusClass = (house) => {
@@ -275,6 +324,21 @@ const statusClass = (house) => {
     default:
       return 'pending';
   }
+};
+
+const openDetail = (house) => {
+  detailHouse.value = {
+    ...house,
+    imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
+  };
+  detailCanViewSensitive.value = !shouldMask(house);
+  detailCanViewCertificate.value = canViewCertificate.value;
+};
+
+const closeDetail = () => {
+  detailHouse.value = null;
+  detailCanViewSensitive.value = false;
+  detailCanViewCertificate.value = false;
 };
 </script>
 
@@ -351,25 +415,34 @@ tbody tr:hover {
   background: rgba(241, 245, 249, 0.75);
 }
 
-.sub {
-  margin: 0.35rem 0 0;
-  color: var(--color-text-soft);
-  font-size: 0.85rem;
+.title-cell {
+  min-width: 220px;
+}
+
+.title-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-strong);
+  cursor: pointer;
+  text-align: left;
 }
 
 .description {
-  margin: 0.35rem 0;
+  margin: 0.35rem 0 0;
   color: var(--color-text-muted);
   font-size: 0.92rem;
 }
 
-.meta {
-  margin: 0;
+.image-count {
+  margin: 0.3rem 0 0;
   color: var(--color-text-soft);
   font-size: 0.85rem;
 }
 
-.pricing {
+.price-cell {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -386,97 +459,104 @@ tbody tr:hover {
   letter-spacing: 0.06em;
 }
 
-.status.approved {
-  background: rgba(34, 197, 94, 0.18);
-  color: #166534;
-}
-
 .status.pending {
   background: rgba(250, 204, 21, 0.18);
   color: #92400e;
 }
 
+.status.approved {
+  background: rgba(34, 197, 94, 0.18);
+  color: #166534;
+}
+
 .status.rejected {
   background: rgba(239, 68, 68, 0.2);
-  color: #b91c1c;
+  color: #991b1b;
 }
 
 .status-tip {
-  margin: 0.5rem 0 0;
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-text-soft);
   font-size: 0.82rem;
-  color: var(--color-text-muted);
 }
 
 .muted {
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 0.85rem;
+  color: var(--color-text-soft);
+  font-size: 0.9rem;
 }
 
-.keywords {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.certificate-cell a {
+  color: #1d4ed8;
+  text-decoration: none;
 }
 
-.keywords li {
-  padding: 0.25rem 0.65rem;
-  border-radius: var(--radius-pill);
-  background: rgba(224, 231, 255, 0.8);
-  color: #4338ca;
-  font-size: 0.82rem;
-  font-weight: 600;
+.certificate-cell a:hover {
+  text-decoration: underline;
 }
 
 .actions {
-  min-width: 220px;
-}
-
-.button-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 150px;
 }
 
 .btn {
-  padding: 0.5rem 1.05rem;
-  border: none;
+  padding: 0.45rem 0.95rem;
   border-radius: var(--radius-pill);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.btn.primary {
   background: var(--gradient-primary);
   color: #fff;
-  cursor: pointer;
-  font-weight: 600;
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
-  transition: transform var(--transition-base), box-shadow var(--transition-base),
-    background var(--transition-base);
-}
-
-.btn.danger {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  box-shadow: 0 16px 30px rgba(239, 68, 68, 0.22);
-}
-
-.btn.warning {
-  background: linear-gradient(135deg, #f97316, #ea580c);
-  box-shadow: 0 16px 30px rgba(249, 115, 22, 0.22);
 }
 
 .btn.success {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  box-shadow: 0 16px 30px rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.18);
+  color: #166534;
 }
 
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 24px 45px rgba(15, 23, 42, 0.2);
+.btn.warning {
+  background: rgba(250, 204, 21, 0.2);
+  color: #92400e;
+}
+
+.btn.danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #991b1b;
+}
+
+.btn.ghost {
+  background: rgba(226, 232, 240, 0.85);
+  color: var(--color-text-strong);
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .btn:disabled {
-  background: rgba(203, 213, 225, 0.85);
-  color: rgba(71, 85, 105, 0.85);
+  opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+@media (max-width: 1024px) {
+  table {
+    font-size: 0.9rem;
+  }
+
+  th,
+  td {
+    padding: 0.75rem 0.85rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .actions {
+    min-width: auto;
+  }
 }
 </style>

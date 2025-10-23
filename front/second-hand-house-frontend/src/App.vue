@@ -1312,7 +1312,7 @@ const canViewSensitiveInfo = computed(() => {
   return Boolean(user.realNameVerified);
 });
 
-const canManageHouses = computed(() => isSeller.value);
+const canManageHouses = computed(() => isSeller.value || isAdmin.value);
 
 const urgentTasks = computed(() => {
   if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {

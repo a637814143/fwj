@@ -21,68 +21,102 @@
         <strong>提示：</strong> {{ messages.error }}
       </section>
 
-      <RealNameVerification
-        :api-base-url="apiBaseUrl"
-        :current-user="currentUser"
-        @verified="handleVerificationUpdate"
-      />
+      <div class="workspace">
+        <aside class="sidebar">
+          <div class="menu-card">
+            <h2>功能导航</h2>
+            <nav class="menu" role="navigation" aria-label="功能菜单">
+              <button
+                v-for="item in menuItems"
+                :key="item.value"
+                type="button"
+                :class="['menu-item', { active: item.value === activeSection, attention: item.attention }]"
+                @click="selectSection(item.value)"
+              >
+                <span class="menu-label">{{ item.label }}</span>
+                <span v-if="item.description" class="menu-description">{{ item.description }}</span>
+              </button>
+            </nav>
+          </div>
+        </aside>
 
-      <main class="content">
-        <section class="form-section">
-          <HouseForm
-            :initial-house="selectedHouse"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            @submit="handleSubmit"
-            @cancel="handleCancel"
-          />
-        </section>
+        <div class="main-panel">
+          <section v-if="activeSection === 'houses'" class="panel houses-panel">
+            <div class="houses-layout">
+              <section class="form-section">
+                <HouseForm
+                  :initial-house="selectedHouse"
+                  :loading="loading"
+                  :can-manage="canManageHouses"
+                  :current-user="currentUser"
+                  @submit="handleSubmit"
+                  @cancel="handleCancel"
+                />
+              </section>
 
-        <section class="list-section">
-          <HouseSearchBar
-            :loading="loading"
-            :initial-keyword="searchFilters.keyword"
-            @search="handleSearch"
-          />
-          <HouseList
-            ref="houseListRef"
-            :houses="houses"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            :orders-loading="ordersLoading"
-            @edit="handleEdit"
-            @remove="handleRemove"
-            @purchase="handlePurchase"
-            @view="handleViewHouse"
-          />
-        </section>
-      </main>
+              <section class="list-section">
+                <HouseSearchBar
+                  :loading="loading"
+                  :initial-keyword="searchFilters.keyword"
+                  @search="handleSearch"
+                />
+                <HouseList
+                  ref="houseListRef"
+                  :houses="houses"
+                  :loading="loading"
+                  :can-manage="canManageHouses"
+                  :current-user="currentUser"
+                  :orders-loading="ordersLoading"
+                  @edit="handleEdit"
+                  @remove="handleRemove"
+                  @purchase="handlePurchase"
+                  @view="handleViewHouse"
+                />
+              </section>
+            </div>
+          </section>
 
-      <section class="history-section">
-        <BrowsingHistory
-          :history="browsingHistory"
-          @select="handleHistorySelect"
-          @clear="clearBrowsingHistory"
-        />
-      </section>
+          <section v-else-if="activeSection === 'history'" class="panel history-panel">
+            <BrowsingHistory
+              :history="browsingHistory"
+              @select="handleHistorySelect"
+              @clear="clearBrowsingHistory"
+            />
+          </section>
 
-      <section class="wallet-order-section">
-        <WalletPanel
-          :wallet="wallet"
-          :loading="walletLoading"
-          :current-user="currentUser"
-          @top-up="handleTopUp"
-        />
-        <OrderHistory
-          :orders="orders"
-          :loading="ordersLoading"
-          :current-user="currentUser"
-          @request-return="handleRequestReturn"
-          @update-progress="handleUpdateProgress"
-        />
-      </section>
+          <section v-else-if="activeSection === 'wallet'" class="panel wallet-panel-container">
+            <WalletPanel
+              :wallet="wallet"
+              :loading="walletLoading"
+              :current-user="currentUser"
+              @top-up="handleTopUp"
+            />
+          </section>
+
+          <section v-else-if="activeSection === 'orders'" class="panel orders-panel">
+            <OrderHistory
+              :orders="orders"
+              :loading="ordersLoading"
+              :current-user="currentUser"
+              @request-return="handleRequestReturn"
+              @update-progress="handleUpdateProgress"
+            />
+          </section>
+
+          <section v-else class="panel profile-panel">
+            <UserProfile
+              :current-user="currentUser"
+              :role-label="roleLabels[currentUser.role]"
+              :wallet="wallet"
+            />
+            <RealNameVerification
+              :api-base-url="apiBaseUrl"
+              :current-user="currentUser"
+              @verified="handleVerificationUpdate"
+            />
+          </section>
+        </div>
+      </div>
     </template>
 
     <footer class="footer">
@@ -102,6 +136,7 @@ import OrderHistory from './components/OrderHistory.vue';
 import HouseSearchBar from './components/HouseSearchBar.vue';
 import BrowsingHistory from './components/BrowsingHistory.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
+import UserProfile from './components/UserProfile.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -119,6 +154,7 @@ const historyLimit = 10;
 const houseListRef = ref(null);
 const browsingHistory = ref([]);
 const searchFilters = reactive({ keyword: '' });
+const activeSection = ref('houses');
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -144,6 +180,47 @@ const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
 );
+
+const menuItems = computed(() => [
+  {
+    value: 'houses',
+    label: '房源管理',
+    description: canManageHouses.value
+      ? '发布与维护房源信息'
+      : '浏览房源与查看详情',
+    attention: false
+  },
+  {
+    value: 'history',
+    label: '浏览历史',
+    description: '查看最近的房源访问记录',
+    attention: false
+  },
+  {
+    value: 'wallet',
+    label: '我的钱包',
+    description: '余额查询与快捷充值',
+    attention: false
+  },
+  {
+    value: 'orders',
+    label: '订单记录',
+    description: '交易进度跟踪与售后',
+    attention: false
+  },
+  {
+    value: 'profile',
+    label: '个人中心',
+    description: currentUser.value?.realNameVerified
+      ? '查看账号信息'
+      : '完善个人资料与实名认证',
+    attention: !currentUser.value?.realNameVerified
+  }
+]);
+
+const selectSection = (value) => {
+  activeSection.value = value;
+};
 
 const normalizeHouseResponse = (house) => ({
   ...house,
@@ -573,6 +650,7 @@ const handleLogout = () => {
   ordersLoading.value = false;
   messages.error = '';
   messages.success = '';
+  activeSection.value = 'houses';
   localStorage.removeItem(storageKey);
   if (key) {
     localStorage.removeItem(key);
@@ -608,7 +686,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   margin: 0 auto;
-  max-width: 1200px;
+  max-width: 1280px;
   padding: 1.5rem;
   gap: 1.5rem;
 }
@@ -674,26 +752,109 @@ onMounted(() => {
   padding: 0.75rem 1rem;
 }
 
-.content {
-  display: grid;
+.workspace {
+  display: flex;
+  align-items: flex-start;
   gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
-.wallet-order-section {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+.sidebar {
+  flex: 0 0 240px;
+  display: flex;
 }
 
-.history-section {
+.menu-card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.menu-card h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.menu-item {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 0.85rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  color: #1f2937;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.menu-item .menu-label {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.menu-item .menu-description {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.menu-item.active {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.15);
+  transform: translateY(-1px);
+}
+
+.menu-item:not(.active):hover {
+  border-color: #94a3b8;
+  background: #fff;
+}
+
+.menu-item.attention {
+  border-color: #f97316;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.menu-item.attention .menu-label {
+  color: #c2410c;
+}
+
+.main-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.houses-layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  align-items: stretch;
 }
 
 .form-section,
 .list-section {
-  background: white;
+  background: #fff;
   border-radius: 1rem;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
   padding: 1.5rem;
@@ -705,9 +866,42 @@ onMounted(() => {
   gap: 1rem;
 }
 
+.profile-panel {
+  align-items: stretch;
+}
+
 .footer {
   text-align: center;
   color: #6b7280;
   padding: 1.5rem 0 0.5rem;
+}
+
+@media (max-width: 1024px) {
+  .workspace {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .houses-layout {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 1rem;
+  }
+
+  .menu-card {
+    padding: 1.25rem;
+  }
+
+  .form-section,
+  .list-section {
+    padding: 1.25rem;
+  }
 }
 </style>

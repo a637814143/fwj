@@ -15,24 +15,24 @@
 
     <form v-if="mode === 'login'" class="form" @submit.prevent="submitLogin">
       <div class="field">
-        <label for="login-username">用户名</label>
+        <label for="login-username">{{ t('auth.fields.username') }}</label>
         <input
           id="login-username"
           v-model.trim="loginForm.username"
           type="text"
-          placeholder="请输入用户名"
+          :placeholder="t('auth.placeholders.username')"
           :disabled="loading"
           required
         />
       </div>
 
       <div class="field">
-        <label for="login-password">密码</label>
+        <label for="login-password">{{ t('auth.fields.password') }}</label>
         <input
           id="login-password"
           v-model.trim="loginForm.password"
           type="password"
-          placeholder="请输入密码"
+          :placeholder="t('auth.placeholders.password')"
           :disabled="loading"
           required
         />
@@ -41,61 +41,61 @@
       <p v-if="loginError" class="error">{{ loginError }}</p>
 
       <button class="submit" type="submit" :disabled="loading">
-        {{ loading ? '登录中...' : '登录' }}
+        {{ loading ? t('auth.actions.loggingIn') : t('auth.actions.login') }}
       </button>
     </form>
 
     <form v-else class="form" @submit.prevent="submitRegister">
       <div class="field">
-        <label for="register-username">用户名</label>
+        <label for="register-username">{{ t('auth.fields.username') }}</label>
         <input
           id="register-username"
           v-model.trim="registerForm.username"
           type="text"
-          placeholder="请输入用户名"
+          :placeholder="t('auth.placeholders.username')"
           :disabled="loading"
           required
         />
       </div>
 
       <div class="field">
-        <label for="register-display-name">昵称</label>
+        <label for="register-display-name">{{ t('auth.fields.displayName') }}</label>
         <input
           id="register-display-name"
           v-model.trim="registerForm.displayName"
           type="text"
-          placeholder="请输入昵称"
+          :placeholder="t('auth.placeholders.displayName')"
           :disabled="loading"
           required
         />
       </div>
 
       <div class="field">
-        <label for="register-password">密码</label>
+        <label for="register-password">{{ t('auth.fields.password') }}</label>
         <input
           id="register-password"
           v-model.trim="registerForm.password"
           type="password"
-          placeholder="请输入密码（至少6位）"
+          :placeholder="t('auth.placeholders.passwordWithHint')"
           :disabled="loading"
           required
         />
       </div>
 
       <div class="field">
-        <label for="register-confirm">确认密码</label>
+        <label for="register-confirm">{{ t('auth.fields.confirmPassword') }}</label>
         <input
           id="register-confirm"
           v-model.trim="registerForm.confirm"
           type="password"
-          placeholder="请再次输入密码"
+          :placeholder="t('auth.placeholders.confirmPassword')"
           :disabled="loading"
           required
         />
       </div>
 
       <div class="field">
-        <span class="label">选择角色</span>
+        <span class="label">{{ t('auth.fields.role') }}</span>
         <div class="roles">
           <label v-for="role in roles" :key="role.value" class="role-option">
             <input
@@ -113,14 +113,14 @@
       <p v-if="registerError" class="error">{{ registerError }}</p>
 
       <button class="submit" type="submit" :disabled="loading">
-        {{ loading ? '注册中...' : '注册并登录' }}
+        {{ loading ? t('auth.actions.registering') : t('auth.actions.register') }}
       </button>
     </form>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, inject, reactive, ref } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -132,15 +132,8 @@ const props = defineProps({
 
 const emit = defineEmits(['login-success']);
 
-const tabs = [
-  { value: 'login', label: '账号登录' },
-  { value: 'register', label: '注册新账号' }
-];
-
-const roles = [
-  { value: 'SELLER', label: '卖家' },
-  { value: 'BUYER', label: '买家' }
-];
+const translate = inject('translate', (key) => key);
+const t = (key, vars) => translate(key, vars);
 
 const mode = ref('login');
 const loading = ref(false);
@@ -153,8 +146,18 @@ const registerForm = reactive({
   password: '',
   confirm: '',
   displayName: '',
-  role: roles[0].value
+  role: 'SELLER'
 });
+
+const tabs = computed(() => [
+  { value: 'login', label: t('auth.tabs.login') },
+  { value: 'register', label: t('auth.tabs.register') }
+]);
+
+const roles = computed(() => [
+  { value: 'SELLER', label: t('auth.roles.seller') },
+  { value: 'BUYER', label: t('auth.roles.buyer') }
+]);
 
 const client = axios.create({
   baseURL: props.apiBaseUrl,
@@ -168,7 +171,7 @@ const resetForms = () => {
   registerForm.password = '';
   registerForm.confirm = '';
   registerForm.displayName = '';
-  registerForm.role = roles[0].value;
+  registerForm.role = 'SELLER';
 };
 
 const switchMode = (value) => {
@@ -181,7 +184,7 @@ const switchMode = (value) => {
 
 const submitLogin = async () => {
   if (!loginForm.username || !loginForm.password) {
-    loginError.value = '请输入用户名和密码';
+    loginError.value = t('auth.errors.loginRequired');
     return;
   }
 
@@ -201,7 +204,7 @@ const submitLogin = async () => {
       const firstError = Object.values(detail.errors)[0];
       loginError.value = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      loginError.value = detail?.detail ?? '登录失败，请稍后再试。';
+      loginError.value = detail?.detail ?? t('auth.errors.loginFailed');
     }
   } finally {
     loading.value = false;
@@ -210,12 +213,17 @@ const submitLogin = async () => {
 
 const submitRegister = async () => {
   if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName) {
-    registerError.value = '请完整填写注册信息';
+    registerError.value = t('auth.errors.registerRequired');
     return;
   }
 
   if (registerForm.password !== registerForm.confirm) {
-    registerError.value = '两次输入的密码不一致';
+    registerError.value = t('auth.errors.passwordMismatch');
+    return;
+  }
+
+  if (registerForm.password.length < 6) {
+    registerError.value = t('auth.errors.passwordLength');
     return;
   }
 
@@ -238,7 +246,7 @@ const submitRegister = async () => {
       const firstError = Object.values(detail.errors)[0];
       registerError.value = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      registerError.value = detail?.detail ?? '注册失败，请稍后再试。';
+      registerError.value = detail?.detail ?? t('auth.errors.registerFailed');
     }
   } finally {
     loading.value = false;

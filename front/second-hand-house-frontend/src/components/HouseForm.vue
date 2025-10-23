@@ -28,6 +28,7 @@
 
     <section v-if="currentStep === 1" class="step-panel">
       <h3>填写房源基础信息</h3>
+      <p class="hint">请完善房源的核心资料，确保系统管理员能够快速完成审核。</p>
       <div class="form-grid">
         <label>
           标题
@@ -36,6 +37,45 @@
         <label>
           地址
           <input v-model.trim="form.address" type="text" required :disabled="disabled" placeholder="请输入房源地址" />
+        </label>
+        <label>
+          价格（万元）
+          <input
+            v-model.number="form.price"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+            :disabled="disabled"
+            placeholder="例如 200"
+          />
+        </label>
+        <label>
+          房源面积（㎡）
+          <input v-model.number="form.area" type="number" min="0" step="0.01" required :disabled="disabled" placeholder="例如 89" />
+        </label>
+        <label>
+          分期月供（万元）
+          <input
+            v-model.number="form.installmentMonthlyPayment"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+            :disabled="disabled"
+            placeholder="例如 5.6"
+          />
+        </label>
+        <label>
+          分期期数
+          <input
+            v-model.number="form.installmentMonths"
+            type="number"
+            min="1"
+            required
+            :disabled="disabled"
+            placeholder="例如 24"
+          />
         </label>
         <label>
           卖家账号
@@ -63,10 +103,6 @@
           楼层（选填）
           <input v-model.number="form.floor" type="number" min="0" :disabled="disabled" placeholder="例如 10" />
         </label>
-        <label>
-          房源面积（㎡）
-          <input v-model.number="form.area" type="number" min="0" step="0.01" required :disabled="disabled" />
-        </label>
       </div>
       <label class="block">
         房源描述
@@ -77,45 +113,6 @@
           placeholder="补充房源亮点或其他信息"
         ></textarea>
       </label>
-      <label class="block">
-        关键词（以逗号、空格或顿号分隔）
-        <input
-          v-model.trim="form.keywordInput"
-          type="text"
-          :disabled="disabled"
-          placeholder="例如：学区房，南北通透，地铁沿线"
-        />
-      </label>
-      <p v-if="stepErrors[1]" class="error">{{ stepErrors[1] }}</p>
-      <div class="navigation">
-        <span></span>
-        <button type="button" class="btn primary" :disabled="disabled" @click="nextStep">下一步</button>
-      </div>
-    </section>
-
-    <section v-else-if="currentStep === 2" class="step-panel">
-      <h3>上传图片并设置定价</h3>
-      <div class="pricing-grid">
-        <label>
-          全款价格（万元）
-          <input v-model.number="form.price" type="number" min="0" step="0.01" required :disabled="disabled" />
-        </label>
-        <label>
-          分期月供（万元）
-          <input
-            v-model.number="form.installmentMonthlyPayment"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            :disabled="disabled"
-          />
-        </label>
-        <label>
-          分期期数
-          <input v-model.number="form.installmentMonths" type="number" min="1" required :disabled="disabled" />
-        </label>
-      </div>
       <section class="images-section">
         <div class="images-header">
           <h4>房源图片链接</h4>
@@ -141,6 +138,34 @@
           </div>
         </div>
       </section>
+      <p v-if="stepErrors[1]" class="error">{{ stepErrors[1] }}</p>
+      <div class="navigation">
+        <span></span>
+        <button type="button" class="btn primary" :disabled="disabled" @click="nextStep">下一步</button>
+      </div>
+    </section>
+
+    <section v-else-if="currentStep === 2" class="step-panel">
+      <h3>填写房源关键词</h3>
+      <p class="hint">为房源补充精准关键词，便于买家通过检索快速找到该房源。</p>
+      <div class="keyword-editor">
+        <label class="block">
+          关键词（使用逗号、空格或顿号分隔）
+          <textarea
+            v-model.trim="form.keywordInput"
+            rows="3"
+            :disabled="disabled"
+            placeholder="例如：学区房，南北通透，地铁沿线"
+          ></textarea>
+        </label>
+        <div v-if="keywordsList.length" class="keyword-preview">
+          <h4>将提交的关键词</h4>
+          <ul class="keyword-chips">
+            <li v-for="(keyword, index) in keywordsList" :key="index" class="keyword-chip">{{ keyword }}</li>
+          </ul>
+        </div>
+        <p v-else class="keyword-empty">尚未添加关键词。</p>
+      </div>
       <p v-if="stepErrors[2]" class="error">{{ stepErrors[2] }}</p>
       <div class="navigation">
         <button type="button" class="btn secondary" @click="previousStep">上一步</button>
@@ -150,6 +175,7 @@
 
     <section v-else class="step-panel">
       <h3>上传产权证明并提交审核</h3>
+      <p class="hint">请上传产权证或其他证明材料的访问链接，提交后系统管理员将进行审核。</p>
       <label class="block">
         产权证明链接
         <input
@@ -166,6 +192,7 @@
           <li>房源标题：{{ form.title || '—' }}</li>
           <li>全款价格：￥{{ formatNumber(form.price) }} 万</li>
           <li>分期方案：￥{{ formatNumber(form.installmentMonthlyPayment) }} 万 × {{ form.installmentMonths || '—' }} 期</li>
+          <li>图片链接：{{ sanitizedImageUrls.length }} 条</li>
           <li>关键词：{{ keywordsPreview }}</li>
         </ul>
       </article>
@@ -217,8 +244,8 @@ const emit = defineEmits(['submit', 'cancel']);
 
 const steps = [
   { value: 1, label: '基础信息' },
-  { value: 2, label: '图片与定价' },
-  { value: 3, label: '产权证明' }
+  { value: 2, label: '关键词设置' },
+  { value: 3, label: '产权资料' }
 ];
 
 const listingStatusLabels = {
@@ -361,22 +388,26 @@ const validateStep = (step) => {
       stepErrors[1] = '请完整填写必填信息。';
       return false;
     }
+    if (!form.price || Number(form.price) <= 0) {
+      stepErrors[1] = '请填写有效的房源价格。';
+      return false;
+    }
+    if (!form.installmentMonthlyPayment || Number(form.installmentMonthlyPayment) <= 0) {
+      stepErrors[1] = '请填写有效的分期月供。';
+      return false;
+    }
+    if (!form.installmentMonths || Number(form.installmentMonths) <= 0) {
+      stepErrors[1] = '分期期数必须大于0。';
+      return false;
+    }
     if (!form.area || Number(form.area) <= 0) {
       stepErrors[1] = '请填写有效的房源面积。';
       return false;
     }
   }
   if (step === 2) {
-    if (!form.price || Number(form.price) <= 0) {
-      stepErrors[2] = '请填写有效的全款价格。';
-      return false;
-    }
-    if (!form.installmentMonthlyPayment || Number(form.installmentMonthlyPayment) <= 0) {
-      stepErrors[2] = '请填写有效的分期月供。';
-      return false;
-    }
-    if (!form.installmentMonths || Number(form.installmentMonths) <= 0) {
-      stepErrors[2] = '分期期数必须大于0。';
+    if (keywordsList.value.length === 0) {
+      stepErrors[2] = '请至少填写一个房源关键词。';
       return false;
     }
   }
@@ -443,6 +474,14 @@ const formatNumber = (value) => {
     maximumFractionDigits: 2
   });
 };
+
+const keywordsList = computed(() => parseKeywords(form.keywordInput));
+
+const sanitizedImageUrls = computed(() =>
+  form.imageUrls
+    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+    .filter((url) => url.length > 0)
+);
 
 const keywordsPreview = computed(() => {
   const list = parseKeywords(form.keywordInput);
@@ -623,12 +662,6 @@ textarea {
   gap: 0.4rem;
 }
 
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-}
-
 .images-section {
   display: flex;
   flex-direction: column;
@@ -665,6 +698,58 @@ textarea {
 
 .image-input input {
   flex: 1;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.keyword-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: var(--radius-lg);
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.keyword-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.keyword-preview h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-strong);
+}
+
+.keyword-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyword-chip {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.keyword-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .navigation {

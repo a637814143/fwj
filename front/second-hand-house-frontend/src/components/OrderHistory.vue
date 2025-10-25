@@ -48,6 +48,28 @@
               <dt>更新时间</dt>
               <dd>{{ formatTime(order.updatedAt) }}</dd>
             </div>
+            <div>
+              <dt>托管状态</dt>
+              <dd>
+                <span :class="['escrow-tag', escrowClass(order)]">{{ escrowStatus(order) }}</span>
+                <span v-if="escrowSupplement(order)" class="escrow-supplement">{{ escrowSupplement(order) }}</span>
+              </dd>
+            </div>
+            <div v-if="shouldShowPlatformFee(order)">
+              <dt>平台抽成</dt>
+              <dd>￥{{ formatAmount(order.platformFee) }}</dd>
+            </div>
+            <div v-if="shouldShowReleasedAmount(order)">
+              <dt>已发放金额</dt>
+              <dd>￥{{ formatAmount(order.releasedAmount) }}</dd>
+            </div>
+            <div v-if="order.adminReviewedBy">
+              <dt>审核人</dt>
+              <dd>
+                {{ order.adminReviewedBy }}
+                <span v-if="order.adminReviewedAt" class="escrow-supplement">{{ formatTime(order.adminReviewedAt) }}</span>
+              </dd>
+            </div>
             <div v-if="order.returnReason">
               <dt>退换原因</dt>
               <dd>{{ order.returnReason }}</dd>
@@ -191,7 +213,13 @@ const paymentMethodLabels = {
   INSTALLMENT: '分期付款'
 };
 
-const progressOrderDefault = ['DEPOSIT_PAID', 'VIEWING_SCHEDULED', 'FEEDBACK_SUBMITTED', 'HANDOVER_COMPLETED'];
+const progressOrderDefault = [
+  'DEPOSIT_PAID',
+  'VIEWING_SCHEDULED',
+  'FEEDBACK_SUBMITTED',
+  'HANDOVER_COMPLETED',
+  'FUNDS_RELEASED'
+];
 
 const progressOrderNormalized = computed(() => {
   if (Array.isArray(props.progressOrder) && props.progressOrder.length > 0) {
@@ -275,12 +303,64 @@ const formatAmount = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  const yuan = num * 10000;
-  return yuan.toLocaleString('zh-CN', {
+  return num.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 };
+
+const toNumberSafe = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const escrowStatus = (order) => {
+  if (!order) {
+    return '—';
+  }
+  if (order.adminReviewed) {
+    if (order.fundsReleasedTo === 'SELLER') {
+      return '款项已发放给卖家';
+    }
+    if (order.fundsReleasedTo === 'BUYER') {
+      return '款项已退回买家';
+    }
+    return '资金结算完成';
+  }
+  return '等待管理员审核';
+};
+
+const escrowClass = (order) => {
+  if (!order || !order.adminReviewed) {
+    return 'pending';
+  }
+  if (order.fundsReleasedTo === 'BUYER') {
+    return 'warning';
+  }
+  return 'success';
+};
+
+const escrowSupplement = (order) => {
+  if (!order) {
+    return '';
+  }
+  if (!order.adminReviewed) {
+    const hold = order.adminHoldAmount ?? order.amount;
+    if (hold == null) {
+      return '';
+    }
+    return `托管金额：￥${formatAmount(hold)}`;
+  }
+  const released = toNumberSafe(order.releasedAmount);
+  if (released > 0) {
+    return `发放金额：￥${formatAmount(order.releasedAmount)}`;
+  }
+  return '';
+};
+
+const shouldShowPlatformFee = (order) => toNumberSafe(order?.platformFee) > 0;
+
+const shouldShowReleasedAmount = (order) => toNumberSafe(order?.releasedAmount) > 0;
 
 const paymentMethodLabel = (value) => paymentMethodLabels[value] ?? '—';
 
@@ -425,7 +505,11 @@ const canAdvance = (order) => {
   if (order.progressStage === firstStage) {
     return false;
   }
-  return Boolean(nextStage(order));
+  const targetStage = nextStage(order);
+  if (!targetStage || targetStage === 'FUNDS_RELEASED') {
+    return false;
+  }
+  return true;
 };
 
 const canConfirmViewing = (order) => {
@@ -456,7 +540,7 @@ const hasViewingSection = (order) => {
 
 const advanceProgress = (order) => {
   const target = nextStage(order);
-  if (!target || props.loading) {
+  if (!target || target === 'FUNDS_RELEASED' || props.loading) {
     return;
   }
   emit('advance-progress', { orderId: order.id, stage: target });
@@ -583,6 +667,37 @@ const confirmViewing = (order) => {
 .status.cancelled {
   background: rgba(148, 163, 184, 0.28);
   color: #475569;
+}
+
+.escrow-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.escrow-tag.pending {
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+}
+
+.escrow-tag.success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #15803d;
+}
+
+.escrow-tag.warning {
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
+}
+
+.escrow-supplement {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-text-soft);
+  font-size: 0.85rem;
 }
 
 dl {

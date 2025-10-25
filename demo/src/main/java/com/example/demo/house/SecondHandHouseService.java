@@ -95,6 +95,7 @@ public class SecondHandHouseService {
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
+        existing.setDownPayment(updatedHouse.getDownPayment());
         existing.setInstallmentMonthlyPayment(updatedHouse.getInstallmentMonthlyPayment());
         existing.setInstallmentMonths(updatedHouse.getInstallmentMonths());
         existing.setArea(updatedHouse.getArea());
@@ -107,7 +108,6 @@ public class SecondHandHouseService {
         existing.setKeywords(updatedHouse.getKeywords());
         existing.getImageUrls().clear();
         existing.getImageUrls().addAll(updatedHouse.getImageUrls());
-        existing.setPropertyCertificateUrl(updatedHouse.getPropertyCertificateUrl());
         existing.setStatus(ListingStatus.PENDING_REVIEW);
         existing.setReviewedAt(null);
         existing.setReviewedBy(null);
@@ -155,7 +155,7 @@ public class SecondHandHouseService {
         house.setReviewedBy(reviewer.getUsername());
         house.setReviewedAt(OffsetDateTime.now());
         SecondHandHouse saved = repository.save(house);
-        return SecondHandHouseView.fromEntity(saved, false, true);
+        return SecondHandHouseView.fromEntity(saved, false);
     }
 
     @Scheduled(cron = "0 0 3 * * ?")
@@ -181,7 +181,6 @@ public class SecondHandHouseService {
 
     private SecondHandHouseView buildViewForRequester(SecondHandHouse house, UserAccount requester) {
         boolean maskSensitive = shouldMaskSensitive(house, requester);
-        boolean canViewCertificate = canViewCertificate(house, requester);
         boolean reservationActive = false;
         boolean reservationOwnedByRequester = false;
         if (house.getId() != null) {
@@ -200,7 +199,6 @@ public class SecondHandHouseService {
         return SecondHandHouseView.fromEntity(
                 house,
                 maskSensitive,
-                canViewCertificate,
                 reservationActive,
                 reservationOwnedByRequester
         );
@@ -292,17 +290,6 @@ public class SecondHandHouseService {
         if (house.getStatus() == ListingStatus.APPROVED) {
             return true;
         }
-        if (requester == null) {
-            return false;
-        }
-        if (requester.getRole() == UserRole.ADMIN) {
-            return true;
-        }
-        return house.getSellerUsername() != null
-                && house.getSellerUsername().equalsIgnoreCase(requester.getUsername());
-    }
-
-    private boolean canViewCertificate(SecondHandHouse house, UserAccount requester) {
         if (requester == null) {
             return false;
         }

@@ -63,19 +63,6 @@
             <span v-for="keyword in house.keywords" :key="`${house.id}-${keyword}`">#{{ keyword }}</span>
           </div>
 
-          <div class="certificate" :class="{ missing: !house.propertyCertificateUrl }">
-            <span>产权证明：</span>
-            <a
-              v-if="house.propertyCertificateUrl"
-              :href="house.propertyCertificateUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              查看证明
-            </a>
-            <span v-else>卖家尚未提供</span>
-          </div>
-
           <div class="seller">
             <div>
               <span class="label">卖家账号</span>
@@ -354,23 +341,6 @@ const review = (house, status) => {
   border-radius: var(--radius-pill);
   font-size: 0.85rem;
   font-weight: 600;
-}
-
-.certificate {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-size: 0.95rem;
-  color: var(--color-text-strong);
-}
-
-.certificate a {
-  color: #0ea5e9;
-  font-weight: 600;
-}
-
-.certificate.missing {
-  color: #b91c1c;
 }
 
 .seller {

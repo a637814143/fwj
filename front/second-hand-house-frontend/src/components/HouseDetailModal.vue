@@ -54,14 +54,6 @@
           </ul>
         </div>
 
-        <div class="certificate" v-if="canViewCertificate">
-          <h4>产权证明</h4>
-          <p v-if="house.propertyCertificateUrl">
-            <a :href="house.propertyCertificateUrl" target="_blank" rel="noopener noreferrer">查看产权证明</a>
-          </p>
-          <p v-else>尚未上传产权证明。</p>
-        </div>
-
         <div class="gallery">
           <div class="gallery__header">
             <h4>图片展示</h4>
@@ -97,10 +89,6 @@ const props = defineProps({
     required: true
   },
   canViewSensitiveInfo: {
-    type: Boolean,
-    default: false
-  },
-  canViewCertificate: {
     type: Boolean,
     default: false
   }
@@ -338,19 +326,6 @@ function maskName(value) {
   background: rgba(59, 130, 246, 0.12);
   color: #1d4ed8;
   font-weight: 600;
-}
-
-.certificate h4 {
-  margin-bottom: 0.35rem;
-}
-
-.certificate a {
-  color: #2563eb;
-  text-decoration: none;
-}
-
-.certificate a:hover {
-  text-decoration: underline;
 }
 
 .gallery__header {

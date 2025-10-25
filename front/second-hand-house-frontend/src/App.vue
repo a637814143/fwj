@@ -144,16 +144,23 @@
           @verified="handleVerificationUpdate"
         />
 
-        <AdminReputationBoard
-          v-else-if="activeTab === 'admin'"
-          :loading="adminLoading"
-          :overview="adminReputation"
-          :users="adminUsers"
-          :current-user="currentUser"
-          @refresh="loadAdminData"
-          @toggle-blacklist="handleToggleBlacklist"
-          @delete-user="handleDeleteUser"
-        />
+        <div v-else-if="activeTab === 'admin'" class="admin-panels">
+          <AdminOrderReview
+            :orders="adminPendingOrders"
+            :loading="adminOrdersLoading"
+            @refresh="loadAdminOrders"
+            @release="handleAdminOrderRelease"
+          />
+          <AdminReputationBoard
+            :loading="adminLoading"
+            :overview="adminReputation"
+            :users="adminUsers"
+            :current-user="currentUser"
+            @refresh="loadAdminData"
+            @toggle-blacklist="handleToggleBlacklist"
+            @delete-user="handleDeleteUser"
+          />
+        </div>
       </main>
     </template>
 
@@ -192,6 +199,7 @@ import OrderHistory from './components/OrderHistory.vue';
 import HouseExplorer from './components/HouseExplorer.vue';
 import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
+import AdminOrderReview from './components/AdminOrderReview.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
@@ -214,6 +222,8 @@ const recommendations = reactive({ sellers: [], buyers: [] });
 const adminUsers = ref([]);
 const adminReputation = ref(null);
 const adminLoading = ref(false);
+const adminPendingOrders = ref([]);
+const adminOrdersLoading = ref(false);
 const conversationPanelVisible = ref(false);
 const conversationPrefill = ref('');
 const conversations = ref([]);
@@ -296,7 +306,7 @@ const translations = {
       orders: '订单与钱包',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
-      admin: '信誉面板'
+      admin: '管理员面板'
     },
     footer: {
       apiBaseLabel: '后端接口地址：'
@@ -389,6 +399,8 @@ const translations = {
       houseCreatedPending: '已提交房源《{title}》，当前状态：{status}。',
       purchase: '成功以{method}方式购买房源《{title}》，支付金额 ￥{amount}。',
       reservation: '已成功预定房源《{title}》，定金 ￥{amount}。',
+      orderReleasedSeller: '订单资金已发放给卖家。',
+      orderReleasedBuyer: '订单资金已退回买家。',
       walletTopUp: '钱包充值成功，充值金额 ￥{amount}。',
       orderReturned: '订单《{title}》已退换成功。',
       viewingScheduled: '已为房源《{title}》安排看房，时间 {time}。',
@@ -407,6 +419,7 @@ const translations = {
       loadRecommendations: '加载推荐用户失败。',
       loadWallet: '加载钱包信息失败。',
       loadOrders: '加载订单信息失败。',
+      loadAdminOrders: '加载待审核订单失败。',
       loadConversations: '加载对话失败。',
       loadMessages: '加载消息失败。',
       messagingUnsupported: '当前角色暂不支持对话功能。',
@@ -442,6 +455,7 @@ const translations = {
       deleteAccount: '删除账号失败。',
       reviewRequireReason: '驳回操作需要填写原因。',
       submitReview: '提交审核结果失败。',
+      reviewOrder: '审核交易资金失败。',
       loadReputation: '加载信誉面板失败。',
       persistSettings: '界面设置保存失败。',
       persistUser: '无法持久化登录状态。',
@@ -671,7 +685,8 @@ const translations = {
         DEPOSIT_PAID: '定金交付阶段',
         VIEWING_SCHEDULED: '预约看房阶段',
         FEEDBACK_SUBMITTED: '看房反馈阶段',
-        HANDOVER_COMPLETED: '交房阶段'
+        HANDOVER_COMPLETED: '交房阶段',
+        FUNDS_RELEASED: '资金结算完成'
       },
       urgent: {
         title: '紧急待办',
@@ -711,7 +726,7 @@ const translations = {
       orders: 'Orders & wallet',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
-      admin: 'Reputation board'
+      admin: 'Admin dashboard'
     },
     footer: {
       apiBaseLabel: 'API endpoint:'
@@ -804,6 +819,8 @@ const translations = {
       houseCreatedPending: 'Listing “{title}” has been submitted. Current status: {status}.',
       purchase: 'Successfully purchased “{title}” via {method}, amount paid ¥{amount}.',
       reservation: 'Successfully reserved “{title}” with a deposit of ¥{amount}.',
+      orderReleasedSeller: 'Funds released to the seller.',
+      orderReleasedBuyer: 'Funds returned to the buyer.',
       walletTopUp: 'Wallet top-up successful, amount ¥{amount}.',
       orderReturned: 'Order “{title}” has been refunded.',
       viewingScheduled: 'Viewing for “{title}” has been scheduled at {time}.',
@@ -822,6 +839,7 @@ const translations = {
       loadRecommendations: 'Failed to load recommended users.',
       loadWallet: 'Failed to load wallet information.',
       loadOrders: 'Failed to load orders.',
+      loadAdminOrders: 'Failed to load pending orders for review.',
       loadConversations: 'Failed to load conversations.',
       loadMessages: 'Failed to load messages.',
       messagingUnsupported: 'Messaging is not available for this role.',
@@ -857,6 +875,7 @@ const translations = {
       deleteAccount: 'Failed to delete account.',
       reviewRequireReason: 'A reason is required to reject a listing.',
       submitReview: 'Failed to submit review decision.',
+      reviewOrder: 'Failed to review escrow transaction.',
       loadReputation: 'Failed to load reputation dashboard.',
       persistSettings: 'Failed to save interface settings.',
       persistUser: 'Unable to persist login state.',
@@ -1085,7 +1104,8 @@ const translations = {
         DEPOSIT_PAID: 'Deposit stage',
         VIEWING_SCHEDULED: 'Viewing appointment',
         FEEDBACK_SUBMITTED: 'Viewing feedback',
-        HANDOVER_COMPLETED: 'Handover'
+        HANDOVER_COMPLETED: 'Handover',
+        FUNDS_RELEASED: 'Funds released'
       },
       urgent: {
         title: 'Urgent tasks',
@@ -1320,14 +1340,16 @@ const orderProgressLabels = computed(() => ({
   DEPOSIT_PAID: t('orders.progress.DEPOSIT_PAID'),
   VIEWING_SCHEDULED: t('orders.progress.VIEWING_SCHEDULED'),
   FEEDBACK_SUBMITTED: t('orders.progress.FEEDBACK_SUBMITTED'),
-  HANDOVER_COMPLETED: t('orders.progress.HANDOVER_COMPLETED')
+  HANDOVER_COMPLETED: t('orders.progress.HANDOVER_COMPLETED'),
+  FUNDS_RELEASED: t('orders.progress.FUNDS_RELEASED')
 }));
 
 const orderProgressSequence = Object.freeze([
   'DEPOSIT_PAID',
   'VIEWING_SCHEDULED',
   'FEEDBACK_SUBMITTED',
-  'HANDOVER_COMPLETED'
+  'HANDOVER_COMPLETED',
+  'FUNDS_RELEASED'
 ]);
 
 const isSeller = computed(() => isSellerRole(currentUser.value?.role));
@@ -1508,6 +1530,7 @@ const switchTab = (tab) => {
   activeTab.value = tab;
   if (tab === 'admin') {
     loadAdminData();
+    loadAdminOrders();
   }
   if (tab === 'review') {
     fetchHouses();
@@ -1564,7 +1587,6 @@ const normalizeHouse = (house) => ({
   listingDate: house?.listingDate ?? '',
   imageUrls: Array.isArray(house?.imageUrls) ? house.imageUrls : [],
   keywords: Array.isArray(house?.keywords) ? house.keywords : [],
-  propertyCertificateUrl: house?.propertyCertificateUrl ?? '',
   status: house?.status ?? 'PENDING_REVIEW',
   reviewMessage: house?.reviewMessage ?? '',
   reviewedBy: house?.reviewedBy ?? '',
@@ -2004,9 +2026,6 @@ const normalizeHousePayload = (payload) => {
   if (!Number.isFinite(result.installmentMonths)) {
     result.installmentMonths = 0;
   }
-  if (typeof result.propertyCertificateUrl === 'string') {
-    result.propertyCertificateUrl = result.propertyCertificateUrl.trim();
-  }
   if (isSeller.value) {
     result.sellerUsername = currentUser.value.username;
     if (!result.sellerName) {
@@ -2385,6 +2404,57 @@ const handleReview = async ({ houseId, status }) => {
   }
 };
 
+const loadAdminOrders = async ({ silent = false } = {}) => {
+  if (!isAdmin.value || !currentUser.value) {
+    adminPendingOrders.value = [];
+    adminOrdersLoading.value = false;
+    return;
+  }
+  if (!silent) {
+    adminOrdersLoading.value = true;
+  }
+  try {
+    const { data } = await client.get('/admin/orders/pending', {
+      params: { requester: currentUser.value.username }
+    });
+    adminPendingOrders.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.loadAdminOrders');
+  } finally {
+    if (!silent) {
+      adminOrdersLoading.value = false;
+    }
+  }
+};
+
+const handleAdminOrderRelease = async ({ orderId, decision }) => {
+  if (!isAdmin.value || !currentUser.value || !orderId || !decision) {
+    return;
+  }
+  adminOrdersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    await client.patch(`/admin/orders/${orderId}/review`, {
+      requesterUsername: currentUser.value.username,
+      decision
+    });
+    messages.success =
+      decision === 'SELLER'
+        ? t('success.orderReleasedSeller')
+        : t('success.orderReleasedBuyer');
+    await Promise.all([
+      loadAdminOrders({ silent: true }),
+      fetchOrders({ silent: true }),
+      fetchWallet({ silent: true })
+    ]);
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.reviewOrder');
+  } finally {
+    adminOrdersLoading.value = false;
+  }
+};
+
 const loadAdminData = async () => {
   if (!isAdmin.value || !currentUser.value) {
     adminUsers.value = [];
@@ -2427,6 +2497,7 @@ const handleLoginSuccess = (user) => {
   }
   if (user.role === 'ADMIN') {
     loadAdminData();
+    loadAdminOrders();
   }
 };
 
@@ -2440,6 +2511,7 @@ const handleLogout = () => {
   recommendations.buyers = [];
   adminUsers.value = [];
   adminReputation.value = null;
+  adminPendingOrders.value = [];
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
@@ -2457,9 +2529,11 @@ watch(
   (role) => {
     if (role === 'ADMIN') {
       loadAdminData();
+      loadAdminOrders();
     } else {
       adminUsers.value = [];
       adminReputation.value = null;
+      adminPendingOrders.value = [];
     }
     if (role === 'BUYER' || isSellerRole(role)) {
       loadConversations({ silent: true });
@@ -2746,6 +2820,13 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+.admin-panels {
+  display: grid;
+  gap: 1.6rem;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 1fr);
+  align-items: start;
+}
+
 .footer {
   text-align: center;
   color: var(--color-text-muted);
@@ -2781,6 +2862,10 @@ onMounted(() => {
 
   .header-actions {
     align-items: stretch;
+  }
+
+  .admin-panels {
+    grid-template-columns: 1fr;
   }
 }
 

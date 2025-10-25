@@ -53,7 +53,7 @@ public class WalletService {
         return toSummary(account, wallet);
     }
 
-    public void processPayment(HouseOrder order, String reference, String description) {
+    public void processEscrowPayment(HouseOrder order, String reference, String description, UserAccount adminAccount) {
         BigDecimal amount = order.getAmount();
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "支付金额必须大于0");
@@ -63,34 +63,44 @@ public class WalletService {
         if (buyerWallet.getBalance().compareTo(amount) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "买家钱包余额不足");
         }
-        UserWallet sellerWallet = ensureWallet(order.getSeller());
+        UserWallet adminWallet = ensureWallet(adminAccount);
         buyerWallet.decrease(amount);
-        sellerWallet.increase(amount);
+        adminWallet.increase(amount);
         walletRepository.save(buyerWallet);
-        walletRepository.save(sellerWallet);
+        walletRepository.save(adminWallet);
         String normalizedReference = normalizeReference(reference);
         createTransaction(buyerWallet, WalletTransactionType.PAYMENT, amount.negate(), normalizedReference, description);
-        createTransaction(sellerWallet, WalletTransactionType.RECEIVE, amount, normalizedReference, description);
+        createTransaction(adminWallet, WalletTransactionType.RECEIVE, amount, normalizedReference, description);
     }
 
-    public void processRefund(HouseOrder order, String reference, String description) {
-        BigDecimal amount = order.getAmount();
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "退款金额必须大于0");
+    public void releaseEscrow(HouseOrder order,
+                              String reference,
+                              String description,
+                              UserAccount adminAccount,
+                              UserAccount recipient,
+                              BigDecimal releaseAmount,
+                              BigDecimal platformFee,
+                              WalletTransactionType recipientTransactionType) {
+        if (releaseAmount == null || releaseAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "发放金额无效");
         }
-        amount = amount.setScale(2, RoundingMode.HALF_UP);
-        UserWallet sellerWallet = ensureWallet(order.getSeller());
-        if (sellerWallet.getBalance().compareTo(amount) < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家钱包余额不足，无法完成退款");
+        releaseAmount = releaseAmount.setScale(2, RoundingMode.HALF_UP);
+        platformFee = platformFee == null ? BigDecimal.ZERO : platformFee.setScale(2, RoundingMode.HALF_UP);
+        UserWallet adminWallet = ensureWallet(adminAccount);
+        if (adminWallet.getBalance().compareTo(releaseAmount) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "管理员钱包余额不足，无法完成发放");
         }
-        UserWallet buyerWallet = ensureWallet(order.getBuyer());
-        sellerWallet.decrease(amount);
-        buyerWallet.increase(amount);
-        walletRepository.save(sellerWallet);
-        walletRepository.save(buyerWallet);
+        UserWallet recipientWallet = ensureWallet(recipient);
+        adminWallet.decrease(releaseAmount);
+        recipientWallet.increase(releaseAmount);
+        walletRepository.save(adminWallet);
+        walletRepository.save(recipientWallet);
         String normalizedReference = normalizeReference(reference);
-        createTransaction(sellerWallet, WalletTransactionType.REFUND, amount.negate(), normalizedReference, description);
-        createTransaction(buyerWallet, WalletTransactionType.REFUND, amount, normalizedReference, description);
+        createTransaction(adminWallet, WalletTransactionType.PAYMENT, releaseAmount.negate(), normalizedReference, description);
+        createTransaction(recipientWallet, recipientTransactionType, releaseAmount, normalizedReference, description);
+        if (platformFee.compareTo(BigDecimal.ZERO) > 0) {
+            createTransaction(adminWallet, WalletTransactionType.RECEIVE, platformFee, normalizedReference, "平台抽成收入");
+        }
     }
 
     private UserAccount getAccount(String username) {

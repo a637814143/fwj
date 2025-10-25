@@ -13,6 +13,7 @@ public record SecondHandHouseView(
         String title,
         String address,
         BigDecimal price,
+        BigDecimal downPayment,
         BigDecimal installmentMonthlyPayment,
         Integer installmentMonths,
         BigDecimal area,
@@ -23,7 +24,6 @@ public record SecondHandHouseView(
         LocalDate listingDate,
         List<String> imageUrls,
         List<String> keywords,
-        String propertyCertificateUrl,
         ListingStatus status,
         String reviewedBy,
         String reviewMessage,
@@ -34,14 +34,12 @@ public record SecondHandHouseView(
 ) {
 
     public static SecondHandHouseView fromEntity(SecondHandHouse house,
-                                                 boolean maskSensitive,
-                                                 boolean canViewCertificate) {
-        return fromEntity(house, maskSensitive, canViewCertificate, false, false);
+                                                 boolean maskSensitive) {
+        return fromEntity(house, maskSensitive, false, false);
     }
 
     public static SecondHandHouseView fromEntity(SecondHandHouse house,
                                                  boolean maskSensitive,
-                                                 boolean canViewCertificate,
                                                  boolean reservationActive,
                                                  boolean reservationOwnedByRequester) {
         if (house == null) {
@@ -56,6 +54,7 @@ public record SecondHandHouseView(
                 house.getTitle(),
                 house.getAddress(),
                 house.getPrice(),
+                house.getDownPayment(),
                 house.getInstallmentMonthlyPayment(),
                 house.getInstallmentMonths(),
                 house.getArea(),
@@ -66,7 +65,6 @@ public record SecondHandHouseView(
                 house.getListingDate(),
                 Collections.unmodifiableList(images),
                 Collections.unmodifiableList(keywords),
-                canViewCertificate ? house.getPropertyCertificateUrl() : null,
                 house.getStatus(),
                 house.getReviewedBy(),
                 house.getReviewMessage(),

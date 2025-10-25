@@ -49,13 +49,13 @@ public class SecondHandHouseController {
     @ResponseStatus(HttpStatus.CREATED)
     public SecondHandHouseView create(@Valid @RequestBody SecondHandHouseRequest request) {
         SecondHandHouse house = service.create(request.toEntity());
-        return SecondHandHouseView.fromEntity(house, false, true);
+        return SecondHandHouseView.fromEntity(house, false);
     }
 
     @PutMapping("/{id}")
     public SecondHandHouseView update(@PathVariable Long id, @Valid @RequestBody SecondHandHouseRequest request) {
         SecondHandHouse house = service.update(id, request.toEntity());
-        return SecondHandHouseView.fromEntity(house, false, true);
+        return SecondHandHouseView.fromEntity(house, false);
     }
 
     @DeleteMapping("/{id}")

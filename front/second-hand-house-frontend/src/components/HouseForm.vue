@@ -78,14 +78,13 @@
       <label>
         分期月供（元）
         <input
-          v-model.number="form.installmentMonthlyPayment"
-          type="number"
-          min="0"
-          step="0.01"
-          required
-          placeholder="例如 5600"
+          :value="formattedInstallment"
+          type="text"
+          readonly
+          placeholder="系统根据总价、首付与期数自动计算"
           :disabled="disabled"
         />
+        <small class="hint">系统按照“分期金额 × 期数 + 首付 = 总价 × 1.2”自动计算月供。</small>
       </label>
 
       <label>
@@ -176,17 +175,6 @@
       </ul>
     </div>
 
-    <label class="block">
-      产权证明链接
-      <input
-        v-model.trim="form.propertyCertificateUrl"
-        type="url"
-        required
-        placeholder="请输入房屋产权证明或其他附件链接"
-        :disabled="disabled"
-      />
-    </label>
-
     <section class="images-section">
       <div class="images-header">
         <h4>房源图片链接</h4>
@@ -273,7 +261,6 @@ const form = reactive({
   floor: '',
   installmentMonthlyPayment: '',
   installmentMonths: '',
-  propertyCertificateUrl: '',
   imageUrls: ['']
 });
 
@@ -304,6 +291,51 @@ const sanitizedImageUrls = computed(() =>
     .filter((url) => url.length > 0)
 );
 
+const premiumRate = 1.2;
+
+const parsePositiveNumber = (value) => {
+  if (value === '' || value == null) {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const calculatedInstallment = computed(() => {
+  const price = parsePositiveNumber(form.price);
+  const downPayment = parsePositiveNumber(form.downPayment);
+  const months = parsePositiveNumber(form.installmentMonths);
+  if (!price || !downPayment || !months || months <= 0) {
+    return null;
+  }
+  const totalWithPremium = price * premiumRate;
+  const remaining = totalWithPremium - downPayment;
+  if (remaining <= 0) {
+    return null;
+  }
+  const monthly = remaining / months;
+  return Number.isFinite(monthly) && monthly > 0 ? Number(monthly.toFixed(2)) : null;
+});
+
+watch(
+  calculatedInstallment,
+  (value) => {
+    if (value == null) {
+      form.installmentMonthlyPayment = '';
+    } else {
+      form.installmentMonthlyPayment = value;
+    }
+  },
+  { immediate: true }
+);
+
+const formattedInstallment = computed(() => {
+  if (calculatedInstallment.value == null) {
+    return '';
+  }
+  return calculatedInstallment.value.toFixed(2);
+});
+
 const createInitialImages = (images = []) => {
   const list = Array.isArray(images) && images.length > 0 ? [...images] : [''];
   return list;
@@ -328,7 +360,6 @@ const setFormDefaults = () => {
   form.floor = '';
   form.installmentMonthlyPayment = '';
   form.installmentMonths = '';
-  form.propertyCertificateUrl = '';
   applyImageUrls();
   keywordInput.value = '';
   formError.value = '';
@@ -348,7 +379,6 @@ const fillFromHouse = (house) => {
   form.floor = house.floor ?? '';
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
-  form.propertyCertificateUrl = house.propertyCertificateUrl ?? '';
   applyImageUrls(house.imageUrls ?? []);
   keywordInput.value = Array.isArray(house.keywords) ? house.keywords.join('、') : '';
   formError.value = '';
@@ -440,24 +470,25 @@ const validateForm = () => {
     formError.value = '请填写有效的首付金额。';
     return false;
   }
-  if (Number(form.downPayment) > Number(form.price)) {
-    formError.value = '首付金额不能超过房源总价。';
-    return false;
+  const priceNumber = Number(form.price);
+  const downPaymentNumber = Number(form.downPayment);
+  if (Number.isFinite(priceNumber) && Number.isFinite(downPaymentNumber)) {
+    const totalWithPremium = priceNumber * premiumRate;
+    if (downPaymentNumber >= totalWithPremium) {
+      formError.value = '首付金额必须低于总价的120%，以便计算分期。';
+      return false;
+    }
   }
   if (!ensurePositive(form.area)) {
     formError.value = '请填写有效的房源面积。';
     return false;
   }
   if (!ensurePositive(form.installmentMonthlyPayment)) {
-    formError.value = '请填写有效的分期月供。';
+    formError.value = '无法根据公式计算有效的分期月供，请检查首付或分期期数。';
     return false;
   }
   if (!ensurePositive(form.installmentMonths)) {
     formError.value = '分期期数必须大于0。';
-    return false;
-  }
-  if (!form.propertyCertificateUrl) {
-    formError.value = '请提供房屋产权证明链接。';
     return false;
   }
   formError.value = '';
@@ -494,8 +525,7 @@ const submitForm = () => {
     keywords: [...keywordsPreview.value],
     imageUrls: sanitizedImageUrls.value,
     installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
-    installmentMonths: normalizeNumber(form.installmentMonths),
-    propertyCertificateUrl: form.propertyCertificateUrl.trim()
+    installmentMonths: normalizeNumber(form.installmentMonths)
   };
   emit('submit', payload);
   if (!isEditing.value) {

@@ -33,7 +33,7 @@
               step="0.01"
               required
               :placeholder="t('wallet.topUp.amountPlaceholder')"
-              :disabled="loading || submitting"
+              :disabled="isFormBusy || hasPendingPayment"
             />
             <span v-if="amountPreview" class="amount-preview">￥{{ amountPreview }}</span>
           </label>
@@ -44,13 +44,43 @@
               type="text"
               maxlength="100"
               :placeholder="t('wallet.topUp.referencePlaceholder')"
-              :disabled="loading || submitting"
+              :disabled="isFormBusy || hasPendingPayment"
             />
           </label>
-          <button type="submit" :disabled="loading || submitting">
-            {{ submitting ? t('wallet.actions.processing') : t('wallet.actions.submitTopUp') }}
+          <button type="submit" :disabled="isFormBusy || hasPendingPayment">
+            {{ generatingQr ? t('wallet.actions.generatingQr') : t('wallet.actions.generateQr') }}
           </button>
         </form>
+
+        <p v-if="topUpError" class="top-up-error">{{ topUpError }}</p>
+
+        <section v-if="pendingPayment" class="top-up-confirmation">
+          <h4>{{ t('wallet.topUp.qrTitle') }}</h4>
+          <p class="top-up-hint">{{ t('wallet.topUp.qrHint') }}</p>
+          <div class="qr-wrapper">
+            <img :src="pendingPayment.qrCode" :alt="t('wallet.topUp.qrTitle')" />
+            <div class="qr-details">
+              <span class="summary">{{ t('wallet.topUp.summaryAmount', { amount: formatYuan(pendingPayment.amount) }) }}</span>
+              <span v-if="pendingPayment.reference" class="summary">
+                {{ t('wallet.topUp.summaryReference', { reference: pendingPayment.reference }) }}
+              </span>
+            </div>
+          </div>
+          <p class="top-up-hint notice">{{ t('wallet.topUp.qrNotice') }}</p>
+          <div class="confirmation-actions">
+            <button
+              type="button"
+              class="confirm"
+              :disabled="confirming || loading"
+              @click="confirmTopUp"
+            >
+              {{ confirming ? t('wallet.actions.processing') : t('wallet.topUp.confirmPaid') }}
+            </button>
+            <button type="button" class="cancel" :disabled="confirming" @click="reportTopUpFailure">
+              {{ t('wallet.topUp.reportFailure') }}
+            </button>
+          </div>
+        </section>
 
         <div class="transactions">
           <h3>{{ t('wallet.transactions.title') }}</h3>
@@ -79,6 +109,7 @@
 
 <script setup>
 import { computed, inject, reactive, ref, watch } from 'vue';
+import QRCode from 'qrcode';
 
 const props = defineProps({
   wallet: {
@@ -104,7 +135,10 @@ const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'))
 const containsCJK = (value) => /[\u3400-\u9FFF]/.test(value ?? '');
 
 const form = reactive({ amount: null, reference: '' });
-const submitting = ref(false);
+const generatingQr = ref(false);
+const confirming = ref(false);
+const pendingPayment = ref(null);
+const topUpError = ref('');
 
 const typeLabels = computed(() => ({
   TOP_UP: t('wallet.transactions.types.topUp'),
@@ -134,11 +168,16 @@ const amountPreview = computed(() => {
   return formatYuan(numeric);
 });
 
+const hasPendingPayment = computed(() => Boolean(pendingPayment.value));
+const isFormBusy = computed(() => props.loading || generatingQr.value || confirming.value);
+
 watch(
   () => props.wallet,
   () => {
     form.amount = null;
     form.reference = '';
+    pendingPayment.value = null;
+    topUpError.value = '';
   }
 );
 
@@ -146,25 +185,73 @@ watch(
   () => props.loading,
   (value) => {
     if (!value) {
-      submitting.value = false;
+      generatingQr.value = false;
+      confirming.value = false;
     }
   }
 );
 
-const submitTopUp = () => {
-  if (submitting.value || props.loading || !form.amount || Number(form.amount) <= 0) {
+watch(
+  () => props.currentUser,
+  () => {
+    pendingPayment.value = null;
+    topUpError.value = '';
+  }
+);
+
+const buildQrPayload = (amount, reference) => ({
+  username: props.currentUser?.username ?? '未知用户',
+  amount,
+  reference: reference ?? '',
+  timestamp: Date.now()
+});
+
+const submitTopUp = async () => {
+  if (isFormBusy.value) {
     return;
   }
   const amountValue = Number(form.amount);
   if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    topUpError.value = t('wallet.topUp.errors.invalidAmount');
     return;
   }
-  submitting.value = true;
   const normalized = Math.round(amountValue * 100) / 100;
+  generatingQr.value = true;
+  topUpError.value = '';
+  try {
+    const qrContent = JSON.stringify(buildQrPayload(normalized, form.reference));
+    const qrCode = await QRCode.toDataURL(qrContent, { width: 320, margin: 1 });
+    pendingPayment.value = {
+      amount: normalized,
+      reference: form.reference || undefined,
+      qrCode,
+      createdAt: new Date()
+    };
+  } catch (error) {
+    console.error('生成二维码失败：', error);
+    topUpError.value = t('wallet.topUp.errors.qrFailed');
+  } finally {
+    generatingQr.value = false;
+  }
+};
+
+const confirmTopUp = () => {
+  if (!pendingPayment.value || confirming.value) {
+    return;
+  }
+  confirming.value = true;
   emit('top-up', {
-    amount: normalized,
-    reference: form.reference || undefined
+    amount: pendingPayment.value.amount,
+    reference: pendingPayment.value.reference
   });
+};
+
+const reportTopUpFailure = () => {
+  if (confirming.value) {
+    return;
+  }
+  pendingPayment.value = null;
+  topUpError.value = '';
 };
 
 const formatYuan = (value) => {
@@ -377,6 +464,89 @@ const formatTime = (value) => {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.top-up-error {
+  margin: 0;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.top-up-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.qr-wrapper {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.qr-wrapper img {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 0.5rem;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.18);
+}
+
+.qr-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.qr-details .summary {
+  font-size: 0.95rem;
+}
+
+.top-up-hint.notice {
+  color: var(--color-text-strong);
+  font-weight: 500;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.confirmation-actions button {
+  padding: 0.55rem 1.4rem;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.confirmation-actions .confirm {
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
+}
+
+.confirmation-actions .confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.confirmation-actions .cancel {
+  background: rgba(254, 226, 226, 0.9);
+  color: #b91c1c;
 }
 
 .transactions {

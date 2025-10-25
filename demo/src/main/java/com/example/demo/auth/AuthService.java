@@ -1,11 +1,14 @@
 package com.example.demo.auth;
 
 import com.example.demo.common.MaskingUtils;
+import com.example.demo.house.SecondHandHouse;
+import com.example.demo.house.SecondHandHouseRepository;
 import com.example.demo.wallet.WalletService;
 import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -16,10 +19,14 @@ public class AuthService {
 
     private final UserAccountRepository userAccountRepository;
     private final WalletService walletService;
+    private final SecondHandHouseRepository secondHandHouseRepository;
 
-    public AuthService(UserAccountRepository userAccountRepository, WalletService walletService) {
+    public AuthService(UserAccountRepository userAccountRepository,
+                      WalletService walletService,
+                      SecondHandHouseRepository secondHandHouseRepository) {
         this.userAccountRepository = userAccountRepository;
         this.walletService = walletService;
+        this.secondHandHouseRepository = secondHandHouseRepository;
     }
 
     @PostConstruct
@@ -128,5 +135,66 @@ public class AuthService {
         }
         userAccountRepository.save(account);
         return toResponse(account, wasVerified ? "已更新实名认证信息。" : "实名认证成功，信誉分已提升。");
+    }
+
+    @Transactional
+    public LoginResponse updateAccount(String username, AccountUpdateRequest request) {
+        UserAccount account = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "用户不存在"));
+
+        boolean changed = false;
+        boolean usernameChanged = false;
+        boolean displayNameChanged = false;
+
+        String requestedUsername = normalize(request.newUsername());
+        if (StringUtils.hasText(requestedUsername) && !requestedUsername.equals(account.getUsername())) {
+            if (userAccountRepository.existsByUsername(requestedUsername)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "用户名已存在，请更换其他用户名。");
+            }
+            account.setUsername(requestedUsername);
+            usernameChanged = true;
+            changed = true;
+        }
+
+        String requestedDisplayName = normalize(request.displayName());
+        if (StringUtils.hasText(requestedDisplayName) && !requestedDisplayName.equals(account.getDisplayName())) {
+            account.setDisplayName(requestedDisplayName);
+            displayNameChanged = true;
+            changed = true;
+        }
+
+        String requestedPassword = normalize(request.newPassword());
+        if (StringUtils.hasText(requestedPassword)) {
+            account.setPassword(requestedPassword);
+            changed = true;
+        }
+
+        if (!changed) {
+            return toResponse(account, "没有需要更新的信息。");
+        }
+
+        userAccountRepository.save(account);
+
+        if (usernameChanged || displayNameChanged) {
+            String lookupUsername = usernameChanged ? username : account.getUsername();
+            List<SecondHandHouse> sellerHouses = secondHandHouseRepository.findBySellerUsername(lookupUsername);
+            if (!sellerHouses.isEmpty()) {
+                for (SecondHandHouse house : sellerHouses) {
+                    if (usernameChanged) {
+                        house.setSellerUsername(account.getUsername());
+                    }
+                    if (displayNameChanged) {
+                        house.setSellerName(account.getDisplayName());
+                    }
+                }
+                secondHandHouseRepository.saveAll(sellerHouses);
+            }
+        }
+
+        return toResponse(account, "个人信息已更新。");
+    }
+
+    private String normalize(String value) {
+        return value == null ? null : value.trim();
     }
 }

@@ -177,29 +177,52 @@
 
     <section class="images-section">
       <div class="images-header">
-        <h4>房源图片链接</h4>
-        <button type="button" class="btn add" :disabled="disabled" @click="addImageField">添加图片</button>
+        <h4>房源图片</h4>
+        <span class="hint">支持上传本地文件，最多 {{ MAX_IMAGES }} 张，首图默认作为封面。</span>
       </div>
-      <p class="hint">支持填写多张图片的网络链接，提交前会自动忽略空白链接。</p>
-      <div class="image-inputs">
-        <div v-for="(image, index) in form.imageUrls" :key="`${index}-${image}`" class="image-input">
-          <input
-            v-model.trim="form.imageUrls[index]"
-            type="url"
-            :disabled="disabled"
-            placeholder="例如：https://example.com/house.jpg"
-          />
-          <button
-            type="button"
-            class="btn remove"
-            :disabled="disabled || form.imageUrls.length === 1"
-            @click="removeImageField(index)"
-          >
-            删除
-          </button>
-          <img v-if="isPreviewable(image)" :src="image" alt="预览" />
-        </div>
+      <div class="upload-bar">
+        <input
+          ref="fileInputRef"
+          class="file-input"
+          type="file"
+          accept="image/*"
+          multiple
+          :disabled="disabled || imageUploading"
+          @change="handleImageSelect"
+        />
+        <button
+          type="button"
+          class="btn secondary"
+          :disabled="disabled || imageUploading"
+          @click="triggerFileDialog"
+        >
+          选择图片
+        </button>
+        <span class="upload-hint">
+          {{ imageUploading
+            ? '图片处理中，请稍候…'
+            : remainingSlots > 0
+            ? `还能添加 ${remainingSlots} 张图片`
+            : '已达到上传上限' }}
+        </span>
       </div>
+      <p v-if="imageError" class="error">{{ imageError }}</p>
+      <ul v-if="form.images.length" class="image-preview">
+        <li v-for="(image, index) in form.images" :key="image.id" class="image-card">
+          <img :src="image.url" :alt="image.name" />
+          <footer>
+            <span class="image-name">{{ image.name }}</span>
+            <button
+              type="button"
+              class="btn remove"
+              :disabled="disabled || imageUploading"
+              @click="removeImage(index)"
+            >
+              删除
+            </button>
+          </footer>
+        </li>
+      </ul>
     </section>
 
     <p v-if="formError" class="error">{{ formError }}</p>
@@ -217,6 +240,8 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+
+const MAX_IMAGES = 8;
 
 const props = defineProps({
   initialHouse: {
@@ -261,11 +286,14 @@ const form = reactive({
   floor: '',
   installmentMonthlyPayment: '',
   installmentMonths: '',
-  imageUrls: ['']
+  images: []
 });
 
 const keywordInput = ref('');
 const formError = ref('');
+const fileInputRef = ref(null);
+const imageError = ref('');
+const imageUploading = ref(false);
 
 const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
 const isEditing = computed(() => Boolean(props.initialHouse));
@@ -285,11 +313,13 @@ const statusClass = computed(() => {
 });
 
 const keywordsPreview = computed(() => parseKeywords(keywordInput.value));
-const sanitizedImageUrls = computed(() =>
-  form.imageUrls
-    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+const imagePayload = computed(() =>
+  form.images
+    .map((image) => (typeof image.url === 'string' ? image.url.trim() : ''))
     .filter((url) => url.length > 0)
 );
+
+const remainingSlots = computed(() => Math.max(0, MAX_IMAGES - form.images.length));
 
 const premiumRate = 1.2;
 
@@ -336,14 +366,20 @@ const formattedInstallment = computed(() => {
   return calculatedInstallment.value.toFixed(2);
 });
 
-const createInitialImages = (images = []) => {
-  const list = Array.isArray(images) && images.length > 0 ? [...images] : [''];
-  return list;
-};
+const buildImageEntry = (url, name = '已上传图片') => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  url,
+  name
+});
 
 const applyImageUrls = (images = []) => {
-  const list = createInitialImages(images);
-  form.imageUrls.splice(0, form.imageUrls.length, ...list);
+  const entries = Array.isArray(images)
+    ? images
+        .filter((item) => typeof item === 'string' && item.trim().length > 0)
+        .map((item, index) => buildImageEntry(item.trim(), `已上传图片 ${index + 1}`))
+    : [];
+  form.images.splice(0, form.images.length, ...entries);
+  imageError.value = '';
 };
 
 const setFormDefaults = () => {
@@ -415,34 +451,69 @@ const parseKeywords = (value) => {
     .filter((item) => item.length > 0);
 };
 
-const addImageField = () => {
+const resetFileInput = () => {
+  if (fileInputRef.value) {
+    fileInputRef.value.value = '';
+  }
+};
+
+const triggerFileDialog = () => {
+  if (disabled.value || imageUploading.value) {
+    return;
+  }
+  fileInputRef.value?.click();
+};
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (event) => reject(event);
+    reader.readAsDataURL(file);
+  });
+
+const handleImageSelect = async (event) => {
   if (disabled.value) {
+    resetFileInput();
     return;
   }
-  form.imageUrls.push('');
-};
-
-const removeImageField = (index) => {
-  if (disabled.value || form.imageUrls.length === 1) {
+  const files = Array.from(event.target?.files ?? []);
+  if (!files.length) {
+    resetFileInput();
     return;
   }
-  form.imageUrls.splice(index, 1);
-};
+  if (remainingSlots.value <= 0) {
+    imageError.value = `最多只能上传 ${MAX_IMAGES} 张图片。`;
+    resetFileInput();
+    return;
+  }
 
-const isPreviewable = (url) => {
-  if (typeof url !== 'string') {
-    return false;
-  }
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return false;
-  }
+  const allowedFiles = files.slice(0, remainingSlots.value);
+  imageUploading.value = true;
+  imageError.value = '';
+
   try {
-    new URL(trimmed);
-    return true;
+    const results = await Promise.all(
+      allowedFiles.map(async (file) => {
+        const url = await readFileAsDataUrl(file);
+        return buildImageEntry(url, file.name);
+      })
+    );
+    form.images.push(...results);
   } catch (error) {
-    return trimmed.startsWith('data:image/');
+    console.error('读取图片失败：', error);
+    imageError.value = '读取图片失败，请重试。';
+  } finally {
+    imageUploading.value = false;
+    resetFileInput();
   }
+};
+
+const removeImage = (index) => {
+  if (disabled.value || imageUploading.value) {
+    return;
+  }
+  form.images.splice(index, 1);
 };
 
 const ensurePositive = (value) => {
@@ -523,7 +594,7 @@ const submitForm = () => {
     listingDate: form.listingDate,
     floor: normalizeNumber(form.floor),
     keywords: [...keywordsPreview.value],
-    imageUrls: sanitizedImageUrls.value,
+    imageUrls: imagePayload.value,
     installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
     installmentMonths: normalizeNumber(form.installmentMonths)
   };
@@ -665,7 +736,7 @@ textarea:focus {
 .images-section {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.9rem;
   padding: 1.1rem;
   border: 1px dashed rgba(148, 163, 184, 0.45);
   border-radius: var(--radius-lg);
@@ -674,38 +745,90 @@ textarea:focus {
 
 .images-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .images-header h4 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: var(--color-text-strong);
 }
 
-.image-inputs {
+.images-header .hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
+}
+
+.upload-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-bar .btn.secondary {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: var(--color-text-strong);
+  padding: 0.5rem 1.25rem;
+}
+
+.upload-bar .btn.secondary:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.upload-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.image-preview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+}
+
+.image-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
-.image-input {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.image-input input {
-  flex: 1;
-}
-
-.image-input img {
-  width: 64px;
-  height: 48px;
+.image-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.image-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem 0.65rem;
+}
+
+.image-card .image-name {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hint {
@@ -741,10 +864,10 @@ textarea:focus {
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
-.btn.add {
-  background: var(--gradient-primary);
-  color: #fff;
-  padding: 0.45rem 0.95rem;
+.btn.secondary {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--color-text-strong);
 }
 
 .btn.remove {

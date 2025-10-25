@@ -23,6 +23,9 @@
             </span>
           </div>
           <div class="session-actions">
+            <button type="button" class="profile-trigger" @click="openAccountCenter">
+              {{ t('header.accountCenter') }}
+            </button>
             <button
               v-if="canUseMessaging"
               type="button"
@@ -164,6 +167,17 @@
       </main>
     </template>
 
+    <AccountCenter
+      :visible="accountCenterVisible"
+      :current-user="currentUser"
+      :wallet="wallet"
+      :role-label="currentUser ? roleLabels[currentUser.role] : ''"
+      :saving="accountUpdateLoading"
+      :error="accountUpdateError"
+      @close="closeAccountCenter"
+      @submit="handleAccountUpdate"
+    />
+
     <ConversationPanel
       :visible="conversationPanelVisible"
       :conversations="conversations"
@@ -204,6 +218,7 @@ import ConversationPanel from './components/ConversationPanel.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
+import AccountCenter from './components/AccountCenter.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -233,6 +248,9 @@ const conversationListLoading = ref(false);
 const conversationMessagesLoading = ref(false);
 const conversationSending = ref(false);
 const conversationError = ref('');
+const accountCenterVisible = ref(false);
+const accountUpdateLoading = ref(false);
+const accountUpdateError = ref('');
 const activeTab = ref('home');
 const houseFilters = reactive({
   keyword: '',
@@ -296,6 +314,7 @@ const translations = {
       verified: '已完成',
       pending: '待完成',
       messages: '消息中心',
+      accountCenter: '个人中心',
       logout: '退出登录'
     },
     nav: {
@@ -408,6 +427,7 @@ const translations = {
       blacklistAdded: '已将账号 {username} 加入黑名单。',
       blacklistRemoved: '已解除账号 {username} 的黑名单状态。',
       accountDeleted: '账号 {username} 已被删除。',
+      accountUpdated: '个人信息已更新。',
       reviewApproved: '已审核通过房源《{title}》。',
       reviewRejected: '已驳回房源《{title}》，状态：{status}，原因：{reason}。',
       login: '登录成功。',
@@ -451,6 +471,8 @@ const translations = {
       walletTopUp: '钱包充值失败。',
       returnLoginRequired: '请先登录后再申请退换。',
       returnFailed: '退换请求失败。',
+      accountLoginRequired: '请先登录后再使用个人中心。',
+      accountUpdateFailed: '个人信息更新失败。',
       updateBlacklist: '更新黑名单状态失败。',
       deleteAccount: '删除账号失败。',
       reviewRequireReason: '驳回操作需要填写原因。',
@@ -563,11 +585,24 @@ const translations = {
         amountLabel: '充值金额（元）',
         amountPlaceholder: '例如：5000',
         referenceLabel: '备注（选填）',
-        referencePlaceholder: '如：线上充值'
+        referencePlaceholder: '如：线上充值',
+        qrTitle: '扫码支付',
+        qrHint: '请使用手机银行或支付工具扫描二维码完成充值。',
+        qrNotice: '完成支付后请选择下方状态。',
+        summaryAmount: '充值金额：￥{amount}',
+        summaryReference: '备注：{reference}',
+        confirmPaid: '已充值',
+        reportFailure: '充值失败',
+        errors: {
+          invalidAmount: '请输入有效的充值金额。',
+          qrFailed: '生成二维码失败，请稍后重试。'
+        }
       },
       actions: {
         processing: '处理中…',
-        submitTopUp: '立即充值'
+        submitTopUp: '立即充值',
+        generateQr: '生成充值二维码',
+        generatingQr: '生成二维码中…'
       },
       transactions: {
         title: '最近流水',
@@ -580,6 +615,43 @@ const translations = {
           receive: '收款',
           refund: '退款'
         }
+      }
+    },
+    accountCenter: {
+      title: '个人中心',
+      subtitle: '查看账号详情并更新用户名或密码。',
+      summaryTitle: '账号概览',
+      summary: {
+        username: '当前用户名',
+        displayName: '昵称',
+        role: '账号角色',
+        verification: '实名认证状态',
+        verified: '已完成',
+        pending: '未完成',
+        realName: '真实姓名',
+        phone: '联系方式'
+      },
+      credentialTitle: '修改账号信息',
+      credentialHint: '更新后的用户名将同步至房源信息与钱包。',
+      fields: {
+        username: '新的用户名',
+        displayName: '新的昵称',
+        newPassword: '新的密码',
+        confirmPassword: '确认新密码'
+      },
+      placeholders: {
+        password: '请输入至少6位的新密码',
+        confirmPassword: '请再次输入新密码'
+      },
+      actions: {
+        save: '保存修改',
+        saving: '保存中…',
+        cancel: '取消'
+      },
+      errors: {
+        noChanges: '请修改用户名、昵称或密码后再提交。',
+        passwordMismatch: '两次输入的密码不一致。',
+        passwordLength: '密码长度不能少于6位。'
       }
     },
     prediction: {
@@ -662,7 +734,12 @@ const translations = {
       accounts: {
         notFound: '未找到指定用户账号',
         buyerMissing: '买家账号不存在',
-        sellerMissing: '卖家账号不存在'
+        sellerMissing: '卖家账号不存在',
+        usernameTaken: '用户名已存在，请更换其他用户名。',
+        noChanges: '没有需要更新的信息。',
+        usernameLength: '用户名长度需在3到50个字符之间',
+        displayNameLength: '昵称长度需在2到100个字符之间',
+        passwordLength: '密码长度需在6到100个字符之间'
       },
       houses: {
         notFound: '房源不存在',
@@ -716,6 +793,7 @@ const translations = {
       verified: 'Completed',
       pending: 'Pending',
       messages: 'Messages',
+      accountCenter: 'Account center',
       logout: 'Log out'
     },
     nav: {
@@ -828,6 +906,7 @@ const translations = {
       blacklistAdded: 'Account {username} added to blacklist.',
       blacklistRemoved: 'Account {username} removed from blacklist.',
       accountDeleted: 'Account {username} has been deleted.',
+      accountUpdated: 'Account details updated successfully.',
       reviewApproved: 'Listing “{title}” approved.',
       reviewRejected: 'Rejected listing “{title}”, status: {status}, reason: {reason}.',
       login: 'Signed in successfully.',
@@ -871,6 +950,8 @@ const translations = {
       walletTopUp: 'Wallet top-up failed.',
       returnLoginRequired: 'Please sign in before requesting a refund.',
       returnFailed: 'Failed to submit refund request.',
+      accountLoginRequired: 'Please sign in before opening the account center.',
+      accountUpdateFailed: 'Failed to update account details.',
       updateBlacklist: 'Failed to update blacklist status.',
       deleteAccount: 'Failed to delete account.',
       reviewRequireReason: 'A reason is required to reject a listing.',
@@ -982,11 +1063,24 @@ const translations = {
         amountLabel: 'Amount (CNY)',
         amountPlaceholder: 'e.g. 5000',
         referenceLabel: 'Reference (optional)',
-        referencePlaceholder: 'e.g. Online top-up'
+        referencePlaceholder: 'e.g. Online top-up',
+        qrTitle: 'Scan to pay',
+        qrHint: 'Use any banking or payment app to scan the QR code and complete the top-up.',
+        qrNotice: 'After paying, choose the result below.',
+        summaryAmount: 'Amount: ¥{amount}',
+        summaryReference: 'Reference: {reference}',
+        confirmPaid: 'Payment completed',
+        reportFailure: 'Payment failed',
+        errors: {
+          invalidAmount: 'Enter a valid top-up amount.',
+          qrFailed: 'Failed to generate QR code. Please try again.'
+        }
       },
       actions: {
         processing: 'Processing…',
-        submitTopUp: 'Top up now'
+        submitTopUp: 'Top up now',
+        generateQr: 'Generate payment QR',
+        generatingQr: 'Generating QR…'
       },
       transactions: {
         title: 'Recent activity',
@@ -999,6 +1093,43 @@ const translations = {
           receive: 'Incoming',
           refund: 'Refund'
         }
+      }
+    },
+    accountCenter: {
+      title: 'Account center',
+      subtitle: 'Review your account details and update usernames or passwords.',
+      summaryTitle: 'Account overview',
+      summary: {
+        username: 'Current username',
+        displayName: 'Display name',
+        role: 'Account role',
+        verification: 'Verification status',
+        verified: 'Verified',
+        pending: 'Not verified',
+        realName: 'Legal name',
+        phone: 'Phone number'
+      },
+      credentialTitle: 'Update account details',
+      credentialHint: 'Username changes are synced to your listings and wallet automatically.',
+      fields: {
+        username: 'New username',
+        displayName: 'New display name',
+        newPassword: 'New password',
+        confirmPassword: 'Confirm new password'
+      },
+      placeholders: {
+        password: 'Enter a new password (min. 6 characters)',
+        confirmPassword: 'Re-enter the new password'
+      },
+      actions: {
+        save: 'Save changes',
+        saving: 'Saving…',
+        cancel: 'Cancel'
+      },
+      errors: {
+        noChanges: 'Please update the username, display name, or password before submitting.',
+        passwordMismatch: 'The passwords do not match.',
+        passwordLength: 'Passwords must contain at least 6 characters.'
       }
     },
     prediction: {
@@ -1081,7 +1212,12 @@ const translations = {
       accounts: {
         notFound: 'The specified user account could not be found',
         buyerMissing: 'Buyer account not found',
-        sellerMissing: 'Seller account not found'
+        sellerMissing: 'Seller account not found',
+        usernameTaken: 'The username is already in use. Please choose another one.',
+        noChanges: 'No changes were detected.',
+        usernameLength: 'Usernames must contain between 3 and 50 characters.',
+        displayNameLength: 'Display names must contain between 2 and 100 characters.',
+        passwordLength: 'Passwords must contain between 6 and 100 characters.'
       },
       houses: {
         notFound: 'Listing not found',
@@ -1146,6 +1282,11 @@ const serverMessageKeyMap = Object.freeze({
   '您已预定该房源，请耐心等待卖家处理': 'serverMessages.orders.reservedSelf',
   '当前订单状态不支持退换': 'serverMessages.orders.statusUnsupported',
   '仅买家本人可以申请退换': 'serverMessages.orders.buyerOnlyReturn',
+  '用户名已存在，请更换其他用户名。': 'serverMessages.accounts.usernameTaken',
+  '没有需要更新的信息。': 'serverMessages.accounts.noChanges',
+  '用户名长度需在3到50个字符之间': 'serverMessages.accounts.usernameLength',
+  '昵称长度需在2到100个字符之间': 'serverMessages.accounts.displayNameLength',
+  '密码长度需在6到100个字符之间': 'serverMessages.accounts.passwordLength',
   '买家未完成实名认证，无法预定房源': 'errors.reserveVerifyFirst',
   '买家未完成实名认证，无法购买房源': 'errors.purchaseVerifyFirst',
   '房源尚未通过审核，暂不可预定。': 'errors.reserveNotApproved',
@@ -1208,6 +1349,24 @@ const t = (path, vars = {}) => {
 };
 
 provide('translate', t);
+
+const openAccountCenter = () => {
+  if (!currentUser.value) {
+    messages.error = t('errors.accountLoginRequired');
+    messages.success = '';
+    return;
+  }
+  accountUpdateError.value = '';
+  accountCenterVisible.value = true;
+};
+
+const closeAccountCenter = () => {
+  if (accountUpdateLoading.value) {
+    return;
+  }
+  accountCenterVisible.value = false;
+  accountUpdateError.value = '';
+};
 
 const persistSettings = () => {
   if (typeof window === 'undefined') {
@@ -1546,6 +1705,30 @@ const persistUser = (user) => {
 };
 
 const buildUrgentDismissedKey = (username) => `${urgentDismissedStoragePrefix}${username}`;
+
+const migrateUserCaches = (oldUsername, newUsername) => {
+  if (
+    typeof window === 'undefined' ||
+    !oldUsername ||
+    !newUsername ||
+    oldUsername === newUsername
+  ) {
+    return;
+  }
+  try {
+    const oldUrgentKey = buildUrgentDismissedKey(oldUsername);
+    const newUrgentKey = buildUrgentDismissedKey(newUsername);
+    if (oldUrgentKey !== newUrgentKey) {
+      const cached = window.localStorage.getItem(oldUrgentKey);
+      if (cached) {
+        window.localStorage.setItem(newUrgentKey, cached);
+        window.localStorage.removeItem(oldUrgentKey);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to migrate user-specific caches:', error);
+  }
+};
 
 const restoreDismissedUrgentTasks = (username) => {
   if (typeof window === 'undefined' || !username) {
@@ -2244,6 +2427,58 @@ const handleReserve = async (house) => {
   }
 };
 
+const handleAccountUpdate = async (updates) => {
+  if (!currentUser.value) {
+    accountUpdateError.value = t('errors.accountLoginRequired');
+    return;
+  }
+  if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) {
+    accountUpdateError.value = t('accountCenter.errors.noChanges');
+    return;
+  }
+  accountUpdateLoading.value = true;
+  accountUpdateError.value = '';
+  messages.error = '';
+  const originalUsername = currentUser.value.username;
+  try {
+    const { data } = await client.patch(`/auth/profile/${originalUsername}`, updates);
+    const updatedUser = {
+      ...currentUser.value,
+      role: data.role ?? currentUser.value.role,
+      username: data.username ?? currentUser.value.username,
+      displayName: data.displayName ?? currentUser.value.displayName,
+      blacklisted: data.blacklisted ?? currentUser.value.blacklisted,
+      reputationScore: data.reputationScore ?? currentUser.value.reputationScore,
+      realNameVerified: data.realNameVerified ?? currentUser.value.realNameVerified,
+      realName: data.realName ?? currentUser.value.realName,
+      maskedPhoneNumber: data.maskedPhoneNumber ?? currentUser.value.maskedPhoneNumber
+    };
+    currentUser.value = updatedUser;
+    persistUser(updatedUser);
+    if (originalUsername !== updatedUser.username) {
+      migrateUserCaches(originalUsername, updatedUser.username);
+    }
+    dismissedUrgentTaskKeys.value = restoreDismissedUrgentTasks(updatedUser.username);
+    messages.success = data.message ?? t('success.accountUpdated');
+    accountCenterVisible.value = false;
+    await Promise.all([fetchWallet(), fetchOrders()]);
+    await refreshCurrentUser({ silent: true });
+    fetchHouses({ silent: true });
+    if (isAdmin.value) {
+      loadAdminData();
+      loadAdminOrders({ silent: true });
+    }
+    if (currentUser.value && (isBuyer.value || isSellerRole(currentUser.value.role))) {
+      resetConversationState();
+      loadConversations({ silent: true });
+    }
+  } catch (error) {
+    accountUpdateError.value = resolveError(error, 'errors.accountUpdateFailed');
+  } finally {
+    accountUpdateLoading.value = false;
+  }
+};
+
 const handleTopUp = async ({ amount, reference }) => {
   if (!currentUser.value) {
     messages.error = t('errors.walletLoginRequired');
@@ -2515,6 +2750,10 @@ const handleLogout = () => {
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
+  accountCenterVisible.value = false;
+  accountUpdateError.value = '';
+  accountUpdateLoading.value = false;
+  dismissedUrgentTaskKeys.value = [];
   messages.error = '';
   messages.success = '';
   activeTab.value = 'home';
@@ -2730,7 +2969,8 @@ onMounted(() => {
 }
 
 .logout,
-.messages-trigger {
+.messages-trigger,
+.profile-trigger {
   background: color-mix(in srgb, var(--color-text-on-emphasis) 22%, transparent);
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--radius-pill);
@@ -2743,7 +2983,8 @@ onMounted(() => {
 }
 
 .logout:hover,
-.messages-trigger:hover {
+.messages-trigger:hover,
+.profile-trigger:hover {
   background: color-mix(in srgb, var(--color-text-on-emphasis) 32%, transparent);
   transform: translateY(-1px);
   box-shadow: 0 14px 26px rgba(15, 23, 42, 0.18);

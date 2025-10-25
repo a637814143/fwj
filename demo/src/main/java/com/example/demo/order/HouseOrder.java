@@ -53,6 +53,28 @@ public class HouseOrder {
     @Column(name = "progress_stage", nullable = false, length = 30)
     private OrderProgressStage progressStage = OrderProgressStage.DEPOSIT_PAID;
 
+    @Column(name = "admin_hold_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal adminHoldAmount = BigDecimal.ZERO;
+
+    @Column(name = "platform_fee", nullable = false, precision = 18, scale = 2)
+    private BigDecimal platformFee = BigDecimal.ZERO;
+
+    @Column(name = "released_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal releasedAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "funds_released_to", length = 20)
+    private PayoutRecipient fundsReleasedTo;
+
+    @Column(name = "admin_reviewed", nullable = false)
+    private boolean adminReviewed = false;
+
+    @Column(name = "admin_reviewed_by", length = 50)
+    private String adminReviewedBy;
+
+    @Column(name = "admin_reviewed_at")
+    private OffsetDateTime adminReviewedAt;
+
     @Column(name = "return_reason", length = 255)
     private String returnReason;
 
@@ -110,6 +132,62 @@ public class HouseOrder {
 
     public void setPaymentMethod(PaymentMethod paymentMethod) {
         this.paymentMethod = paymentMethod == null ? PaymentMethod.FULL : paymentMethod;
+    }
+
+    public BigDecimal getAdminHoldAmount() {
+        return adminHoldAmount;
+    }
+
+    public void setAdminHoldAmount(BigDecimal adminHoldAmount) {
+        this.adminHoldAmount = adminHoldAmount == null ? BigDecimal.ZERO : adminHoldAmount;
+    }
+
+    public BigDecimal getPlatformFee() {
+        return platformFee;
+    }
+
+    public void setPlatformFee(BigDecimal platformFee) {
+        this.platformFee = platformFee == null ? BigDecimal.ZERO : platformFee;
+    }
+
+    public BigDecimal getReleasedAmount() {
+        return releasedAmount;
+    }
+
+    public void setReleasedAmount(BigDecimal releasedAmount) {
+        this.releasedAmount = releasedAmount == null ? BigDecimal.ZERO : releasedAmount;
+    }
+
+    public PayoutRecipient getFundsReleasedTo() {
+        return fundsReleasedTo;
+    }
+
+    public void setFundsReleasedTo(PayoutRecipient fundsReleasedTo) {
+        this.fundsReleasedTo = fundsReleasedTo;
+    }
+
+    public boolean isAdminReviewed() {
+        return adminReviewed;
+    }
+
+    public void setAdminReviewed(boolean adminReviewed) {
+        this.adminReviewed = adminReviewed;
+    }
+
+    public String getAdminReviewedBy() {
+        return adminReviewedBy;
+    }
+
+    public void setAdminReviewedBy(String adminReviewedBy) {
+        this.adminReviewedBy = adminReviewedBy;
+    }
+
+    public OffsetDateTime getAdminReviewedAt() {
+        return adminReviewedAt;
+    }
+
+    public void setAdminReviewedAt(OffsetDateTime adminReviewedAt) {
+        this.adminReviewedAt = adminReviewedAt;
     }
 
     public OrderStatus getStatus() {
@@ -183,6 +261,23 @@ public class HouseOrder {
     public void markCancelled(String reason) {
         this.status = OrderStatus.CANCELLED;
         this.returnReason = reason;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void markAdminReviewCompleted(String reviewer,
+                                         BigDecimal releasedAmount,
+                                         BigDecimal platformFee,
+                                         PayoutRecipient recipient) {
+        this.adminReviewed = true;
+        this.adminReviewedBy = reviewer;
+        this.adminReviewedAt = OffsetDateTime.now();
+        setReleasedAmount(releasedAmount);
+        setPlatformFee(platformFee);
+        setFundsReleasedTo(recipient);
+        setAdminHoldAmount(BigDecimal.ZERO);
+        if (this.progressStage != OrderProgressStage.FUNDS_RELEASED) {
+            this.progressStage = OrderProgressStage.FUNDS_RELEASED;
+        }
         this.updatedAt = OffsetDateTime.now();
     }
 

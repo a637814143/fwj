@@ -16,5 +16,9 @@ public enum OrderProgressStage {
     /**
      * 房屋交接完成。
      */
-    HANDOVER_COMPLETED
+    HANDOVER_COMPLETED,
+    /**
+     * 管理员审核通过并完成款项发放。
+     */
+    FUNDS_RELEASED
 }

@@ -41,6 +41,9 @@ public class SecondHandHouse {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "down_payment", nullable = false, precision = 15, scale = 2)
+    private BigDecimal downPayment;
+
     @Column(name = "installment_monthly_payment", nullable = false, precision = 15, scale = 2)
     private BigDecimal installmentMonthlyPayment;
 
@@ -77,9 +80,6 @@ public class SecondHandHouse {
 
     @Column(name = "floor")
     private Integer floor;
-
-    @Column(name = "property_certificate_url", nullable = false, length = 500)
-    private String propertyCertificateUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -163,6 +163,14 @@ public class SecondHandHouse {
         this.installmentMonths = installmentMonths;
     }
 
+    public BigDecimal getDownPayment() {
+        return downPayment;
+    }
+
+    public void setDownPayment(BigDecimal downPayment) {
+        this.downPayment = downPayment;
+    }
+
     public BigDecimal getArea() {
         return area;
     }
@@ -242,18 +250,6 @@ public class SecondHandHouse {
 
     public void setFloor(Integer floor) {
         this.floor = floor;
-    }
-
-    public String getPropertyCertificateUrl() {
-        return propertyCertificateUrl;
-    }
-
-    public void setPropertyCertificateUrl(String propertyCertificateUrl) {
-        if (propertyCertificateUrl == null) {
-            this.propertyCertificateUrl = null;
-        } else {
-            this.propertyCertificateUrl = propertyCertificateUrl.trim();
-        }
     }
 
     public ListingStatus getStatus() {

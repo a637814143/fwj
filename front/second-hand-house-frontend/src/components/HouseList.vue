@@ -26,7 +26,6 @@
             <th>卖家</th>
             <th>联系方式</th>
             <th>关键词</th>
-            <th v-if="canViewCertificate">产权证明</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -61,17 +60,6 @@
             <td>
               <span v-if="formatKeywords(house.keywords)">{{ formatKeywords(house.keywords) }}</span>
               <span v-else class="muted">未设置</span>
-            </td>
-            <td v-if="canViewCertificate" class="certificate-cell">
-              <a
-                v-if="house.propertyCertificateUrl"
-                :href="house.propertyCertificateUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                查看
-              </a>
-              <span v-else class="muted">未上传</span>
             </td>
             <td class="actions">
               <template v-if="canManage">
@@ -122,13 +110,12 @@
       </table>
     </div>
 
-    <HouseDetailModal
-      v-if="detailHouse"
-      :house="detailHouse"
-      :can-view-sensitive-info="detailCanViewSensitive"
-      :can-view-certificate="detailCanViewCertificate"
-      @close="closeDetail"
-    />
+      <HouseDetailModal
+        v-if="detailHouse"
+        :house="detailHouse"
+        :can-view-sensitive-info="detailCanViewSensitive"
+        @close="closeDetail"
+      />
   </div>
 </template>
 
@@ -173,11 +160,8 @@ const sellerRoles = ['SELLER', 'LANDLORD'];
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const isAdmin = computed(() => props.currentUser?.role === 'ADMIN');
 const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
-const canViewCertificate = computed(() => isAdmin.value || isSeller.value);
-
 const detailHouse = ref(null);
 const detailCanViewSensitive = ref(false);
-const detailCanViewCertificate = ref(false);
 
 const listingStatusLabels = {
   PENDING_REVIEW: '待审核',
@@ -399,13 +383,11 @@ const openDetail = (house) => {
     imageUrls: Array.isArray(house.imageUrls) ? [...house.imageUrls] : []
   };
   detailCanViewSensitive.value = !shouldMask(house);
-  detailCanViewCertificate.value = canViewCertificate.value;
 };
 
 const closeDetail = () => {
   detailHouse.value = null;
   detailCanViewSensitive.value = false;
-  detailCanViewCertificate.value = false;
 };
 </script>
 
@@ -551,15 +533,6 @@ tbody tr:hover {
 .muted {
   color: var(--color-text-soft);
   font-size: 0.9rem;
-}
-
-.certificate-cell a {
-  color: #1d4ed8;
-  text-decoration: none;
-}
-
-.certificate-cell a:hover {
-  text-decoration: underline;
 }
 
 .actions {

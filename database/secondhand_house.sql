@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS second_hand_houses (
     contact_number VARCHAR(50) NOT NULL,
     listing_date DATE NOT NULL,
     floor INT,
-    status ENUM('PENDING_REVIEW', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING_REVIEW',
+    status ENUM('PENDING_REVIEW', 'APPROVED', 'REJECTED', 'SOLD') NOT NULL DEFAULT 'PENDING_REVIEW',
     reviewed_by VARCHAR(50),
     review_message VARCHAR(255),
     reviewed_at DATETIME(6),

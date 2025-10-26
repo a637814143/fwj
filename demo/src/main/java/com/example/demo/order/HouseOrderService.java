@@ -245,6 +245,8 @@ public class HouseOrderService {
         order.setAdminReviewedAt(null);
         order = orderRepository.save(order);
 
+        markHouseAsSold(house, "系统自动下架：房源已售出");
+
         seller.increaseReputation(3);
         buyer.increaseReputation(2);
         userAccountRepository.save(seller);
@@ -278,6 +280,7 @@ public class HouseOrderService {
         walletService.releaseEscrow(order, reference, reason, adminAccount, order.getBuyer(), releaseAmount, platformFee, WalletTransactionType.REFUND);
         order.markReturned(reason);
         order.markAdminReviewCompleted(adminAccount.getUsername(), releaseAmount, platformFee, PayoutRecipient.BUYER);
+        restoreHouseAvailability(order.getHouse(), "退换完成：房源已重新开放预定");
         order = orderRepository.save(order);
 
         UserAccount buyer = order.getBuyer();
@@ -350,10 +353,58 @@ public class HouseOrderService {
         walletService.releaseEscrow(order, reference, description, admin, payoutTarget, releaseAmount, platformFee, transactionType);
         if (recipient == PayoutRecipient.BUYER) {
             order.markReturned("管理员退回款项给买家");
+            restoreHouseAvailability(order.getHouse(), "订单审核退款：房源已重新上架");
+        } else {
+            markHouseAsSold(order.getHouse(), "管理员审核完成，房源保持下架");
         }
         order.markAdminReviewCompleted(admin.getUsername(), releaseAmount, platformFee, recipient);
         HouseOrder saved = orderRepository.save(order);
         return HouseOrderResponse.fromEntity(saved);
+    }
+
+    private void markHouseAsSold(SecondHandHouse house, String message) {
+        if (house == null) {
+            return;
+        }
+        if (house.getStatus() == ListingStatus.SOLD && (message == null || message.isBlank())) {
+            return;
+        }
+        house.setStatus(ListingStatus.SOLD);
+        if (message != null && !message.isBlank()) {
+            house.setReviewMessage(appendSystemNote(house.getReviewMessage(), message));
+        }
+        houseRepository.save(house);
+    }
+
+    private void restoreHouseAvailability(SecondHandHouse house, String message) {
+        if (house == null) {
+            return;
+        }
+        ListingStatus currentStatus = house.getStatus();
+        boolean hasMessage = message != null && !message.isBlank();
+        if (currentStatus == ListingStatus.APPROVED && !hasMessage) {
+            return;
+        }
+        if (currentStatus == ListingStatus.SOLD) {
+            house.setStatus(ListingStatus.APPROVED);
+        } else if (currentStatus != ListingStatus.APPROVED && !hasMessage) {
+            return;
+        }
+        if (hasMessage) {
+            house.setReviewMessage(appendSystemNote(house.getReviewMessage(), message));
+        }
+        houseRepository.save(house);
+    }
+
+    private String appendSystemNote(String existing, String note) {
+        String normalizedNote = note.trim();
+        if (existing == null || existing.isBlank()) {
+            return normalizedNote;
+        }
+        if (existing.contains(normalizedNote)) {
+            return existing;
+        }
+        return existing + " ｜" + normalizedNote;
     }
 
     private void ensureNotBlacklisted(UserAccount account, String message) {

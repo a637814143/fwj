@@ -123,7 +123,8 @@ const formattedFloor = computed(() => {
 const listingStatusLabels = {
   PENDING_REVIEW: '待审核',
   APPROVED: '已通过',
-  REJECTED: '已驳回'
+  REJECTED: '已驳回',
+  SOLD: '已售出（已下架）'
 };
 
 const statusLabel = computed(() => listingStatusLabels[props.house?.status] ?? '待审核');
@@ -133,6 +134,8 @@ const statusClass = computed(() => {
       return 'approved';
     case 'REJECTED':
       return 'rejected';
+    case 'SOLD':
+      return 'sold';
     default:
       return 'pending';
   }
@@ -416,6 +419,31 @@ function maskName(value) {
 .status-chip.rejected {
   background: rgba(239, 68, 68, 0.2);
   color: #991b1b;
+}
+
+.status-chip.sold {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--color-text-strong);
+}
+
+:global(body[data-theme='dark']) :deep(.status-chip.pending) {
+  background: rgba(253, 224, 71, 0.18);
+  color: #facc15;
+}
+
+:global(body[data-theme='dark']) :deep(.status-chip.approved) {
+  background: rgba(74, 222, 128, 0.18);
+  color: #bbf7d0;
+}
+
+:global(body[data-theme='dark']) :deep(.status-chip.rejected) {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+}
+
+:global(body[data-theme='dark']) :deep(.status-chip.sold) {
+  background: rgba(148, 163, 184, 0.26);
+  color: rgba(226, 232, 240, 0.92);
 }
 
 @media (max-width: 768px) {

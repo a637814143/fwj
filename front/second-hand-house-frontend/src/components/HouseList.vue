@@ -89,7 +89,9 @@
                 >
                   {{
                     house.status !== 'APPROVED'
-                      ? '待审核'
+                      ? house.status === 'SOLD'
+                        ? '已售出'
+                        : '待审核'
                       : ordersLoading
                       ? '处理中...'
                       : '立即购买'
@@ -100,7 +102,7 @@
                   :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
                   @click="handleContactSeller(house)"
                 >
-                  联系卖家
+                  {{ house.status === 'SOLD' ? '已售出' : '联系卖家' }}
                 </button>
               </template>
               <span v-else class="muted">仅支持浏览</span>
@@ -166,7 +168,8 @@ const detailCanViewSensitive = ref(false);
 const listingStatusLabels = {
   PENDING_REVIEW: '待审核',
   APPROVED: '已通过',
-  REJECTED: '已驳回'
+  REJECTED: '已驳回',
+  SOLD: '已售出（已下架）'
 };
 
 const formatNumber = (value) => {
@@ -372,6 +375,8 @@ const statusClass = (house) => {
       return 'approved';
     case 'REJECTED':
       return 'rejected';
+    case 'SOLD':
+      return 'sold';
     default:
       return 'pending';
   }
@@ -521,6 +526,32 @@ tbody tr:hover {
 .status.rejected {
   background: rgba(239, 68, 68, 0.2);
   color: #991b1b;
+}
+
+.status.sold {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--color-text-strong);
+  letter-spacing: 0.04em;
+}
+
+:global(body[data-theme='dark']) :deep(.house-list .status.pending) {
+  background: rgba(253, 224, 71, 0.16);
+  color: #facc15;
+}
+
+:global(body[data-theme='dark']) :deep(.house-list .status.approved) {
+  background: rgba(74, 222, 128, 0.16);
+  color: #bbf7d0;
+}
+
+:global(body[data-theme='dark']) :deep(.house-list .status.rejected) {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+:global(body[data-theme='dark']) :deep(.house-list .status.sold) {
+  background: rgba(148, 163, 184, 0.26);
+  color: rgba(226, 232, 240, 0.92);
 }
 
 .status-tip {

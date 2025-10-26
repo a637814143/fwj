@@ -235,6 +235,9 @@
             <p v-else-if="requiresVerification" class="verification-tip">
               {{ t('explorer.tips.requireVerification') }}
             </p>
+            <p v-else-if="house.status === 'SOLD'" class="verification-tip">
+              {{ t('explorer.tips.soldOut') }}
+            </p>
             <p v-else-if="!isApproved(house)" class="verification-tip">
               {{ t('explorer.tips.awaitingApproval') }}
             </p>
@@ -303,7 +306,8 @@ const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'))
 const statusLabels = computed(() => ({
   PENDING_REVIEW: t('statuses.pending'),
   APPROVED: t('statuses.approved'),
-  REJECTED: t('statuses.rejected')
+  REJECTED: t('statuses.rejected'),
+  SOLD: t('statuses.sold')
 }));
 
 const localFilters = reactive({
@@ -739,6 +743,8 @@ const statusClass = (house) => {
       return 'approved';
     case 'REJECTED':
       return 'rejected';
+    case 'SOLD':
+      return 'sold';
     default:
       return 'pending';
   }
@@ -1034,6 +1040,37 @@ const statusClass = (house) => {
 .status.rejected {
   background: rgba(239, 68, 68, 0.15);
   color: #b91c1c;
+}
+
+.status.sold {
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--color-text-strong);
+}
+
+:global(body[data-theme='dark']) :deep(.house-explorer .explorer-header) {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.92));
+  border-color: color-mix(in srgb, rgba(148, 163, 184, 0.4) 65%, transparent);
+  box-shadow: 0 26px 56px rgba(2, 6, 23, 0.55);
+}
+
+:global(body[data-theme='dark']) :deep(.house-explorer .status.pending) {
+  background: rgba(253, 224, 71, 0.16);
+  color: #facc15;
+}
+
+:global(body[data-theme='dark']) :deep(.house-explorer .status.approved) {
+  background: rgba(74, 222, 128, 0.16);
+  color: #bbf7d0;
+}
+
+:global(body[data-theme='dark']) :deep(.house-explorer .status.rejected) {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+:global(body[data-theme='dark']) :deep(.house-explorer .status.sold) {
+  background: rgba(148, 163, 184, 0.22);
+  color: rgba(226, 232, 240, 0.9);
 }
 
 .cover {

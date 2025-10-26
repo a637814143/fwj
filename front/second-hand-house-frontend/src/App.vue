@@ -60,110 +60,9 @@
       </section>
 
       <main class="main-content">
-        <HouseExplorer
-          v-if="activeTab === 'home'"
-          :houses="houses"
-          :loading="loading"
-          :current-user="currentUser"
-          :can-view-sensitive-info="canViewSensitiveInfo"
-          :filters="houseFilters"
-          :recommendations="recommendations"
-          :purchase-loading="ordersLoading"
-          :reservation-loading="reservationLoading"
-          :reservation-target="reservationTarget"
-          :api-base-url="apiBaseUrl"
-          @search="handleFilterSearch"
-          @reserve="handleReserve"
-          @purchase="handlePurchase"
-          @contact-seller="handleContactSeller"
-        />
-
-        <div v-else-if="activeTab === 'manage'" class="manage-grid">
-          <HouseForm
-            :initial-house="selectedHouse"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            @submit="handleSubmit"
-            @cancel="handleCancel"
-          />
-          <HouseList
-            :houses="houses"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            :can-view-sensitive-info="canViewSensitiveInfo"
-            :orders-loading="ordersLoading"
-            @edit="handleEdit"
-            @remove="handleRemove"
-            @review="handleReview"
-            @purchase="handlePurchase"
-            @contact-seller="handleContactSeller"
-          />
-        </div>
-
-        <AdminHouseReview
-          v-else-if="activeTab === 'review'"
-          :houses="pendingReviewHouses"
-          :loading="reviewLoading"
-          @refresh="fetchHouses({ silent: false })"
-          @review="handleReview"
-        />
-
-        <div v-else-if="activeTab === 'orders'" class="orders-grid">
-          <UrgentTasks
-            v-if="showUrgentTasks"
-            :tasks="urgentTasks"
-            :progress-labels="orderProgressLabels"
-            @mark-read="handleUrgentTaskRead"
-          />
-          <WalletPanel
-            :wallet="wallet"
-            :loading="walletLoading"
-            :current-user="currentUser"
-            @top-up="handleTopUp"
-          />
-          <OrderHistory
-            :orders="orders"
-            :loading="ordersLoading"
-            :current-user="currentUser"
-            :can-view-sensitive-info="canViewSensitiveInfo"
-            :progress-labels="orderProgressLabels"
-            :progress-order="orderProgressSequence"
-            @request-return="handleRequestReturn"
-            @schedule-viewing="handleScheduleViewing"
-            @advance-progress="handleAdvanceProgress"
-            @confirm-viewing="handleViewingConfirmation"
-          />
-        </div>
-
-        <RealNameVerification
-          v-else-if="activeTab === 'verify'"
-          :api-base-url="apiBaseUrl"
-          :current-user="currentUser"
-          @verified="handleVerificationUpdate"
-        />
-
-        <div v-else-if="activeTab === 'admin'" class="admin-panels">
-          <AdminOrderReview
-            :orders="adminPendingOrders"
-            :loading="adminOrdersLoading"
-            @refresh="loadAdminOrders"
-            @release="handleAdminOrderRelease"
-          />
-        </div>
-
-        <div v-else-if="activeTab === 'reputation'" class="reputation-panel">
-          <AdminReputationBoard
-            :loading="adminLoading"
-            :overview="adminReputation"
-            :users="adminUsers"
-            :current-user="currentUser"
-            @refresh="loadAdminData"
-            @toggle-blacklist="handleToggleBlacklist"
-            @delete-user="handleDeleteUser"
-          />
-        </div>
+        <RouterView v-slot="{ Component }">
+          <component :is="Component" v-bind="viewProps" v-on="viewListeners" />
+        </RouterView>
       </main>
     </template>
 
@@ -193,20 +92,11 @@
 
 <script setup>
 import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-import HouseForm from './components/HouseForm.vue';
-import HouseList from './components/HouseList.vue';
 import RoleLogin from './components/RoleLogin.vue';
-import WalletPanel from './components/WalletPanel.vue';
-import OrderHistory from './components/OrderHistory.vue';
-import HouseExplorer from './components/HouseExplorer.vue';
-import AdminHouseReview from './components/AdminHouseReview.vue';
-import AdminReputationBoard from './components/AdminReputationBoard.vue';
-import AdminOrderReview from './components/AdminOrderReview.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
-import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
-import UrgentTasks from './components/UrgentTasks.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -236,7 +126,9 @@ const conversationListLoading = ref(false);
 const conversationMessagesLoading = ref(false);
 const conversationSending = ref(false);
 const conversationError = ref('');
-const activeTab = ref('home');
+const route = useRoute();
+const router = useRouter();
+const activeTab = computed(() => route.name ?? 'home');
 const houseFilters = reactive({
   keyword: '',
   minPrice: '',
@@ -1503,11 +1395,133 @@ const navigationTabs = computed(() => {
   return tabs;
 });
 
+const viewProps = computed(() => {
+  switch (activeTab.value) {
+    case 'home':
+      return {
+        houses: houses.value,
+        loading: loading.value,
+        currentUser: currentUser.value,
+        canViewSensitiveInfo: canViewSensitiveInfo.value,
+        filters: houseFilters,
+        recommendations,
+        purchaseLoading: ordersLoading.value,
+        reservationLoading: reservationLoading.value,
+        reservationTarget: reservationTarget.value,
+        apiBaseUrl
+      };
+    case 'manage':
+      return {
+        initialHouse: selectedHouse.value,
+        loading: loading.value,
+        canManage: canManageHouses.value,
+        currentUser: currentUser.value,
+        houses: houses.value,
+        canViewSensitiveInfo: canViewSensitiveInfo.value,
+        ordersLoading: ordersLoading.value
+      };
+    case 'review':
+      return {
+        houses: pendingReviewHouses.value,
+        loading: reviewLoading.value
+      };
+    case 'orders':
+      return {
+        showUrgentTasks: showUrgentTasks.value,
+        tasks: urgentTasks.value,
+        progressLabels: orderProgressLabels.value,
+        progressOrder: orderProgressSequence,
+        wallet: wallet.value,
+        walletLoading: walletLoading.value,
+        currentUser: currentUser.value,
+        orders: orders.value,
+        ordersLoading: ordersLoading.value,
+        canViewSensitiveInfo: canViewSensitiveInfo.value
+      };
+    case 'verify':
+      return {
+        apiBaseUrl,
+        currentUser: currentUser.value
+      };
+    case 'admin':
+      return {
+        orders: adminPendingOrders.value,
+        loading: adminOrdersLoading.value
+      };
+    case 'reputation':
+      return {
+        loading: adminLoading.value,
+        overview: adminReputation.value,
+        users: adminUsers.value,
+        currentUser: currentUser.value
+      };
+    default:
+      return {};
+  }
+});
+
+const viewListeners = computed(() => {
+  switch (activeTab.value) {
+    case 'home':
+      return {
+        search: handleFilterSearch,
+        reserve: handleReserve,
+        purchase: handlePurchase,
+        'contact-seller': handleContactSeller
+      };
+    case 'manage':
+      return {
+        submit: handleSubmit,
+        cancel: handleCancel,
+        edit: handleEdit,
+        remove: handleRemove,
+        review: handleReview,
+        purchase: handlePurchase,
+        'contact-seller': handleContactSeller
+      };
+    case 'review':
+      return {
+        refresh: () => fetchHouses({ silent: false }),
+        review: handleReview
+      };
+    case 'orders':
+      return {
+        'mark-read': handleUrgentTaskRead,
+        'top-up': handleTopUp,
+        'request-return': handleRequestReturn,
+        'schedule-viewing': handleScheduleViewing,
+        'advance-progress': handleAdvanceProgress,
+        'confirm-viewing': handleViewingConfirmation
+      };
+    case 'verify':
+      return {
+        verified: handleVerificationUpdate
+      };
+    case 'admin':
+      return {
+        refresh: loadAdminOrders,
+        release: handleAdminOrderRelease
+      };
+    case 'reputation':
+      return {
+        refresh: loadAdminData,
+        'toggle-blacklist': handleToggleBlacklist,
+        'delete-user': handleDeleteUser
+      };
+    default:
+      return {};
+  }
+});
+
 watch(
   navigationTabs,
   (tabs) => {
-    if (!tabs.some((tab) => tab.value === activeTab.value)) {
-      activeTab.value = tabs[0]?.value ?? 'home';
+    const current = activeTab.value;
+    if (!tabs.some((tab) => tab.value === current)) {
+      const fallback = tabs[0]?.value ?? 'home';
+      if (fallback && fallback !== current) {
+        router.push({ name: fallback }).catch(() => {});
+      }
     }
   },
   { immediate: true }
@@ -1537,18 +1551,39 @@ watch(
   { immediate: true }
 );
 
-const switchTab = (tab) => {
-  activeTab.value = tab;
-  if (tab === 'admin') {
+const handleTabActivation = (tab) => {
+  if (!tab) {
+    return;
+  }
+  if (tab === 'admin' && isAdmin.value) {
     loadAdminOrders();
   }
-  if (tab === 'reputation') {
+  if (tab === 'reputation' && isAdmin.value) {
     loadAdminData();
   }
-  if (tab === 'review') {
+  if (tab === 'review' && isAdmin.value) {
     fetchHouses();
   }
 };
+
+const switchTab = (tab) => {
+  if (!tab) {
+    return;
+  }
+  if (tab === activeTab.value) {
+    handleTabActivation(tab);
+    return;
+  }
+  router.push({ name: tab }).catch(() => {});
+};
+
+watch(
+  () => activeTab.value,
+  (tab) => {
+    handleTabActivation(tab);
+  },
+  { immediate: true }
+);
 
 const persistUser = (user) => {
   try {
@@ -1832,7 +1867,7 @@ const handleVerificationUpdate = async (response) => {
   messages.success = response.message ?? t('success.verificationUpdated');
   messages.error = '';
   if (activeTab.value === 'verify' && updated.realNameVerified) {
-    activeTab.value = 'home';
+    router.push({ name: 'home' }).catch(() => {});
   }
   await Promise.all([
     fetchHouses({ silent: true }),
@@ -2500,7 +2535,7 @@ const handleLoginSuccess = (user) => {
   messages.success = `${loginMessage}${reputationText}`;
   messages.error = '';
   persistUser(user);
-  activeTab.value = 'home';
+  router.push({ name: 'home' }).catch(() => {});
   fetchHouses();
   fetchWallet();
   fetchOrders();
@@ -2530,7 +2565,7 @@ const handleLogout = () => {
   reservationLoading.value = false;
   messages.error = '';
   messages.success = '';
-  activeTab.value = 'home';
+  router.push({ name: 'home' }).catch(() => {});
   localStorage.removeItem(storageKey);
   resetConversationState();
   fetchHouses();

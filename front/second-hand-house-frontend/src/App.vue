@@ -151,6 +151,9 @@
             @refresh="loadAdminOrders"
             @release="handleAdminOrderRelease"
           />
+        </div>
+
+        <div v-else-if="activeTab === 'reputation'" class="reputation-panel">
           <AdminReputationBoard
             :loading="adminLoading"
             :overview="adminReputation"
@@ -306,7 +309,8 @@ const translations = {
       orders: '订单与钱包',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
-      admin: '管理员面板'
+      admin: '管理员面板',
+      reputation: '信誉面板'
     },
     footer: {
       apiBaseLabel: '后端接口地址：'
@@ -728,7 +732,8 @@ const translations = {
       orders: 'Orders & wallet',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
-      admin: 'Admin dashboard'
+      admin: 'Admin dashboard',
+      reputation: 'Reputation board'
     },
     footer: {
       apiBaseLabel: 'API endpoint:'
@@ -1493,6 +1498,7 @@ const navigationTabs = computed(() => {
       : t('nav.review');
     tabs.push({ value: 'review', label: pendingLabel });
     tabs.push({ value: 'admin', label: t('nav.admin') });
+    tabs.push({ value: 'reputation', label: t('nav.reputation') });
   }
   return tabs;
 });
@@ -1534,8 +1540,10 @@ watch(
 const switchTab = (tab) => {
   activeTab.value = tab;
   if (tab === 'admin') {
-    loadAdminData();
     loadAdminOrders();
+  }
+  if (tab === 'reputation') {
+    loadAdminData();
   }
   if (tab === 'review') {
     fetchHouses();
@@ -2832,6 +2840,12 @@ onMounted(() => {
   align-items: start;
 }
 
+.reputation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
 .footer {
   text-align: center;
   color: var(--color-text-muted);
@@ -2904,6 +2918,10 @@ onMounted(() => {
 
   .admin-panels {
     grid-template-columns: 1fr;
+  }
+
+  .reputation-panel {
+    gap: 1.4rem;
   }
 }
 

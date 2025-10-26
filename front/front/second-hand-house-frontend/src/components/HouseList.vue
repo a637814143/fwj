@@ -1,83 +1,127 @@
 <template>
-  <div class="house-list">
-    <div class="list-header">
-      <div>
-        <h2>房源列表</h2>
-        <p>共 {{ houses.length }} 套房源</p>
+  <section class="gallery-shell">
+    <header class="gallery-header">
+      <div class="headline">
+        <p class="eyebrow">甄选好房推荐</p>
+        <h2>房源清单</h2>
+        <p class="subtitle">覆盖城芯到静谧人居的优质房源，随时挑选理想居所。</p>
       </div>
-      <div v-if="totalPages > 1" class="page-indicator">第 {{ currentPage }} / {{ totalPages }} 页</div>
+      <ul class="stats" role="list">
+        <li class="stat-item">
+          <span class="label">在售</span>
+          <span class="value">{{ houses.length }}</span>
+        </li>
+        <li class="stat-item" v-if="totalPages > 1">
+          <span class="label">页码</span>
+          <span class="value">{{ currentPage }} / {{ totalPages }}</span>
+        </li>
+        <li class="stat-item" v-if="isBuyer">
+          <span class="label">实名状态</span>
+          <span class="value">{{ buyerVerified ? '已认证' : '未认证' }}</span>
+        </li>
+      </ul>
+    </header>
+
+    <div class="panel" v-if="loading">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>房源加载中，请稍候…</span>
     </div>
 
-    <div v-if="loading" class="loading">数据加载中...</div>
-    <div v-else-if="houses.length === 0" class="empty">
-      {{ canManage ? '暂未添加房源，请先通过表单添加。' : '暂未发布房源，稍后再来看看吧。' }}
+    <div class="panel empty" v-else-if="houses.length === 0">
+      <h3>暂时没有房源</h3>
+      <p>
+        {{
+          canManage
+            ? '还没有发布任何房源，快去添加吧。'
+            : '暂无房源上架，稍后再来看新的房子。'
+        }}
+      </p>
     </div>
 
-    <div v-else class="list-body">
-      <div class="card-grid">
-        <article v-for="house in displayedHouses" :key="house.id" class="house-card">
-          <header class="card-header">
-            <button class="title-button" type="button" @click="openDetail(house)">
-              <strong>{{ house.title }}</strong>
-            </button>
-            <span class="price">{{ formatPrice(house.price) }}</span>
+    <div v-else class="board">
+      <div class="card-wrap">
+        <article
+          v-for="house in displayedHouses"
+          :key="house.id"
+          class="house-card"
+        >
+          <header class="card-top">
+            <div class="title-block">
+              <button type="button" class="title" @click="openDetail(house)">
+                {{ house.title }}
+              </button>
+              <p class="subtitle" v-if="house.description">{{ house.description }}</p>
+            </div>
+            <div class="price-block">
+              <span class="price">{{ formatPrice(house.price) }}</span>
+              <span class="hint">总价</span>
+            </div>
           </header>
 
-          <p class="description" v-if="house.description">{{ house.description }}</p>
-          <p v-if="house.imageUrls?.length" class="image-count">
-            {{ house.imageUrls.length }} 张图片 · 点击标题查看
-          </p>
+          <section class="card-body">
+            <dl class="spec-grid">
+              <div class="spec">
+                <dt>地址</dt>
+                <dd>{{ house.address || '—' }}</dd>
+              </div>
+              <div class="spec">
+                <dt>面积</dt>
+                <dd>{{ formatArea(house.area) }}</dd>
+              </div>
+              <div class="spec">
+                <dt>楼层</dt>
+                <dd>{{ house.floor ?? '—' }}</dd>
+              </div>
+              <div class="spec">
+                <dt>挂牌</dt>
+                <dd>{{ formatDate(house.listingDate) }}</dd>
+              </div>
+              <div class="spec">
+                <dt>标签</dt>
+                <dd>
+                  <span v-if="formatKeywords(house.keywords) !== '—'" class="keyword">
+                    {{ formatKeywords(house.keywords) }}
+                  </span>
+                  <span v-else>—</span>
+                </dd>
+              </div>
+              <div class="spec" v-if="house.imageUrls?.length">
+                <dt>图片</dt>
+                <dd>{{ house.imageUrls.length }} 张</dd>
+              </div>
+            </dl>
 
-          <dl class="card-meta">
-            <div>
-              <dt>地址</dt>
-              <dd>{{ house.address }}</dd>
+            <div class="seller">
+              <p class="seller-title">挂牌经纪</p>
+              <div class="seller-grid">
+                <div>
+                  <span class="label">账号</span>
+                  <span class="value">{{ house.sellerUsername || '—' }}</span>
+                </div>
+                <div>
+                  <span class="label">姓名</span>
+                  <span class="value">{{ house.sellerName || '—' }}</span>
+                </div>
+                <div>
+                  <span class="label">联系方式</span>
+                  <span class="value">{{ maskPhone(house.contactNumber) }}</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <dt>面积</dt>
-              <dd>{{ formatArea(house.area) }}</dd>
-            </div>
-            <div>
-              <dt>楼层</dt>
-              <dd>{{ house.floor ?? '—' }}</dd>
-            </div>
-            <div>
-              <dt>挂牌日期</dt>
-              <dd>{{ formatDate(house.listingDate) }}</dd>
-            </div>
-            <div>
-              <dt>关键词</dt>
-              <dd>
-                <span v-if="formatKeywords(house.keywords) !== '—'" class="keyword">
-                  {{ formatKeywords(house.keywords) }}
-                </span>
-                <span v-else>—</span>
-              </dd>
-            </div>
-          </dl>
+          </section>
 
-          <div class="seller-info">
-            <div>
-              <span class="label">卖家账号</span>
-              <span class="value">{{ house.sellerUsername || '—' }}</span>
-            </div>
-            <div>
-              <span class="label">卖家姓名</span>
-              <span class="value">{{ house.sellerName }}</span>
-            </div>
-            <div>
-              <span class="label">联系方式</span>
-              <span class="value">{{ maskPhone(house.contactNumber) }}</span>
-            </div>
-          </div>
-
-          <footer class="card-footer">
-            <div v-if="canManage" class="actions">
-              <button class="btn" :disabled="!canManage" @click.stop="handleEdit(house)">编辑</button>
-              <button class="btn danger" :disabled="!canManage" @click.stop="handleRemove(house)">删除</button>
-            </div>
-            <div v-else-if="isBuyer" class="actions">
+          <footer class="card-actions">
+            <template v-if="canManage">
+              <button type="button" class="btn outline" @click.stop="handleEdit(house)">
+                编辑
+              </button>
+              <button type="button" class="btn danger" @click.stop="handleRemove(house)">
+                删除
+              </button>
+            </template>
+            <template v-else-if="isBuyer">
               <button
+                type="button"
                 class="btn primary"
                 :disabled="purchaseDisabled || !buyerVerified"
                 @click.stop="handlePurchase(house)"
@@ -87,30 +131,39 @@
                     ? '需实名认证'
                     : purchaseDisabled
                     ? '处理中...'
-                    : '立即购买'
+                    : '预约购买'
                 }}
               </button>
-            </div>
-            <div v-else class="actions muted">仅支持浏览</div>
+            </template>
+            <span v-else class="readonly">仅供浏览</span>
           </footer>
         </article>
       </div>
 
-      <nav v-if="totalPages > 1" class="pagination">
-        <button class="pager" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">上一页</button>
-        <div class="pager-dots">
-          <button
-            v-for="page in totalPages"
-            :key="page"
-            class="dot"
-            :class="{ active: page === currentPage }"
-            @click="goToPage(page)"
-          >
-            {{ page }}
-          </button>
-        </div>
+      <nav v-if="totalPages > 1" class="pagination" aria-label="分页导航">
         <button
-          class="pager"
+          type="button"
+          class="page-btn"
+          :disabled="currentPage === 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          上一页
+        </button>
+        <ul class="page-list" role="list">
+          <li v-for="page in totalPages" :key="page">
+            <button
+              type="button"
+              class="page-dot"
+              :class="{ active: page === currentPage }"
+              @click="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </li>
+        </ul>
+        <button
+          type="button"
+          class="page-btn"
           :disabled="currentPage === totalPages"
           @click="goToPage(currentPage + 1)"
         >
@@ -120,7 +173,7 @@
     </div>
 
     <HouseDetailModal v-if="detailHouse" :house="detailHouse" @close="closeDetail" />
-  </div>
+  </section>
 </template>
 
 <script setup>
@@ -182,7 +235,7 @@ const detailHouse = ref(null);
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
-    return '-';
+    return '—';
   }
   return Number(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
@@ -192,19 +245,23 @@ const formatNumber = (value) => {
 
 const formatPrice = (value) => {
   const formatted = formatNumber(value);
-  return formatted === '-' ? '—' : `￥${formatted}`;
+  return formatted === '—' ? '—' : `￥${formatted}`;
 };
 
 const formatArea = (value) => {
   const formatted = formatNumber(value);
-  return formatted === '-' ? '—' : `${formatted} ㎡`;
+  return formatted === '—' ? '—' : `${formatted} ㎡`;
 };
 
 const formatDate = (value) => {
   if (!value) {
-    return '-';
+    return '—';
   }
-  return new Date(value).toLocaleDateString('zh-CN');
+  try {
+    return new Date(value).toLocaleDateString('zh-CN');
+  } catch (error) {
+    return '—';
+  }
 };
 
 const formatKeywords = (keywords) => {
@@ -216,7 +273,7 @@ const formatKeywords = (keywords) => {
 
 const maskPhone = (value) => {
   if (!value) {
-    return '-';
+    return '—';
   }
   const phone = String(value).trim();
   if (phone.length <= 4) {
@@ -273,417 +330,454 @@ defineExpose({
 </script>
 
 <style scoped>
-.house-list {
+:global(body) {
+  font-family: 'Source Han Serif SC', 'Noto Serif SC', 'Songti SC', serif;
+}
+
+.gallery-shell {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  padding: 1.5rem;
-  border-radius: 1.75rem;
-  background: radial-gradient(circle at top, rgba(255, 247, 237, 0.8), rgba(255, 239, 221, 0.95));
-  box-shadow: 0 18px 48px rgba(88, 44, 25, 0.18);
+  gap: 2rem;
+  padding: 2.5rem;
+  border-radius: 2rem;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.9), rgba(241, 232, 220, 0.85)),
+    linear-gradient(135deg, rgba(207, 179, 139, 0.75), rgba(171, 130, 83, 0.85));
+  box-shadow: 0 24px 60px rgba(84, 52, 32, 0.25);
   overflow: hidden;
-  font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
 }
 
-.house-list::before {
+.gallery-shell::before,
+.gallery-shell::after {
   content: '';
   position: absolute;
-  inset: -25% -15% auto;
-  height: 70%;
-  background: radial-gradient(circle at top, rgba(187, 28, 36, 0.25), transparent 70%);
-  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
 }
 
-.house-list::after {
-  content: '';
-  position: absolute;
-  inset: auto -20% -35% -20%;
-  height: 60%;
-  background: radial-gradient(circle at bottom, rgba(201, 128, 35, 0.22), transparent 65%);
-  z-index: 0;
+.gallery-shell::before {
+  background-image: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.35) 0%, transparent 60%),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.22) 0%, transparent 62%);
 }
 
-.list-header {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 0.75rem 0 1rem;
-  border-bottom: 1px solid rgba(178, 42, 29, 0.18);
+.gallery-shell::after {
+  background-image: radial-gradient(circle at 15% 85%, rgba(171, 130, 83, 0.35) 0%, transparent 65%),
+    radial-gradient(circle at 90% 75%, rgba(218, 182, 117, 0.28) 0%, transparent 55%);
 }
 
-.list-header h2 {
-  margin: 0;
-  font-size: 1.75rem;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  color: #a32020;
-}
-
-.list-header p {
-  margin: 0.35rem 0 0;
-  color: #7c3d1a;
-  font-size: 0.95rem;
-}
-
-.page-indicator {
-  font-size: 0.95rem;
-  color: #f9f5f1;
-  background: linear-gradient(135deg, #b9272d, #d24a1a);
-  padding: 0.35rem 0.85rem;
-  border-radius: 999px;
-  letter-spacing: 0.12em;
-  box-shadow: 0 10px 16px rgba(168, 37, 28, 0.22);
-}
-
-.loading,
-.empty {
-  position: relative;
-  z-index: 1;
-  padding: 2.75rem;
-  text-align: center;
-  color: #8c4a25;
-  background: linear-gradient(135deg, rgba(255, 245, 233, 0.92), rgba(249, 233, 214, 0.88));
-  border-radius: 1.5rem;
-  font-size: 1.05rem;
-  letter-spacing: 0.05em;
-  border: 1px solid rgba(201, 128, 35, 0.25);
-}
-
-.list-body {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-}
-
-.card-grid {
+.gallery-header {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.headline {
+  max-width: 32rem;
+}
+
+.headline h2 {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 2.2rem;
+  letter-spacing: 0.12em;
+  color: #3c2716;
+}
+
+.headline .eyebrow {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(60, 39, 22, 0.65);
+}
+
+.headline .subtitle {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgba(60, 39, 22, 0.72);
+}
+
+.stats {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  align-items: flex-start;
+}
+
+.stat-item {
+  min-width: 6.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(156, 111, 66, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
+.stat-item .label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.24em;
+  color: rgba(86, 56, 34, 0.7);
+}
+
+.stat-item .value {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #51351e;
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 10rem;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px dashed rgba(140, 100, 63, 0.35);
+  color: rgba(80, 53, 31, 0.8);
+  text-align: center;
+}
+
+.panel.empty h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #422b17;
+}
+
+.panel.empty p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 3px solid rgba(140, 100, 63, 0.25);
+  border-top-color: rgba(140, 100, 63, 0.6);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.board {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.card-wrap {
+  display: grid;
+  gap: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
 }
 
 .house-card {
-  position: relative;
-  flex: 1 1 calc(50% - 1.5rem);
-  min-width: 300px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 246, 234, 0.95));
-  border-radius: 1.5rem;
-  padding: 1.75rem;
-  box-shadow: 0 24px 58px rgba(92, 45, 23, 0.16);
-  border: 1px solid rgba(194, 121, 45, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  transition: transform 0.35s ease, box-shadow 0.35s ease;
-  overflow: hidden;
+  min-height: 20rem;
+  padding: 1.75rem;
+  border-radius: 1.75rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(246, 235, 220, 0.88));
+  border: 1px solid rgba(179, 137, 92, 0.25);
+  box-shadow: 0 18px 40px rgba(96, 65, 43, 0.18);
+  backdrop-filter: blur(6px);
 }
 
-.house-card::before {
-  content: '';
-  position: absolute;
-  inset: -30% 40% auto -40%;
-  height: 70%;
-  background: radial-gradient(circle at left, rgba(212, 74, 26, 0.18), transparent 70%);
-  z-index: 0;
-}
-
-.house-card::after {
-  content: '';
-  position: absolute;
-  inset: auto -30% -45% 35%;
-  height: 70%;
-  background: radial-gradient(circle at bottom, rgba(180, 40, 36, 0.16), transparent 70%);
-  z-index: 0;
-}
-
-.house-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 32px 65px rgba(122, 52, 21, 0.24);
-}
-
-.card-header {
-  position: relative;
-  z-index: 1;
+.card-top {
   display: flex;
   justify-content: space-between;
+  gap: 1.25rem;
   align-items: flex-start;
-  gap: 0.75rem;
 }
 
-.title-button {
-  display: inline-flex;
-  gap: 0.4rem;
-  align-items: center;
+.title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.title {
+  padding: 0;
   background: none;
   border: none;
-  padding: 0;
   margin: 0;
-  font: inherit;
-  color: #7c2a1b;
-  cursor: pointer;
   text-align: left;
-}
-
-.title-button strong {
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   font-weight: 600;
+  color: #3f2919;
+  cursor: pointer;
+  transition: color 0.2s ease;
 }
 
-.title-button:hover,
-.title-button:focus {
-  color: #b8321b;
+.title:hover,
+.title:focus-visible {
+  color: #8c3b1e;
+  outline: none;
+}
+
+.card-top .subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(70, 45, 27, 0.75);
+}
+
+.price-block {
+  text-align: right;
+  min-width: 6.5rem;
 }
 
 .price {
+  display: block;
+  font-size: 1.4rem;
   font-weight: 600;
-  font-size: 1.15rem;
-  color: #b9272d;
-  background: linear-gradient(125deg, #b9272d, #e87524);
-  -webkit-background-clip: text;
-  color: transparent;
+  color: #8c3b1e;
 }
 
-.description {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  color: #5d331d;
-  font-size: 0.97rem;
-  line-height: 1.7;
+.price-block .hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  color: rgba(140, 59, 30, 0.65);
 }
 
-.image-count {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  color: #a53c1a;
-  font-size: 0.82rem;
-  background: rgba(212, 96, 32, 0.15);
-  display: inline-flex;
-  padding: 0.3rem 0.85rem;
-  border-radius: 999px;
-  align-self: flex-start;
-}
-
-.card-meta {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem;
-  margin: 0;
-}
-
-.card-meta div {
+.card-body {
+  margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 1.5rem;
 }
 
-.card-meta dt {
-  font-size: 0.78rem;
-  color: #c0612d;
-  letter-spacing: 0.12em;
+.spec-grid {
+  display: grid;
+  gap: 1rem 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
 
-.card-meta dd {
+.spec dt {
+  margin-bottom: 0.3rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  color: rgba(74, 47, 29, 0.6);
+}
+
+.spec dd {
   margin: 0;
-  color: #4b2717;
-  font-weight: 600;
+  font-size: 0.95rem;
+  color: #3f2919;
 }
 
 .keyword {
-  display: inline-block;
-  background: rgba(185, 39, 45, 0.12);
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  padding: 0.3rem 0.85rem;
-  font-size: 0.78rem;
-  color: #a32020;
+  background: rgba(200, 147, 90, 0.18);
+  color: #8c3b1e;
+  font-size: 0.85rem;
 }
 
-.seller-info {
-  position: relative;
-  z-index: 1;
+.seller {
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(200, 161, 120, 0.3);
+}
+
+.seller-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.24em;
+  color: rgba(64, 43, 26, 0.7);
+}
+
+.seller-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 0.85rem;
-  padding: 0.85rem 1.15rem;
-  background: rgba(255, 248, 238, 0.88);
-  border-radius: 1.1rem;
-  border: 1px solid rgba(210, 131, 47, 0.3);
+  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
 
-.seller-info .label {
+.seller-grid .label {
   display: block;
-  font-size: 0.78rem;
-  color: #bd6b2e;
-  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: rgba(74, 47, 29, 0.55);
 }
 
-.seller-info .value {
+.seller-grid .value {
   display: block;
-  font-size: 0.98rem;
-  font-weight: 600;
-  color: #4b2717;
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+  color: #3f2919;
+  word-break: break-all;
 }
 
-.card-footer {
-  position: relative;
-  z-index: 1;
+.card-actions {
+  margin-top: auto;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   align-items: center;
-}
-
-.actions {
-  display: flex;
-  gap: 0.85rem;
-  align-items: center;
-}
-
-.actions.muted {
-  color: #b6713c;
-  font-size: 0.92rem;
 }
 
 .btn {
-  padding: 0.5rem 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1.4rem;
   border-radius: 999px;
-  border: none;
-  background: rgba(166, 52, 25, 0.12);
-  color: #7c2a1b;
+  font-size: 0.95rem;
   cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  border: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  font-weight: 500;
 }
 
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  background: rgba(166, 52, 25, 0.24);
-  box-shadow: 0 12px 18px rgba(122, 52, 21, 0.22);
+.btn.primary {
+  color: #fff;
+  background: linear-gradient(135deg, #b6743d, #8c3b1e);
+  box-shadow: 0 10px 24px rgba(140, 59, 30, 0.2);
 }
 
-.btn:disabled {
-  background: rgba(189, 176, 160, 0.45);
-  color: rgba(124, 42, 27, 0.45);
+.btn.primary:disabled {
+  background: linear-gradient(135deg, rgba(182, 116, 61, 0.5), rgba(140, 59, 30, 0.4));
   cursor: not-allowed;
   box-shadow: none;
 }
 
-.btn.primary {
-  background: linear-gradient(135deg, #b9272d, #e06a24);
-  color: #fff7e6;
-  box-shadow: 0 16px 28px rgba(185, 39, 45, 0.25);
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #a32020, #cf5c21);
+.btn.outline {
+  color: #8c3b1e;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(140, 59, 30, 0.4);
 }
 
 .btn.danger {
-  background: linear-gradient(135deg, #8f1d22, #b9272d);
-  color: #fff4e6;
-  box-shadow: 0 16px 28px rgba(143, 29, 34, 0.24);
+  color: #fff;
+  background: linear-gradient(135deg, #c75c3a, #a7321c);
+  box-shadow: 0 10px 24px rgba(167, 50, 28, 0.24);
 }
 
-.btn.danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7d181d, #a32020);
+.btn:hover:not(:disabled),
+.btn:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(60, 39, 22, 0.18);
+  outline: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(60, 39, 22, 0.12);
+}
+
+.readonly {
+  font-size: 0.85rem;
+  color: rgba(64, 43, 26, 0.6);
 }
 
 .pagination {
-  position: relative;
-  z-index: 1;
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 1.25rem;
-  padding: 0.75rem 0;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.pager {
-  padding: 0.55rem 1.6rem;
+.page-btn {
+  padding: 0.5rem 1.25rem;
   border-radius: 999px;
   border: none;
-  background: rgba(185, 39, 45, 0.1);
-  color: #7c2a1b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(140, 59, 30, 0.35);
+  color: #8c3b1e;
+  font-size: 0.95rem;
   cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  transition: background 0.3s ease, transform 0.3s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.pager:hover:not(:disabled) {
-  background: rgba(185, 39, 45, 0.18);
-  transform: translateY(-2px);
-}
-
-.pager:disabled {
-  background: rgba(189, 176, 160, 0.35);
-  color: rgba(124, 42, 27, 0.5);
+.page-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.pager-dots {
+.page-btn:not(:disabled):hover,
+.page-btn:not(:disabled):focus-visible {
+  background: rgba(140, 59, 30, 0.12);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.page-list {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.dot {
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 50%;
+.page-dot {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
   border: none;
-  background: rgba(185, 39, 45, 0.1);
-  color: #7c2a1b;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid transparent;
+  color: #6b4025;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
-.dot:hover {
-  background: rgba(185, 39, 45, 0.2);
+.page-dot:hover,
+.page-dot:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(140, 59, 30, 0.35);
+  outline: none;
 }
 
-.dot.active {
-  background: linear-gradient(135deg, #b9272d, #e06a24);
-  color: #fff9f2;
-  box-shadow: 0 14px 26px rgba(185, 39, 45, 0.28);
+.page-dot.active {
+  background: linear-gradient(135deg, #b6743d, #8c3b1e);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(140, 59, 30, 0.3);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 768px) {
+  .gallery-shell {
+    padding: 1.5rem;
+  }
+
+  .headline h2 {
+    font-size: 1.8rem;
+  }
+
+  .card-wrap {
+    grid-template-columns: 1fr;
+  }
+
   .house-card {
-    flex: 1 1 100%;
-  }
-
-  .card-meta {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .house-list {
-    padding: 1.25rem;
-  }
-
-  .list-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .pagination {
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .pager-dots {
-    flex-wrap: wrap;
-    justify-content: center;
+    padding: 1.5rem;
   }
 }
 </style>

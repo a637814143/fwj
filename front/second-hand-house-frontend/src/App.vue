@@ -253,7 +253,7 @@ const settingsStorageKey = 'shh-interface-settings';
 const defaultSettings = Object.freeze({
   fontSize: 'medium',
   language: 'zh',
-  theme: 'light'
+  theme: 'dark'
 });
 
 const loadStoredSettings = () => {
@@ -322,7 +322,8 @@ const translations = {
     statuses: {
       pending: '待审核',
       approved: '已通过',
-      rejected: '已驳回'
+      rejected: '已驳回',
+      sold: '已售出（已下架）'
     },
     settings: {
       trigger: '界面设置',
@@ -536,6 +537,7 @@ const translations = {
       tips: {
         requireVerification: '完成实名认证后才能查看完整信息并进行交易。',
         awaitingApproval: '该房源尚待管理员审核，通过后方可预定或购买。',
+        soldOut: '该房源已售出，系统已自动下架。',
         loginAsBuyer: '登录买家账号后可进行预定或购买。',
         reservedByYou: '您已预定该房源，请留意卖家安排。',
         reservedByOthers: '该房源已被其他买家预定，暂不可再次预定。',
@@ -742,7 +744,8 @@ const translations = {
     statuses: {
       pending: 'Pending review',
       approved: 'Approved',
-      rejected: 'Rejected'
+      rejected: 'Rejected',
+      sold: 'Sold (unlisted)'
     },
     settings: {
       trigger: 'Interface settings',
@@ -956,6 +959,7 @@ const translations = {
       tips: {
         requireVerification: 'Complete real-name verification to view full details and trade.',
         awaitingApproval: 'This listing is awaiting administrator approval before reservations and purchases are available.',
+        soldOut: 'This listing has been sold and automatically removed from the storefront.',
         loginAsBuyer: 'Sign in with a buyer account to reserve or purchase listings.',
         reservedByYou: 'You have already reserved this listing. Please watch for the seller’s updates.',
         reservedByOthers: 'Another buyer has reserved this listing. Reservations are temporarily unavailable.',
@@ -1333,7 +1337,8 @@ const roleLabels = computed(() => ({
 const listingStatusLabels = computed(() => ({
   PENDING_REVIEW: t('statuses.pending'),
   APPROVED: t('statuses.approved'),
-  REJECTED: t('statuses.rejected')
+  REJECTED: t('statuses.rejected'),
+  SOLD: t('statuses.sold')
 }));
 
 const orderProgressLabels = computed(() => ({
@@ -1462,7 +1467,7 @@ const urgentTasks = computed(() => {
 });
 
 const showUrgentTasks = computed(() => isBuyer.value || isSeller.value);
-const canAccessOrders = showUrgentTasks;
+const canAccessOrders = computed(() => showUrgentTasks.value || isAdmin.value);
 
 const pendingReviewHouses = computed(() =>
   houses.value.filter((house) => house.status === 'PENDING_REVIEW')
@@ -2840,9 +2845,42 @@ onMounted(() => {
   border-color: color-mix(in srgb, var(--color-border) 70%, transparent);
 }
 
+:global(body[data-theme='dark']) .app::before {
+  background: radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.28), transparent 70%);
+  opacity: 0.45;
+}
+
+:global(body[data-theme='dark']) .app::after {
+  background: radial-gradient(circle at 85% 80%, rgba(129, 140, 248, 0.32), transparent 72%);
+  opacity: 0.42;
+}
+
 :global(body[data-theme='dark']) .header {
   background: linear-gradient(130deg, rgba(56, 189, 248, 0.85), rgba(99, 102, 241, 0.88));
   box-shadow: 0 26px 60px rgba(15, 118, 221, 0.32);
+}
+
+:global(body[data-theme='dark']) .header::before {
+  background: radial-gradient(circle, rgba(148, 163, 184, 0.35), transparent 70%);
+  opacity: 0.4;
+}
+
+:global(body[data-theme='dark']) .header::after {
+  background: radial-gradient(circle at top right, rgba(125, 211, 252, 0.5), transparent 72%);
+  opacity: 0.38;
+}
+
+:global(body[data-theme='dark']) .menu-item {
+  color: color-mix(in srgb, var(--color-text-soft) 80%, var(--color-text-on-emphasis));
+}
+
+:global(body[data-theme='dark']) .menu-item.active {
+  box-shadow: 0 20px 42px rgba(99, 102, 241, 0.34);
+}
+
+:global(body[data-theme='dark']) .menu-item:not(.active):hover {
+  background: color-mix(in srgb, rgba(99, 102, 241, 0.35) 45%, transparent);
+  color: var(--color-text-on-emphasis);
 }
 
 :global(body[data-theme='dark']) .menu {

@@ -172,53 +172,42 @@ const captcha = reactive({ question: '', answer: '0' });
 
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+const multiplicationPairs = Array.from({ length: 11 })
+  .flatMap((_, a) =>
+    Array.from({ length: 11 }, (_, b) => ({ a, b, result: a * b }))
+  )
+  .filter((pair) => pair.result <= 10);
+
 const generateCaptcha = () => {
-  const operations = ['+', '-', '*', '/'];
+  const operations = ['+', '-', '×'];
   const op = operations[Math.floor(Math.random() * operations.length)];
   let a = 0;
   let b = 0;
   let answer = 0;
   switch (op) {
     case '+': {
-      a = randomInt(0, 50);
-      b = randomInt(0, 50 - a);
+      a = randomInt(0, 10);
+      b = randomInt(0, 10 - a);
       answer = a + b;
       break;
     }
-    case '-': {
-      a = randomInt(0, 50);
+    case '×': {
+      const pair = multiplicationPairs[randomInt(0, multiplicationPairs.length - 1)];
+      a = pair.a;
+      b = pair.b;
+      answer = pair.result;
+      break;
+    }
+    case '-':
+    default: {
+      a = randomInt(0, 10);
       b = randomInt(0, a);
       answer = a - b;
       break;
     }
-    case '*': {
-      a = randomInt(0, 12);
-      b = randomInt(0, 12);
-      while (a * b > 50) {
-        a = randomInt(0, 12);
-        b = randomInt(0, 12);
-      }
-      answer = a * b;
-      break;
-    }
-    case '/': {
-      b = randomInt(1, 10);
-      answer = randomInt(0, 50);
-      while (answer * b > 50) {
-        answer = randomInt(0, 50);
-      }
-      a = answer * b;
-      break;
-    }
-    default: {
-      a = randomInt(0, 50);
-      b = randomInt(0, 50 - a);
-      answer = a + b;
-    }
   }
-  const symbol = op === '*' ? '×' : op === '/' ? '÷' : op;
   return {
-    question: `${a} ${symbol} ${b} = ?`,
+    question: `${a} ${op} ${b} = ?`,
     answer: String(answer)
   };
 };

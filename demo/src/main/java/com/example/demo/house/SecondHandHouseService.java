@@ -296,8 +296,11 @@ public class SecondHandHouseService {
         if (requester.getRole() == UserRole.ADMIN) {
             return true;
         }
-        return house.getSellerUsername() != null
-                && house.getSellerUsername().equalsIgnoreCase(requester.getUsername());
+        if (house.getSellerUsername() != null
+                && house.getSellerUsername().equalsIgnoreCase(requester.getUsername())) {
+            return true;
+        }
+        return false;
     }
 
     private UserAccount requireAdmin(String requesterUsername) {

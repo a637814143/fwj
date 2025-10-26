@@ -84,7 +84,7 @@
           placeholder="系统根据总价、首付与期数自动计算"
           :disabled="disabled"
         />
-        <small class="hint">系统按照“分期金额 × 期数 + 首付 = 总价 × 1.2”自动计算月供。</small>
+        <small class="hint">系统会依据您的首付与期数智能估算每期月供。</small>
       </label>
 
       <label>
@@ -242,7 +242,8 @@ const emit = defineEmits(['submit', 'cancel']);
 const listingStatusLabels = {
   PENDING_REVIEW: '待审核',
   APPROVED: '已通过',
-  REJECTED: '已驳回'
+  REJECTED: '已驳回',
+  SOLD: '已售出（已下架）'
 };
 
 const sellerRoles = ['SELLER', 'LANDLORD'];
@@ -279,6 +280,8 @@ const statusClass = computed(() => {
       return 'status approved';
     case 'REJECTED':
       return 'status rejected';
+    case 'SOLD':
+      return 'status sold';
     default:
       return 'status pending';
   }
@@ -596,6 +599,31 @@ const cancelEdit = () => {
 .status-indicator.status.rejected {
   background: rgba(239, 68, 68, 0.2);
   color: #991b1b;
+}
+
+.status-indicator.status.sold {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--color-text-strong);
+}
+
+:global(body[data-theme='dark']) :deep(.status-indicator.status.approved) {
+  background: rgba(74, 222, 128, 0.18);
+  color: #bbf7d0;
+}
+
+:global(body[data-theme='dark']) :deep(.status-indicator.status.pending) {
+  background: rgba(253, 224, 71, 0.18);
+  color: #facc15;
+}
+
+:global(body[data-theme='dark']) :deep(.status-indicator.status.rejected) {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+}
+
+:global(body[data-theme='dark']) :deep(.status-indicator.status.sold) {
+  background: rgba(148, 163, 184, 0.28);
+  color: rgba(226, 232, 240, 0.92);
 }
 
 .form-grid {

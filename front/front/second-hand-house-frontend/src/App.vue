@@ -27,6 +27,29 @@
         @verified="handleVerificationUpdate"
       />
 
+      <section class="overview">
+        <article class="overview-card">
+          <span class="overview-card__label">在售房源</span>
+          <strong class="overview-card__value">{{ totalHouses }}</strong>
+          <span class="overview-card__meta">实时更新的房源池</span>
+        </article>
+        <article class="overview-card">
+          <span class="overview-card__label">累计订单</span>
+          <strong class="overview-card__value">{{ totalOrders }}</strong>
+          <span class="overview-card__meta">覆盖买卖双方的交易</span>
+        </article>
+        <article class="overview-card" :class="{ positive: isVerified }">
+          <span class="overview-card__label">实名认证</span>
+          <strong class="overview-card__value">{{ isVerified ? '已完成' : '待审核' }}</strong>
+          <span class="overview-card__meta">保障交易安全</span>
+        </article>
+        <article class="overview-card accent" v-if="wallet">
+          <span class="overview-card__label">钱包余额</span>
+          <strong class="overview-card__value">￥{{ formattedWalletBalance }}</strong>
+          <span class="overview-card__meta">充值与调账实时同步</span>
+        </article>
+      </section>
+
       <main class="content">
         <section class="form-section">
           <HouseForm
@@ -144,6 +167,19 @@ const isBuyer = computed(() => currentUser.value?.role === 'BUYER');
 const canManageHouses = computed(
   () => currentUser.value && ['SELLER', 'ADMIN'].includes(currentUser.value.role)
 );
+
+const totalHouses = computed(() => houses.value.length);
+const totalOrders = computed(() => orders.value.length);
+const walletBalance = computed(() => Number(wallet.value?.balance ?? 0));
+const isVerified = computed(() => currentUser.value?.realNameVerified === true);
+
+const formatCurrency = (value) =>
+  Number(value ?? 0).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+const formattedWalletBalance = computed(() => formatCurrency(walletBalance.value));
 
 const normalizeHouseResponse = (house) => ({
   ...house,
@@ -607,49 +643,66 @@ onMounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  gap: 2rem;
   margin: 0 auto;
-  max-width: 1200px;
-  padding: 1.5rem;
-  gap: 1.5rem;
+  max-width: 1320px;
+  padding: clamp(1.5rem, 3vw, 2.75rem);
+  color: var(--text-primary);
 }
 
 .header {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
-  display: grid;
-  gap: 1rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(99, 102, 241, 0.65));
+  border-radius: 28px;
+  padding: clamp(1.75rem, 4vw, 2.85rem);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
 }
 
 .header h1 {
-  margin: 0 0 0.5rem;
-  font-size: 2rem;
+  margin: 0;
+  font-size: clamp(2.1rem, 4vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.header p {
+  margin: 0;
+  color: var(--text-secondary);
+  max-width: 48rem;
 }
 
 .session {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+  padding: 0.85rem 1.25rem;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(12px);
 }
 
 .logout {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  border: none;
   border-radius: 999px;
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   font-weight: 600;
-  padding: 0.5rem 1.25rem;
-  transition: background 0.2s ease, transform 0.2s ease;
+  padding: 0.55rem 1.65rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 18px 35px rgba(96, 165, 250, 0.35);
 }
 
 .logout:hover {
-  background: rgba(255, 255, 255, 0.35);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 22px 40px rgba(96, 165, 250, 0.45);
 }
 
 .login-section {
@@ -658,56 +711,143 @@ onMounted(() => {
 }
 
 .alert {
-  background: #fee2e2;
-  border-left: 4px solid #ef4444;
-  border-radius: 0.75rem;
-  color: #991b1b;
+  background: rgba(248, 113, 113, 0.18);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 20px;
+  color: #fecaca;
   padding: 1rem 1.5rem;
+  backdrop-filter: blur(12px);
 }
 
 .success {
-  background: rgba(34, 197, 94, 0.15);
-  border-left: 4px solid #22c55e;
-  border-radius: 0.75rem;
-  color: #f0fdf4;
+  background: rgba(52, 211, 153, 0.18);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 18px;
+  color: #bbf7d0;
   margin: 0;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.overview-card {
+  position: relative;
+  flex: 1 1 220px;
+  border-radius: 22px;
+  padding: 1.6rem;
+  background: var(--surface-primary);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow: hidden;
+}
+
+.overview-card::after {
+  content: '';
+  position: absolute;
+  inset: -30% 45% auto -30%;
+  height: 140%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.4), transparent 70%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.overview-card.accent::after {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.65), transparent 75%);
+}
+
+.overview-card.positive::after {
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.55), transparent 75%);
+}
+
+.overview-card__label {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.overview-card__value {
+  font-size: clamp(1.85rem, 3vw, 2.45rem);
+  font-weight: 700;
+  z-index: 1;
+}
+
+.overview-card__meta {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  z-index: 1;
+}
+
+.overview-card.accent {
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.75), rgba(14, 165, 233, 0.65));
+  border: 1px solid rgba(96, 165, 250, 0.5);
 }
 
 .content {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: stretch;
 }
 
-.wallet-order-section {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+.form-section,
+.list-section {
+  flex: 1 1 360px;
+  background: var(--surface-primary);
+  border-radius: 26px;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-strong);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .history-section {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
 }
 
-.form-section,
-.list-section {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
-  padding: 1.5rem;
-}
-
-.list-section {
+.wallet-order-section {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: stretch;
 }
 
 .footer {
   text-align: center;
-  color: #6b7280;
-  padding: 1.5rem 0 0.5rem;
+  color: var(--text-muted);
+  padding: 1.5rem 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .app {
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+
+  .header {
+    padding: 1.5rem;
+  }
+
+  .overview-card {
+    flex-basis: 100%;
+  }
+
+  .form-section,
+  .list-section {
+    padding: 1.35rem;
+  }
 }
 </style>

@@ -359,21 +359,23 @@ const cancelEdit = () => {
 .house-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
+  color: var(--text-primary);
 }
 
 .house-form h2 {
   margin: 0;
-  color: #1e293b;
+  font-size: 1.45rem;
+  font-weight: 600;
 }
 
 .notice {
   margin: 0;
-  padding: 0.75rem 1rem;
-  background: #f8fafc;
-  border-left: 4px solid #2563eb;
-  border-radius: 0.75rem;
-  color: #1d4ed8;
+  padding: 0.85rem 1.1rem;
+  background: rgba(96, 165, 250, 0.18);
+  border-left: 4px solid rgba(96, 165, 250, 0.55);
+  border-radius: 1rem;
+  color: #dbeafe;
   font-size: 0.95rem;
 }
 
@@ -387,60 +389,64 @@ label {
   display: flex;
   flex-direction: column;
   font-weight: 600;
-  color: #1f2937;
-  gap: 0.35rem;
+  color: var(--text-secondary);
+  gap: 0.4rem;
 }
 
 input,
 textarea {
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.65rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus,
 textarea:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
 textarea {
   resize: vertical;
+  min-height: 120px;
 }
 
 .image-section {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  background: #f8fafc;
-  border-radius: 1rem;
-  padding: 1rem;
+  gap: 0.85rem;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 1.25rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
 }
 
 .image-section__header {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .section-title {
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .image-helper {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .upload-input {
-  padding: 0.6rem;
-  border-radius: 0.65rem;
-  border: 1px dashed #94a3b8;
-  background: #fff;
+  padding: 0.65rem;
+  border-radius: 0.85rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -452,30 +458,31 @@ textarea {
 .image-hint {
   margin: 0;
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .image-error {
   margin: 0;
   font-size: 0.85rem;
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .image-preview {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
   padding: 0;
   margin: 0;
 }
 
 .image-preview__item {
   position: relative;
-  border-radius: 0.75rem;
+  border-radius: 0.9rem;
   overflow: hidden;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-  background: #fff;
+  box-shadow: 0 18px 30px rgba(8, 15, 35, 0.35);
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .image-preview__item img {
@@ -487,16 +494,17 @@ textarea {
 
 .remove-btn {
   position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  padding: 0.3rem 0.6rem;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.3rem 0.65rem;
   border-radius: 999px;
   border: none;
   font-size: 0.75rem;
   font-weight: 600;
-  background: rgba(220, 38, 38, 0.9);
+  background: rgba(239, 68, 68, 0.9);
   color: #fff;
   cursor: pointer;
+  box-shadow: 0 10px 18px rgba(239, 68, 68, 0.3);
 }
 
 .remove-btn:disabled {
@@ -511,21 +519,22 @@ textarea {
 }
 
 .btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
+  padding: 0.75rem 1.6rem;
+  border-radius: 0.9rem;
   border: none;
   font-weight: 600;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.8));
+  color: var(--text-primary);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.35);
 }
 
 .btn.primary:hover:not(:disabled) {
   transform: translateY(-1px);
+  box-shadow: 0 20px 36px rgba(37, 99, 235, 0.45);
 }
 
 .btn.primary:disabled {
@@ -534,7 +543,7 @@ textarea {
 }
 
 .btn.secondary {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text-primary);
 }
 </style>

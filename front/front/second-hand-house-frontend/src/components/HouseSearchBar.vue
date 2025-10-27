@@ -60,10 +60,12 @@ const reset = () => {
   flex-wrap: wrap;
   gap: 1rem;
   align-items: flex-end;
-  background: #fff;
-  border-radius: 1rem;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  background: var(--surface-secondary);
+  border-radius: 20px;
+  border: 1px solid var(--surface-border);
+  padding: 1.1rem 1.35rem;
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-strong);
 }
 
 .field {
@@ -71,25 +73,27 @@ const reset = () => {
   min-width: 220px;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-secondary);
 }
 
 input {
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.7rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
 .actions {
@@ -98,22 +102,31 @@ input:focus {
 }
 
 button {
-  padding: 0.65rem 1.4rem;
-  border-radius: 0.75rem;
+  padding: 0.7rem 1.45rem;
+  border-radius: 0.85rem;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.85));
+  color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 15px 28px rgba(37, 99, 235, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.45);
 }
 
 button.secondary {
-  background: #e2e8f0;
-  color: #1f2937;
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text-primary);
+  box-shadow: none;
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 </style>

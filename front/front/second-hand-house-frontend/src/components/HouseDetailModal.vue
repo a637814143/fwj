@@ -129,7 +129,8 @@ function maskPhone(value) {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(2, 6, 23, 0.65);
+  backdrop-filter: blur(6px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -140,52 +141,57 @@ function maskPhone(value) {
 .modal {
   width: min(900px, 100%);
   max-height: 90vh;
-  background: #fff;
-  border-radius: 1.25rem;
+  background: rgba(8, 15, 35, 0.95);
+  border-radius: 28px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 35px 80px rgba(3, 7, 18, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: var(--text-primary);
 }
 
 .modal__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 1.5rem 1.75rem;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  color: #fff;
+  padding: 1.6rem 1.85rem;
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.85), rgba(37, 99, 235, 0.85));
+  color: var(--text-primary);
 }
 
 .modal__title h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1.4rem;
+  margin: 0 0 0.3rem;
+  font-size: 1.45rem;
+  font-weight: 600;
 }
 
 .modal__address {
   margin: 0;
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(226, 232, 240, 0.85);
 }
 
 .icon-button {
   border: none;
-  background: rgba(15, 23, 42, 0.2);
-  color: #fff;
+  background: rgba(15, 23, 42, 0.3);
+  color: var(--text-primary);
   font-size: 1.5rem;
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
   cursor: pointer;
   line-height: 2.25rem;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .icon-button:hover {
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+  transform: translateY(-1px);
 }
 
 .modal__content {
-  padding: 1.5rem 1.75rem;
+  padding: 1.6rem 1.85rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -199,28 +205,35 @@ function maskPhone(value) {
 }
 
 .info-item {
-  background: #f8fafc;
-  border-radius: 0.85rem;
-  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  background: rgba(15, 23, 42, 0.65);
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .info-label {
-  font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .info-value {
-  font-weight: 700;
-  color: #1f2937;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .modal__description {
   margin: 0;
-  line-height: 1.7;
-  color: #1f2937;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 1.1rem;
+  padding: 1.1rem 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .keywords {
@@ -229,23 +242,24 @@ function maskPhone(value) {
   gap: 0.5rem;
 }
 
-.keywords h4 {
+.keywords h4,
+.gallery h4 {
   margin: 0;
-  color: #1d4ed8;
+  color: var(--text-primary);
 }
 
 .keywords ul {
   display: flex;
-  gap: 0.5rem;
   flex-wrap: wrap;
+  gap: 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .keywords li {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--text-primary);
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -263,23 +277,19 @@ function maskPhone(value) {
   align-items: baseline;
 }
 
-.gallery__header h4 {
-  margin: 0;
-  color: #1f2937;
-}
-
 .gallery__count {
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .gallery__empty {
   margin: 0;
   padding: 1rem;
-  border-radius: 0.85rem;
-  background: #f1f5f9;
-  color: #475569;
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-secondary);
   text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .gallery__grid {
@@ -289,11 +299,12 @@ function maskPhone(value) {
 }
 
 .gallery__item {
-  background: #0f172a;
-  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 1rem;
   overflow: hidden;
-  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.25);
-  color: #fff;
+  box-shadow: 0 16px 30px rgba(3, 7, 18, 0.35);
+  color: var(--text-primary);
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .gallery__item img {
@@ -305,41 +316,45 @@ function maskPhone(value) {
 
 .gallery__item figcaption {
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.75rem;
   font-size: 0.85rem;
-  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-secondary);
+  background: rgba(15, 23, 42, 0.55);
 }
 
 .modal__footer {
-  padding: 1.25rem 1.75rem;
-  background: #f8fafc;
+  padding: 1.35rem 1.85rem;
+  background: rgba(15, 23, 42, 0.6);
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
   justify-content: space-between;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .contact {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  color: #1f2937;
+  color: var(--text-secondary);
 }
 
 .primary-button {
-  padding: 0.65rem 1.5rem;
-  border-radius: 0.75rem;
+  padding: 0.75rem 1.6rem;
+  border-radius: 0.9rem;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.85));
+  color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .primary-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 22px 36px rgba(37, 99, 235, 0.45);
 }
 
 @media (max-width: 640px) {

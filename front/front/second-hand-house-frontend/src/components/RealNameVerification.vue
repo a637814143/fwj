@@ -139,46 +139,52 @@ const submit = async () => {
 
 <style scoped>
 .verification {
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  padding: 1.5rem;
+  background: var(--surface-secondary);
+  border-radius: 24px;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-strong);
+  padding: 1.65rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.1rem;
+  color: var(--text-primary);
 }
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
 }
 
 header h2 {
   margin: 0;
-  color: #1f2937;
-}
-
-.status {
-  padding: 0.25rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 1.4rem;
   font-weight: 600;
 }
 
+.status {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text-secondary);
+}
+
 .status.verified {
-  background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
+  background: rgba(52, 211, 153, 0.25);
+  color: var(--success);
 }
 
 .status.pending {
-  background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.25);
+  color: var(--danger);
 }
 
 .hint {
   margin: 0;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .summary {
@@ -190,64 +196,74 @@ header h2 {
 
 .summary p {
   margin: 0;
+  color: var(--text-secondary);
 }
 
 .summary button {
   border: none;
-  background: #2563eb;
-  color: #fff;
-  padding: 0.5rem 1.1rem;
-  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.8));
+  color: var(--text-primary);
+  padding: 0.55rem 1.2rem;
+  border-radius: 0.85rem;
   cursor: pointer;
+  box-shadow: 0 15px 28px rgba(37, 99, 235, 0.3);
 }
 
 .form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 18px;
+  padding: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-secondary);
 }
 
 input {
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.7rem;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(8, 15, 35, 0.75);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
 button[type='submit'] {
-  padding: 0.75rem 1.4rem;
-  border-radius: 0.8rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.95rem;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.8));
+  color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.35);
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .error {
   margin: 0;
-  color: #dc2626;
+  color: var(--danger);
 }
 </style>

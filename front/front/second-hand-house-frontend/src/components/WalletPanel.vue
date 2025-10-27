@@ -177,30 +177,33 @@ const transactionClass = (tx) => {
 .wallet-panel {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  padding: 1.5rem;
+  gap: 1.35rem;
+  background: var(--surface-secondary);
+  border-radius: 26px;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-strong);
+  padding: 1.75rem;
+  color: var(--text-primary);
 }
 
 .wallet-panel h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #1e293b;
+  font-weight: 600;
 }
 
 .hint {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .loading,
 .empty {
-  background: #f8fafc;
-  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 1rem;
   padding: 1rem 1.25rem;
-  color: #475569;
+  color: var(--text-secondary);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .content {
@@ -214,75 +217,87 @@ const transactionClass = (tx) => {
   gap: 1.5rem;
   flex-wrap: wrap;
   justify-content: space-between;
-  background: linear-gradient(135deg, #312e81, #1d4ed8);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
-  color: #f8fafc;
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.8), rgba(56, 189, 248, 0.65));
+  border-radius: 18px;
+  padding: 1.35rem;
+  color: var(--text-primary);
+  box-shadow: 0 25px 45px rgba(14, 116, 204, 0.35);
 }
 
 .summary .label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   opacity: 0.8;
 }
 
 .summary strong {
-  font-size: 2rem;
+  font-size: 2.1rem;
   font-weight: 700;
 }
 
 .summary code {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  color: #e0e7ff;
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 0.6rem;
+  padding: 0.25rem 0.6rem;
+  color: #e0f2fe;
   font-weight: 600;
 }
 
 .top-up {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.85rem;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 18px;
+  padding: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .top-up h3 {
   margin: 0;
-  color: #1e293b;
+  color: var(--text-primary);
+  font-size: 1.1rem;
 }
 
 .top-up label {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  color: #334155;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .top-up input {
-  border: 1px solid #cbd5f5;
-  border-radius: 0.65rem;
-  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.85rem;
+  padding: 0.6rem 0.85rem;
   font-size: 1rem;
+  background: rgba(8, 15, 35, 0.75);
+  color: var(--text-primary);
 }
 
 .top-up button {
   align-self: start;
-  background: #2563eb;
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.8));
   border: none;
-  border-radius: 0.75rem;
-  color: #fff;
+  border-radius: 0.9rem;
+  color: var(--text-primary);
   cursor: pointer;
   font-weight: 600;
-  padding: 0.6rem 1.4rem;
+  padding: 0.65rem 1.55rem;
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.35);
 }
 
 .top-up button:disabled {
-  background: #a5b4fc;
+  opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .transactions h3 {
-  margin: 0 0 0.5rem;
-  color: #1e293b;
+  margin: 0 0 0.65rem;
+  color: var(--text-primary);
 }
 
 .transactions ul {
@@ -291,17 +306,19 @@ const transactionClass = (tx) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .transaction {
   display: grid;
-  grid-template-columns: 100px 1fr 150px 1fr;
+  grid-template-columns: 120px 1fr 160px 1fr;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background: #f8fafc;
+  gap: 0.85rem;
+  padding: 0.85rem 1.15rem;
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(12px);
 }
 
 .transaction .amount {
@@ -310,15 +327,15 @@ const transactionClass = (tx) => {
 }
 
 .transaction.positive .amount {
-  color: #16a34a;
+  color: var(--success);
 }
 
 .transaction.negative .amount {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .transaction .reference {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -326,8 +343,8 @@ const transactionClass = (tx) => {
 }
 
 .transaction .time {
-  color: #475569;
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 @media (max-width: 768px) {

@@ -249,42 +249,47 @@ const submitRegister = async () => {
 
 <style scoped>
 .auth-panel {
-  background: #ffffff;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 15px 40px rgba(79, 70, 229, 0.15);
+  background: var(--surface-secondary);
+  border-radius: 24px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-strong);
   display: grid;
   gap: 1.5rem;
+  border: 1px solid var(--surface-border);
+  color: var(--text-primary);
 }
 
 .mode-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 9999px;
+  padding: 0.35rem;
 }
 
 .mode-tab {
-  background: #f3f4f6;
+  background: transparent;
   border: none;
   border-radius: 9999px;
-  color: #374151;
+  color: var(--text-secondary);
   cursor: pointer;
   font-weight: 600;
-  padding: 0.75rem 1rem;
-  transition: all 0.2s ease;
+  padding: 0.65rem 1rem;
+  transition: all 0.25s ease;
 }
 
 .mode-tab:hover,
 .mode-tab:focus {
   outline: none;
-  background: #e0e7ff;
-  color: #1d4ed8;
+  color: var(--text-primary);
+  background: rgba(96, 165, 250, 0.18);
 }
 
 .mode-tab.active {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #ffffff;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(99, 102, 241, 0.85));
+  color: var(--text-primary);
+  box-shadow: 0 16px 30px rgba(59, 130, 246, 0.35);
 }
 
 .form {
@@ -294,27 +299,29 @@ const submitRegister = async () => {
 
 .field {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .label,
 label {
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 input {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.9rem;
   padding: 0.75rem 1rem;
   font-size: 1rem;
+  background: rgba(8, 15, 35, 0.75);
+  color: var(--text-primary);
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
 .roles {
@@ -325,38 +332,45 @@ input:focus {
 
 .role-option {
   align-items: center;
-  background: #f3f4f6;
+  background: rgba(15, 23, 42, 0.6);
   border-radius: 9999px;
-  color: #374151;
+  color: var(--text-secondary);
   display: inline-flex;
-  gap: 0.35rem;
-  padding: 0.4rem 0.9rem;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.role-option input {
+  accent-color: var(--accent);
 }
 
 .error {
-  color: #dc2626;
+  color: var(--danger);
   font-size: 0.95rem;
 }
 
 .submit {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.85));
   border: none;
-  border-radius: 0.75rem;
-  color: white;
+  border-radius: 0.95rem;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1.1rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.35);
 }
 
 .submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 25px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 22px 36px rgba(37, 99, 235, 0.45);
 }
 
 .submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 </style>

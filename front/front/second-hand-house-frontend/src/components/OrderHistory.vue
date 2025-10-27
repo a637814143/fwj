@@ -215,30 +215,33 @@ const formatTime = (value) => {
 .order-history {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  padding: 1.5rem;
+  gap: 1.25rem;
+  background: var(--surface-secondary);
+  border-radius: 26px;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-strong);
+  padding: 1.75rem;
+  color: var(--text-primary);
 }
 
 .order-history h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #1e293b;
+  font-weight: 600;
 }
 
 .hint {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .loading,
 .empty {
-  background: #f8fafc;
-  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 1rem;
   padding: 1rem 1.25rem;
-  color: #475569;
+  color: var(--text-secondary);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .order-list {
@@ -247,17 +250,18 @@ const formatTime = (value) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .order-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.9rem;
-  padding: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 20px;
+  padding: 1.35rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(16px);
 }
 
 .order-card header {
@@ -269,62 +273,66 @@ const formatTime = (value) => {
 
 .order-card h3 {
   margin: 0;
-  color: #1e293b;
+  font-weight: 600;
 }
 
 .status {
   border-radius: 999px;
-  padding: 0.25rem 0.75rem;
+  padding: 0.3rem 0.85rem;
   font-size: 0.85rem;
   font-weight: 600;
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text-primary);
 }
 
 .status.paid {
-  background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
+  background: rgba(52, 211, 153, 0.25);
+  color: var(--success);
 }
 
 .status.pending {
-  background: rgba(59, 130, 246, 0.2);
-  color: #1d4ed8;
+  background: rgba(96, 165, 250, 0.25);
+  color: var(--accent);
 }
 
 .status.returned {
-  background: rgba(248, 113, 113, 0.2);
-  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.25);
+  color: var(--danger);
 }
 
 .status.reserved {
-  background: rgba(248, 180, 0, 0.2);
-  color: #b45309;
+  background: rgba(251, 191, 36, 0.25);
+  color: var(--warning);
 }
 
 .status.cancelled {
   background: rgba(148, 163, 184, 0.25);
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem 1.25rem;
+  gap: 0.85rem 1.35rem;
   margin: 0;
 }
 
 dl div {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 dl dt {
-  color: #475569;
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 dl dd {
   margin: 0;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 0.95rem;
 }
 
@@ -332,36 +340,40 @@ dl dd {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .actions button {
-  background: #f97316;
+  background: linear-gradient(135deg, #f97316, #fb923c);
   border: none;
-  border-radius: 0.75rem;
-  color: #fff;
+  border-radius: 0.9rem;
+  color: var(--text-primary);
   cursor: pointer;
   font-weight: 600;
-  padding: 0.55rem 1.4rem;
+  padding: 0.6rem 1.45rem;
+  box-shadow: 0 18px 32px rgba(249, 115, 22, 0.25);
 }
 
 .actions button:hover {
-  background: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 20px 36px rgba(249, 115, 22, 0.35);
 }
 
 .actions button:disabled {
-  background: #fdba74;
+  background: rgba(249, 115, 22, 0.35);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .progress {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .progress h4 {
   margin: 0;
-  color: #1e293b;
+  color: var(--text-secondary);
 }
 
 .progress ol {
@@ -374,16 +386,16 @@ dl dd {
 }
 
 .progress li {
-  padding: 0.35rem 0.75rem;
+  padding: 0.35rem 0.85rem;
   border-radius: 999px;
-  background: #e2e8f0;
-  color: #334155;
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
 .progress li.completed {
-  background: rgba(37, 99, 235, 0.15);
-  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--accent);
   font-weight: 600;
 }
 </style>

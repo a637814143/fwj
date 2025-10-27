@@ -61,32 +61,43 @@ const formatNumber = (value) => {
 
 <style scoped>
 .history {
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  padding: 1.25rem;
+  background: var(--surface-secondary);
+  border-radius: 22px;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-strong);
+  padding: 1.45rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.1rem;
+  color: var(--text-primary);
 }
 
 .history__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
 }
 
 .history__header h3 {
   margin: 0;
-  color: #1f2937;
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
 .link {
   border: none;
   background: none;
-  color: #2563eb;
+  color: var(--accent);
   cursor: pointer;
   font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  transition: background 0.2s ease;
+}
+
+.link:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.2);
 }
 
 .link:disabled {
@@ -96,7 +107,7 @@ const formatNumber = (value) => {
 
 .empty {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .history__list {
@@ -113,7 +124,7 @@ const formatNumber = (value) => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  border-bottom: 1px dashed #e2e8f0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.35);
   padding-bottom: 0.75rem;
 }
 
@@ -125,7 +136,7 @@ const formatNumber = (value) => {
 .title {
   border: none;
   background: none;
-  color: #1d4ed8;
+  color: var(--accent);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -139,7 +150,7 @@ const formatNumber = (value) => {
   margin: 0.25rem 0 0;
   display: flex;
   gap: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -151,16 +162,16 @@ const formatNumber = (value) => {
 }
 
 .tag {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--text-primary);
   border-radius: 999px;
-  padding: 0.15rem 0.55rem;
+  padding: 0.2rem 0.6rem;
   font-size: 0.75rem;
 }
 
 .price {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   white-space: nowrap;
 }
 </style>

@@ -1,32 +1,96 @@
 <template>
-  <div class="app">
-    <header class="header">
-      <h1>二手房屋管理系统</h1>
-      <p>请先登录或注册账号后再管理房源信息。</p>
-      <div v-if="currentUser" class="session">
-        <span>
-          当前角色：<strong>{{ roleLabels[currentUser.role] }}</strong>（{{ currentUser.displayName }}）
-        </span>
-        <button type="button" class="logout" @click="handleLogout">退出登录</button>
+  <div class="app-shell">
+    <div class="orb orb--one" aria-hidden="true"></div>
+    <div class="orb orb--two" aria-hidden="true"></div>
+
+    <nav class="top-nav">
+      <div class="brand">
+        <div class="brand-mark">🏙️</div>
+        <div class="brand-copy">
+          <strong>Atlas Housing</strong>
+          <span>二手房屋智慧管理台</span>
+        </div>
       </div>
-      <p v-if="messages.success" class="success">{{ messages.success }}</p>
+      <div class="nav-actions">
+        <div v-if="currentUser" class="account-chip">
+          <div class="account-meta">
+            <span class="account-role">{{ roleLabels[currentUser.role] }}</span>
+            <span class="account-name">{{ currentUser.displayName }}</span>
+          </div>
+          <button type="button" class="chip-action" @click="handleLogout">安全退出</button>
+        </div>
+        <div v-else class="nav-actions__guest">欢迎登录体验</div>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">全链路居住资产管控</span>
+        <h1>以苹果级体验呈现房屋运营数据</h1>
+        <p>
+          以灵动的玻璃质感界面串联房源发布、订单追踪、实名风控与钱包账单，
+          让每一次操作都精准、优雅且高效。
+        </p>
+        <ul class="hero-points">
+          <li>实时同步的房源与订单概览</li>
+          <li>多角色协同与身份认证守护</li>
+          <li>深色玻璃美学与 Flex 布局自适应</li>
+        </ul>
+      </div>
+      <div class="hero-spotlight">
+        <div class="hero-stat">
+          <span class="hero-stat__label">在售房源</span>
+          <strong class="hero-stat__value">{{ totalHouses }}</strong>
+          <span class="hero-stat__meta">实时更新</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat__label">累计订单</span>
+          <strong class="hero-stat__value">{{ totalOrders }}</strong>
+          <span class="hero-stat__meta">买卖全链路</span>
+        </div>
+        <div v-if="wallet" class="hero-stat accent">
+          <span class="hero-stat__label">钱包余额</span>
+          <strong class="hero-stat__value">￥{{ formattedWalletBalance }}</strong>
+          <span class="hero-stat__meta">账户实时到账</span>
+        </div>
+      </div>
     </header>
 
-    <section v-if="!currentUser" class="login-section">
-      <RoleLogin :api-base-url="apiBaseUrl" @login-success="handleLoginSuccess" />
+    <div class="message-stack">
+      <div v-if="messages.success" class="message message--success">{{ messages.success }}</div>
+      <div v-if="messages.error" class="message message--danger">
+        <strong>提示：</strong> {{ messages.error }}
+      </div>
+    </div>
+
+    <section v-if="!currentUser" class="guest-layout">
+      <div class="guest-intro">
+        <h2>一体化的二手房资源中台</h2>
+        <p>
+          登录后即可管理房源、监控订单流转、快速完成实名认证与钱包充值。
+          精致的视觉与流畅的交互让运营效率全面提升。
+        </p>
+        <div class="guest-highlights">
+          <div class="guest-card">
+            <span class="guest-card__title">实时发布</span>
+            <p>Flex 式卡片列表展示房源亮点，长列表支持分页浏览。</p>
+          </div>
+          <div class="guest-card">
+            <span class="guest-card__title">交易洞察</span>
+            <p>订单阶段一目了然，订单进度与退款流程随时掌控。</p>
+          </div>
+          <div class="guest-card">
+            <span class="guest-card__title">安全风控</span>
+            <p>实名认证与钱包流水全链路追踪，保障信息安全。</p>
+          </div>
+        </div>
+      </div>
+      <div class="guest-auth">
+        <RoleLogin :api-base-url="apiBaseUrl" @login-success="handleLoginSuccess" />
+      </div>
     </section>
 
     <template v-else>
-      <section v-if="messages.error" class="alert">
-        <strong>提示：</strong> {{ messages.error }}
-      </section>
-
-      <RealNameVerification
-        :api-base-url="apiBaseUrl"
-        :current-user="currentUser"
-        @verified="handleVerificationUpdate"
-      />
-
       <section class="overview">
         <article class="overview-card">
           <span class="overview-card__label">在售房源</span>
@@ -50,19 +114,8 @@
         </article>
       </section>
 
-      <main class="content">
-        <section class="form-section">
-          <HouseForm
-            :initial-house="selectedHouse"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            @submit="handleSubmit"
-            @cancel="handleCancel"
-          />
-        </section>
-
-        <section class="list-section">
+      <div class="dashboard">
+        <div class="dashboard-main">
           <HouseSearchBar
             :loading="loading"
             :initial-keyword="searchFilters.keyword"
@@ -80,32 +133,42 @@
             @purchase="handlePurchase"
             @view="handleViewHouse"
           />
-        </section>
-      </main>
+          <BrowsingHistory
+            :history="browsingHistory"
+            @select="handleHistorySelect"
+            @clear="clearBrowsingHistory"
+          />
+        </div>
 
-      <section class="history-section">
-        <BrowsingHistory
-          :history="browsingHistory"
-          @select="handleHistorySelect"
-          @clear="clearBrowsingHistory"
-        />
-      </section>
-
-      <section class="wallet-order-section">
-        <WalletPanel
-          :wallet="wallet"
-          :loading="walletLoading"
-          :current-user="currentUser"
-          @top-up="handleTopUp"
-        />
-        <OrderHistory
-          :orders="orders"
-          :loading="ordersLoading"
-          :current-user="currentUser"
-          @request-return="handleRequestReturn"
-          @update-progress="handleUpdateProgress"
-        />
-      </section>
+        <aside class="dashboard-side">
+          <RealNameVerification
+            :api-base-url="apiBaseUrl"
+            :current-user="currentUser"
+            @verified="handleVerificationUpdate"
+          />
+          <HouseForm
+            :initial-house="selectedHouse"
+            :loading="loading"
+            :can-manage="canManageHouses"
+            :current-user="currentUser"
+            @submit="handleSubmit"
+            @cancel="handleCancel"
+          />
+          <WalletPanel
+            :wallet="wallet"
+            :loading="walletLoading"
+            :current-user="currentUser"
+            @top-up="handleTopUp"
+          />
+          <OrderHistory
+            :orders="orders"
+            :loading="ordersLoading"
+            :current-user="currentUser"
+            @request-return="handleRequestReturn"
+            @update-progress="handleUpdateProgress"
+          />
+        </aside>
+      </div>
     </template>
 
     <footer class="footer">
@@ -639,105 +702,367 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app {
+.app-shell {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: clamp(1.5rem, 2vw + 1rem, 2.75rem);
+  padding: clamp(1.5rem, 2vw + 1.5rem, 3.5rem);
+  max-width: 1400px;
   margin: 0 auto;
-  max-width: 1320px;
-  padding: clamp(1.5rem, 3vw, 2.75rem);
   color: var(--text-primary);
+  overflow: hidden;
 }
 
-.header {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(99, 102, 241, 0.65));
-  border-radius: 28px;
-  padding: clamp(1.75rem, 4vw, 2.85rem);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+.app-shell > :not(.orb) {
+  position: relative;
+  z-index: 1;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.orb--one {
+  width: 420px;
+  height: 420px;
+  top: -160px;
+  right: -120px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.65), transparent 70%);
+}
+
+.orb--two {
+  width: 360px;
+  height: 360px;
+  bottom: -140px;
+  left: -160px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.55), transparent 70%);
+}
+
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 26px;
+  background: var(--surface-primary);
+  border: 1px solid var(--surface-border);
   backdrop-filter: blur(24px);
   box-shadow: var(--shadow-strong);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(99, 102, 241, 0.65));
+  font-size: 1.5rem;
+  box-shadow: 0 18px 35px rgba(59, 130, 246, 0.35);
+}
+
+.brand-copy {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 0.35rem;
 }
 
-.header h1 {
-  margin: 0;
-  font-size: clamp(2.1rem, 4vw, 2.8rem);
-  font-weight: 700;
-  letter-spacing: 0.02em;
+.brand-copy strong {
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
 }
 
-.header p {
-  margin: 0;
+.brand-copy span {
   color: var(--text-secondary);
-  max-width: 48rem;
+  font-size: 0.9rem;
 }
 
-.session {
+.nav-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 1.25rem;
+}
+
+.nav-actions__guest {
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.6rem 1.1rem;
   border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(12px);
 }
 
-.logout {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+.account-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.account-role {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.account-name {
+  font-weight: 600;
+}
+
+.chip-action {
   border: none;
   border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: var(--text-primary);
-  cursor: pointer;
   font-weight: 600;
-  padding: 0.55rem 1.65rem;
+  padding: 0.45rem 1.35rem;
+  cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
-  box-shadow: 0 18px 35px rgba(96, 165, 250, 0.35);
+  box-shadow: 0 18px 35px rgba(59, 130, 246, 0.35);
 }
 
-.logout:hover {
+.chip-action:hover {
   transform: translateY(-2px);
-  box-shadow: 0 22px 40px rgba(96, 165, 250, 0.45);
+  box-shadow: 0 22px 40px rgba(59, 130, 246, 0.45);
 }
 
-.login-section {
+.hero {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(1.5rem, 4vw, 3.25rem);
+  padding: clamp(1.8rem, 4vw, 3rem);
+  border-radius: 32px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.45), rgba(30, 64, 175, 0.65));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: var(--shadow-strong);
+  overflow: hidden;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: auto -25% -35% auto;
+  width: 55%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.5), transparent 65%);
+  pointer-events: none;
+}
+
+.hero-copy {
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.eyebrow {
+  font-size: 0.85rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.8);
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 5vw, 3.15rem);
+  font-weight: 700;
+  letter-spacing: 0.015em;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+.hero-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.hero-points li::before {
+  content: '•';
+  margin-right: 0.5rem;
+  color: var(--accent);
+}
+
+.hero-spotlight {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  min-width: 220px;
+}
+
+.hero-stat {
+  position: relative;
+  padding: 1.4rem 1.6rem;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  backdrop-filter: blur(22px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-strong);
+}
+
+.hero-stat::after {
+  content: '';
+  position: absolute;
+  inset: -35% 40% auto -35%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.4), transparent 75%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.hero-stat.accent {
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.75), rgba(14, 165, 233, 0.65));
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.hero-stat__label {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hero-stat__value {
+  font-size: 2.1rem;
+  font-weight: 700;
+}
+
+.hero-stat__meta {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.message-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message {
+  border-radius: 20px;
+  padding: 0.85rem 1.4rem;
+  backdrop-filter: blur(16px);
+  border: 1px solid transparent;
+}
+
+.message--success {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #bbf7d0;
+}
+
+.message--danger {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.guest-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: stretch;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border-radius: 28px;
+  background: var(--surface-primary);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(18px);
+}
+
+.guest-intro {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.guest-intro h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+}
+
+.guest-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.guest-card {
+  padding: 1.2rem;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.guest-card__title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.guest-auth {
+  flex: 1 1 360px;
+  display: flex;
+  align-items: stretch;
   justify-content: center;
 }
 
-.alert {
-  background: rgba(248, 113, 113, 0.18);
-  border: 1px solid rgba(248, 113, 113, 0.4);
-  border-radius: 20px;
-  color: #fecaca;
-  padding: 1rem 1.5rem;
-  backdrop-filter: blur(12px);
-}
-
-.success {
-  background: rgba(52, 211, 153, 0.18);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  border-radius: 18px;
-  color: #bbf7d0;
-  margin: 0;
-  padding: 0.75rem 1.25rem;
+.guest-auth :deep(.auth-panel) {
+  width: 100%;
+  max-width: 420px;
 }
 
 .overview {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.25rem;
 }
 
 .overview-card {
   position: relative;
-  flex: 1 1 220px;
-  border-radius: 22px;
+  border-radius: 24px;
   padding: 1.6rem;
   background: var(--surface-primary);
   border: 1px solid var(--surface-border);
@@ -745,7 +1070,7 @@ onMounted(() => {
   box-shadow: var(--shadow-strong);
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
   overflow: hidden;
 }
 
@@ -775,7 +1100,7 @@ onMounted(() => {
 }
 
 .overview-card__value {
-  font-size: clamp(1.85rem, 3vw, 2.45rem);
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
   font-weight: 700;
   z-index: 1;
 }
@@ -791,37 +1116,36 @@ onMounted(() => {
   border: 1px solid rgba(96, 165, 250, 0.5);
 }
 
-.content {
+.dashboard {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: stretch;
+  align-items: flex-start;
+  gap: clamp(1.5rem, 3vw, 2rem);
 }
 
-.form-section,
-.list-section {
+.dashboard-main {
+  flex: 1 1 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.dashboard-side {
   flex: 1 1 360px;
-  background: var(--surface-primary);
-  border-radius: 26px;
-  border: 1px solid var(--surface-border);
-  box-shadow: var(--shadow-strong);
-  padding: 1.75rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.75rem;
 }
 
-.history-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+.dashboard-side :deep(.house-form),
+.dashboard-side :deep(.verification),
+.dashboard-side :deep(.wallet-panel),
+.dashboard-side :deep(.order-history) {
+  width: 100%;
 }
 
-.wallet-order-section {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: stretch;
+.dashboard-main :deep(.history) {
+  margin-top: 0.5rem;
 }
 
 .footer {
@@ -831,23 +1155,54 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
+@media (max-width: 1080px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-spotlight {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .hero-stat {
+    flex: 1 1 200px;
+  }
+}
+
 @media (max-width: 768px) {
-  .app {
-    gap: 1.5rem;
-    padding: 1.5rem;
-  }
-
-  .header {
-    padding: 1.5rem;
-  }
-
-  .overview-card {
-    flex-basis: 100%;
-  }
-
-  .form-section,
-  .list-section {
+  .top-nav,
+  .hero,
+  .guest-layout {
     padding: 1.35rem;
+  }
+
+  .top-nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .account-chip {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dashboard-side,
+  .dashboard-main {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 1.25rem;
+    gap: 1.5rem;
+  }
+
+  .hero-spotlight {
+    flex-direction: column;
   }
 }
 </style>

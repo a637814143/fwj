@@ -2,25 +2,25 @@
   <section class="review-board">
     <header class="review-header">
       <div>
-        <h2>房源审核工作台</h2>
-        <p>共有 <strong>{{ pendingCount }}</strong> 套待审核房源，审核通过后方可对买家展示。</p>
+        <h2>Listing review dashboard</h2>
+        <p><strong>{{ pendingCount }}</strong> listings require review before they can be shown to buyers.</p>
       </div>
       <button type="button" class="refresh" @click="$emit('refresh')">
-        刷新列表
+        Refresh list
       </button>
     </header>
 
-    <div v-if="loading" class="state loading">正在加载待审核房源，请稍候...</div>
+    <div v-if="loading" class="state loading">Loading listings awaiting review…</div>
     <div v-else-if="pendingCount === 0" class="state empty">
-      <h3>当前暂无新的待审核房源</h3>
-      <p>卖家提交房源资料后将出现在此处，请及时完成审核。</p>
+      <h3>No listings are waiting for review</h3>
+      <p>Listings submitted by sellers will appear here for approval.</p>
     </div>
     <div v-else class="card-grid">
       <article v-for="house in houses" :key="house.id" class="review-card">
         <div class="visual" :class="{ placeholder: !firstImage(house) }">
           <img v-if="firstImage(house)" :src="firstImage(house)" :alt="house.title" />
-          <span v-else>暂无封面</span>
-          <span class="badge">待审核</span>
+          <span v-else>No cover image</span>
+          <span class="badge">Pending review</span>
         </div>
         <div class="content">
           <header class="card-header">
@@ -31,31 +31,31 @@
 
           <dl class="meta">
             <div>
-              <dt>挂牌价</dt>
+              <dt>Price</dt>
               <dd>￥{{ formatCurrency(house.price) }}</dd>
             </div>
             <div>
-              <dt>首付</dt>
+              <dt>Down payment</dt>
               <dd>￥{{ formatCurrency(house.downPayment) }}</dd>
             </div>
             <div>
-              <dt>分期方案</dt>
+              <dt>Instalment plan</dt>
               <dd>
                 ￥{{ formatCurrency(house.installmentMonthlyPayment) }} ×
-                {{ house.installmentMonths || '—' }} 期
+                {{ house.installmentMonths || '—' }} months
               </dd>
             </div>
             <div>
-              <dt>房源面积</dt>
+              <dt>Floor area</dt>
               <dd>{{ formatNumber(house.area) }} ㎡</dd>
             </div>
             <div>
-              <dt>挂牌日期</dt>
+              <dt>Listed on</dt>
               <dd>{{ formatDate(house.listingDate) }}</dd>
             </div>
             <div>
-              <dt>楼层</dt>
-              <dd>{{ house.floor != null ? `${house.floor} 层` : '—' }}</dd>
+              <dt>Floor</dt>
+              <dd>{{ house.floor != null ? `Level ${house.floor}` : '—' }}</dd>
             </div>
           </dl>
 
@@ -65,22 +65,22 @@
 
           <div class="seller">
             <div>
-              <span class="label">卖家账号</span>
+              <span class="label">Seller account</span>
               <strong>{{ house.sellerUsername }}</strong>
             </div>
             <div>
-              <span class="label">联系人</span>
+              <span class="label">Contact name</span>
               <strong>{{ house.sellerName }}</strong>
             </div>
             <div>
-              <span class="label">联系电话</span>
+              <span class="label">Contact phone</span>
               <strong>{{ house.contactNumber }}</strong>
             </div>
           </div>
 
           <footer class="actions">
-            <button class="approve" type="button" @click="review(house, 'APPROVED')">审核通过</button>
-            <button class="reject" type="button" @click="review(house, 'REJECTED')">驳回申请</button>
+            <button class="approve" type="button" @click="review(house, 'APPROVED')">Approve</button>
+            <button class="reject" type="button" @click="review(house, 'REJECTED')">Reject</button>
           </footer>
         </div>
       </article>
@@ -110,7 +110,7 @@ const formatCurrency = (value) => {
   if (value == null || Number.isNaN(Number(value))) {
     return '0.00';
   }
-  return Number(value).toLocaleString('zh-CN', {
+  return Number(value).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -120,7 +120,7 @@ const formatNumber = (value) => {
   if (value == null || Number.isNaN(Number(value))) {
     return '—';
   }
-  return Number(value).toLocaleString('zh-CN', {
+  return Number(value).toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -130,7 +130,7 @@ const formatDate = (value) => {
   if (!value) {
     return '—';
   }
-  return new Date(value).toLocaleDateString('zh-CN');
+  return new Date(value).toLocaleDateString('en-US');
 };
 
 const firstImage = (house) => {

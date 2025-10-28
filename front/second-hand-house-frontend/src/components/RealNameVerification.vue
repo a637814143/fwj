@@ -1,59 +1,59 @@
 <template>
   <section class="verification" v-if="currentUser">
     <header>
-      <h2>实名认证</h2>
+      <h2>Real-name verification</h2>
       <span :class="['status', currentUser.realNameVerified ? 'verified' : 'pending']">
-        {{ currentUser.realNameVerified ? '已认证' : '未认证' }}
+        {{ currentUser.realNameVerified ? 'Verified' : 'Not verified' }}
       </span>
     </header>
     <p class="hint">
-      实名认证通过后才能预定或购买房源，并且将提升账户信誉分。
+      Verification is required to reserve or purchase listings and increases your reputation score.
     </p>
 
     <div v-if="currentUser.realNameVerified" class="summary">
-      <p><strong>姓名：</strong>{{ currentUser.realName || '—' }}</p>
-      <p><strong>手机号：</strong>{{ currentUser.maskedPhoneNumber || '—' }}</p>
+      <p><strong>Name:</strong> {{ currentUser.realName || '—' }}</p>
+      <p><strong>Phone:</strong> {{ currentUser.maskedPhoneNumber || '—' }}</p>
       <button type="button" @click="editing = !editing">
-        {{ editing ? '取消修改' : '更新认证信息' }}
+        {{ editing ? 'Cancel' : 'Update verification' }}
       </button>
     </div>
 
     <form v-if="!currentUser.realNameVerified || editing" class="form" @submit.prevent="submit">
       <div class="field">
-        <label for="real-name">真实姓名</label>
+        <label for="real-name">Full name</label>
         <input
           id="real-name"
           v-model.trim="form.realName"
           type="text"
-          placeholder="请输入真实姓名"
+          placeholder="Enter your full name"
           :disabled="loading"
           required
         />
       </div>
       <div class="field">
-        <label for="id-number">身份证号</label>
+        <label for="id-number">ID number</label>
         <input
           id="id-number"
           v-model.trim="form.idNumber"
           type="text"
-          placeholder="请输入身份证号"
+          placeholder="Enter your ID number"
           :disabled="loading"
           required
         />
       </div>
       <div class="field">
-        <label for="phone-number">手机号</label>
+        <label for="phone-number">Phone number</label>
         <input
           id="phone-number"
           v-model.trim="form.phoneNumber"
           type="tel"
-          placeholder="请输入手机号"
+          placeholder="Enter your phone number"
           :disabled="loading"
           required
         />
       </div>
       <button type="submit" :disabled="loading">
-        {{ loading ? '提交中...' : currentUser.realNameVerified ? '更新认证信息' : '立即认证' }}
+        {{ loading ? 'Submitting…' : currentUser.realNameVerified ? 'Save updates' : 'Verify now' }}
       </button>
     </form>
 
@@ -120,11 +120,11 @@ const submit = async () => {
   error.value = '';
   try {
     if (!idNumberPattern.test(form.idNumber)) {
-      error.value = '身份证号必须为18位数字。';
+      error.value = 'The ID number must contain exactly 18 digits.';
       return;
     }
     if (!phoneNumberPattern.test(form.phoneNumber)) {
-      error.value = '手机号必须为13位数字。';
+      error.value = 'The phone number must contain exactly 13 digits.';
       return;
     }
     const { data } = await client.post(`/auth/verify/${props.currentUser.username}`, {
@@ -140,7 +140,7 @@ const submit = async () => {
       const firstError = Object.values(detail.errors)[0];
       error.value = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      error.value = detail?.detail ?? '实名认证提交失败，请稍后再试。';
+      error.value = detail?.detail ?? 'Verification failed. Please try again later.';
     }
   } finally {
     loading.value = false;

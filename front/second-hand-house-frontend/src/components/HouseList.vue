@@ -2,31 +2,31 @@
   <div class="house-list">
     <div class="list-header">
       <div>
-        <h2>房源列表</h2>
-        <p>共 {{ houses.length }} 套房源</p>
+        <h2>Listing overview</h2>
+        <p>{{ houses.length }} listings in total</p>
       </div>
-      <span v-if="!canManage && !isAdmin" class="hint">切换至卖家或管理员账号以管理房源</span>
+      <span v-if="!canManage && !isAdmin" class="hint">Switch to a seller or admin account to manage listings.</span>
     </div>
 
-    <div v-if="loading" class="loading">数据加载中...</div>
+    <div v-if="loading" class="loading">Loading listings…</div>
     <div v-else-if="houses.length === 0" class="empty">
-      {{ canManage ? '暂未添加房源，请先通过左侧表单发布。' : '暂无可浏览的房源记录。' }}
+      {{ canManage ? 'No listings yet. Use the form to publish your first property.' : 'No listings available at the moment.' }}
     </div>
 
     <div v-else class="table-wrapper">
       <table>
         <thead>
           <tr>
-            <th>房源信息</th>
-            <th>价格方案</th>
-            <th>面积</th>
-            <th>楼层</th>
-            <th>挂牌日期</th>
-            <th>状态</th>
-            <th>卖家</th>
-            <th>联系方式</th>
-            <th>关键词</th>
-            <th>操作</th>
+            <th>Listing</th>
+            <th>Pricing</th>
+            <th>Area</th>
+            <th>Floor</th>
+            <th>Listed on</th>
+            <th>Status</th>
+            <th>Seller</th>
+            <th>Contact</th>
+            <th>Keywords</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -36,13 +36,13 @@
                 <strong>{{ house.title }}</strong>
               </button>
               <p class="description" v-if="house.description">{{ house.description }}</p>
-              <p class="image-count" v-if="house.imageUrls?.length">{{ house.imageUrls.length }} 张图片</p>
+              <p class="image-count" v-if="house.imageUrls?.length">{{ house.imageUrls.length }} photos</p>
             </td>
             <td class="price-cell">
-              <span>全款：￥{{ formatCurrency(house.price) }}</span>
-              <span v-if="house.downPayment">首付：￥{{ formatCurrency(house.downPayment) }}</span>
+              <span>Full price: ￥{{ formatCurrency(house.price) }}</span>
+              <span v-if="house.downPayment">Down payment: ￥{{ formatCurrency(house.downPayment) }}</span>
               <span v-if="house.installmentMonthlyPayment">
-                分期：￥{{ formatCurrency(house.installmentMonthlyPayment) }} × {{ house.installmentMonths || '—' }} 期
+                Instalments: ￥{{ formatCurrency(house.installmentMonthlyPayment) }} × {{ house.installmentMonths || '—' }} months
               </span>
             </td>
             <td>{{ formatNumber(house.area) }} ㎡</td>
@@ -59,25 +59,25 @@
             <td>{{ contactNumberDisplay(house) }}</td>
             <td>
               <span v-if="formatKeywords(house.keywords)">{{ formatKeywords(house.keywords) }}</span>
-              <span v-else class="muted">未设置</span>
+              <span v-else class="muted">Not set</span>
             </td>
             <td class="actions">
               <template v-if="canManage">
-                <button class="btn" :disabled="!canEditHouse(house)" @click="handleEdit(house)">编辑</button>
-                <button class="btn danger" :disabled="!canDeleteHouse(house)" @click="handleRemove(house)">删除</button>
+                <button class="btn" :disabled="!canEditHouse(house)" @click="handleEdit(house)">Edit</button>
+                <button class="btn danger" :disabled="!canDeleteHouse(house)" @click="handleRemove(house)">Delete</button>
               </template>
               <template v-else-if="isAdmin">
-                <button class="btn success" @click="handleReview(house, 'APPROVED')">审核通过</button>
-                <button class="btn warning" @click="handleReview(house, 'REJECTED')">驳回</button>
+                <button class="btn success" @click="handleReview(house, 'APPROVED')">Approve</button>
+                <button class="btn warning" @click="handleReview(house, 'REJECTED')">Reject</button>
               </template>
               <template v-else-if="isBuyer">
                 <div class="payment-select">
                   <label>
-                    支付方式
+                    Payment method
                     <select v-model="selectedPayments[house.id]">
-                      <option value="FULL">全款</option>
+                      <option value="FULL">Full</option>
                       <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
-                        分期
+                        Instalments
                       </option>
                     </select>
                   </label>
@@ -90,11 +90,11 @@
                   {{
                     house.status !== 'APPROVED'
                       ? house.status === 'SOLD'
-                        ? '已售出'
-                        : '待审核'
+                        ? 'Sold'
+                        : 'Pending review'
                       : ordersLoading
-                      ? '处理中...'
-                      : '立即购买'
+                      ? 'Processing…'
+                      : 'Purchase now'
                   }}
                 </button>
                 <button
@@ -102,10 +102,10 @@
                   :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
                   @click="handleContactSeller(house)"
                 >
-                  {{ house.status === 'SOLD' ? '已售出' : '联系卖家' }}
+                  {{ house.status === 'SOLD' ? 'Sold' : 'Contact seller' }}
                 </button>
               </template>
-              <span v-else class="muted">仅支持浏览</span>
+              <span v-else class="muted">View only</span>
             </td>
           </tr>
         </tbody>
@@ -166,17 +166,17 @@ const detailHouse = ref(null);
 const detailCanViewSensitive = ref(false);
 
 const listingStatusLabels = {
-  PENDING_REVIEW: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
-  SOLD: '已售出（已下架）'
+  PENDING_REVIEW: 'Pending review',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  SOLD: 'Sold (unlisted)'
 };
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
     return '-';
   }
-  return Number(value).toLocaleString('zh-CN', {
+  return Number(value).toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -190,7 +190,7 @@ const formatCurrency = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -200,21 +200,21 @@ const formatDate = (value) => {
   if (!value) {
     return '-';
   }
-  return new Date(value).toLocaleDateString('zh-CN');
+  return new Date(value).toLocaleDateString('en-US');
 };
 
 const formatFloor = (value) => {
   if (value == null || value === '') {
     return '—';
   }
-  return `${value} 层`;
+  return `Level ${value}`;
 };
 
 const formatKeywords = (keywords) => {
   if (!Array.isArray(keywords) || keywords.length === 0) {
     return '';
   }
-  return keywords.join('、');
+  return keywords.join(', ');
 };
 
 const maskName = (value) => {
@@ -367,7 +367,7 @@ const handleContactSeller = (house) => {
   emit('contact-seller', { sellerUsername: house.sellerUsername, house });
 };
 
-const statusLabel = (house) => listingStatusLabels[house?.status] ?? '待审核';
+const statusLabel = (house) => listingStatusLabels[house?.status] ?? 'Pending review';
 
 const statusClass = (house) => {
   switch (house?.status) {

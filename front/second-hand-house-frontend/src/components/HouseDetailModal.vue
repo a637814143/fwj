@@ -6,39 +6,39 @@
           <h3>{{ house.title }}</h3>
           <p class="modal__address">{{ house.address }}</p>
         </div>
-        <button type="button" class="icon-button" aria-label="关闭详情" @click="emit('close')">×</button>
+        <button type="button" class="icon-button" aria-label="Close details" @click="emit('close')">×</button>
       </header>
 
       <section class="modal__content">
         <div class="info-grid">
           <div class="info-item">
-            <span class="info-label">价格</span>
-            <span class="info-value">￥{{ formattedPrice }}</span>
+            <span class="info-label">Price</span>
+            <span class="info-value">¥{{ formattedPrice }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">首付</span>
-            <span class="info-value">￥{{ formattedDownPayment }}</span>
+            <span class="info-label">Down payment</span>
+            <span class="info-value">¥{{ formattedDownPayment }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">分期方案</span>
+            <span class="info-label">Installment plan</span>
             <span class="info-value">
               {{ formattedInstallment }}
             </span>
           </div>
           <div class="info-item">
-            <span class="info-label">面积</span>
+            <span class="info-label">Area</span>
             <span class="info-value">{{ formattedArea }} ㎡</span>
           </div>
           <div class="info-item">
-            <span class="info-label">挂牌日期</span>
+            <span class="info-label">Listed on</span>
             <span class="info-value">{{ formattedDate }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">楼层</span>
+            <span class="info-label">Floor</span>
             <span class="info-value">{{ formattedFloor }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">状态</span>
+            <span class="info-label">Status</span>
             <span class="info-value">
               <span :class="['status-chip', statusClass]">{{ statusLabel }}</span>
             </span>
@@ -48,7 +48,7 @@
         <p v-if="house.description" class="modal__description">{{ house.description }}</p>
 
         <div v-if="keywordList.length" class="keywords">
-          <h4>房源关键词</h4>
+          <h4>Listing keywords</h4>
           <ul>
             <li v-for="keyword in keywordList" :key="keyword">{{ keyword }}</li>
           </ul>
@@ -56,14 +56,14 @@
 
         <div class="gallery">
           <div class="gallery__header">
-            <h4>图片展示</h4>
-            <span v-if="images.length" class="gallery__count">共 {{ images.length }} 张</span>
+            <h4>Gallery</h4>
+            <span v-if="images.length" class="gallery__count">{{ images.length }} images</span>
           </div>
-          <p v-if="!images.length" class="gallery__empty">暂无上传图片。</p>
+          <p v-if="!images.length" class="gallery__empty">No images uploaded yet.</p>
           <div v-else class="gallery__grid">
             <figure v-for="(image, index) in images" :key="`${index}-${image}`" class="gallery__item">
-              <img :src="image" :alt="`${house.title} 图片 ${index + 1}`" loading="lazy" />
-              <figcaption>图片 {{ index + 1 }}</figcaption>
+              <img :src="image" :alt="`${house.title} image ${index + 1}`" loading="lazy" />
+              <figcaption>Image {{ index + 1 }}</figcaption>
             </figure>
           </div>
         </div>
@@ -71,10 +71,10 @@
 
       <footer class="modal__footer">
         <div class="contact">
-          <span>卖家：{{ sellerName }}</span>
-          <span>联系方式：{{ maskedPhone }}</span>
+          <span>Seller: {{ sellerName }}</span>
+          <span>Contact: {{ maskedPhone }}</span>
         </div>
-        <button type="button" class="primary-button" @click="emit('close')">关闭</button>
+        <button type="button" class="primary-button" @click="emit('close')">Close</button>
       </footer>
     </div>
   </div>
@@ -109,7 +109,7 @@ const formattedInstallment = computed(() => {
   if (monthly === '—') {
     return '—';
   }
-  return `￥${monthly} × ${months} 期`;
+  return `¥${monthly} × ${months} months`;
 });
 const formattedArea = computed(() => formatNumber(props.house?.area));
 const formattedDate = computed(() => formatDate(props.house?.listingDate));
@@ -117,17 +117,17 @@ const formattedFloor = computed(() => {
   if (props.house?.floor == null || props.house.floor === '') {
     return '—';
   }
-  return `${props.house.floor} 层`;
+  return `Floor ${props.house.floor}`;
 });
 
 const listingStatusLabels = {
-  PENDING_REVIEW: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
-  SOLD: '已售出（已下架）'
+  PENDING_REVIEW: 'Pending review',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  SOLD: 'Sold (unlisted)'
 };
 
-const statusLabel = computed(() => listingStatusLabels[props.house?.status] ?? '待审核');
+const statusLabel = computed(() => listingStatusLabels[props.house?.status] ?? 'Pending review');
 const statusClass = computed(() => {
   switch (props.house?.status) {
     case 'APPROVED':
@@ -162,7 +162,7 @@ function formatNumber(value) {
   if (value == null || value === '') {
     return '—';
   }
-  return Number(value).toLocaleString('zh-CN', {
+  return Number(value).toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -176,7 +176,7 @@ function formatCurrency(value) {
   if (!Number.isFinite(num)) {
     return '—';
   }
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -186,7 +186,7 @@ function formatDate(value) {
   if (!value) {
     return '-';
   }
-  return new Date(value).toLocaleDateString('zh-CN');
+  return new Date(value).toLocaleDateString('en-US');
 }
 
 function maskPhone(value) {

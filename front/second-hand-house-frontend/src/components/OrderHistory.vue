@@ -1,11 +1,11 @@
 <template>
   <section class="order-history">
-    <h2>房屋订单</h2>
-    <p v-if="!currentUser" class="hint">请登录后查看订单记录与退换流程。</p>
+    <h2>Property orders</h2>
+    <p v-if="!currentUser" class="hint">Please sign in to view order history and manage returns.</p>
 
     <div v-else>
-      <div v-if="loading" class="loading">订单数据加载中...</div>
-      <div v-else-if="!orders || orders.length === 0" class="empty">暂无订单记录。</div>
+      <div v-if="loading" class="loading">Loading orders…</div>
+      <div v-else-if="!orders || orders.length === 0" class="empty">No orders found.</div>
       <ul v-else class="order-list">
         <li v-for="order in orders" :key="order.id" class="order-card">
           <header>
@@ -21,62 +21,62 @@
           </header>
           <dl>
             <div>
-              <dt>订单编号</dt>
+              <dt>Order ID</dt>
               <dd>{{ order.id }}</dd>
             </div>
             <div>
-              <dt>金额（元）</dt>
+              <dt>Amount (CNY)</dt>
               <dd>{{ formatAmount(order.amount) }}</dd>
             </div>
             <div>
-              <dt>支付方式</dt>
+              <dt>Payment method</dt>
               <dd>{{ paymentMethodLabel(order.paymentMethod) }}</dd>
             </div>
             <div>
-              <dt>买家</dt>
-              <dd>{{ buyerDisplayName(order) }}（{{ buyerUsernameDisplay(order) }}）</dd>
+              <dt>Buyer</dt>
+              <dd>{{ buyerDisplayName(order) }} ({{ buyerUsernameDisplay(order) }})</dd>
             </div>
             <div>
-              <dt>卖家</dt>
-              <dd>{{ sellerDisplayName(order) }}（{{ sellerUsernameDisplay(order) }}）</dd>
+              <dt>Seller</dt>
+              <dd>{{ sellerDisplayName(order) }} ({{ sellerUsernameDisplay(order) }})</dd>
             </div>
             <div>
-              <dt>创建时间</dt>
+              <dt>Created at</dt>
               <dd>{{ formatTime(order.createdAt) }}</dd>
             </div>
             <div>
-              <dt>更新时间</dt>
+              <dt>Updated at</dt>
               <dd>{{ formatTime(order.updatedAt) }}</dd>
             </div>
             <div>
-              <dt>托管状态</dt>
+              <dt>Escrow status</dt>
               <dd>
                 <span :class="['escrow-tag', escrowClass(order)]">{{ escrowStatus(order) }}</span>
                 <span v-if="escrowSupplement(order)" class="escrow-supplement">{{ escrowSupplement(order) }}</span>
               </dd>
             </div>
             <div v-if="shouldShowPlatformFee(order)">
-              <dt>平台抽成</dt>
+              <dt>Platform fee</dt>
               <dd>￥{{ formatAmount(order.platformFee) }}</dd>
             </div>
             <div v-if="shouldShowReleasedAmount(order)">
-              <dt>已发放金额</dt>
+              <dt>Released amount</dt>
               <dd>￥{{ formatAmount(order.releasedAmount) }}</dd>
             </div>
             <div v-if="order.adminReviewedBy">
-              <dt>审核人</dt>
+              <dt>Reviewed by</dt>
               <dd>
                 {{ order.adminReviewedBy }}
                 <span v-if="order.adminReviewedAt" class="escrow-supplement">{{ formatTime(order.adminReviewedAt) }}</span>
               </dd>
             </div>
             <div v-if="order.returnReason">
-              <dt>退换原因</dt>
+              <dt>Return reason</dt>
               <dd>{{ order.returnReason }}</dd>
             </div>
           </dl>
           <section class="progress-tracker">
-            <h4>交易进度</h4>
+            <h4>Transaction progress</h4>
             <ol class="progress-steps">
               <li
                 v-for="(stage, index) in progressOrderNormalized"
@@ -90,12 +90,12 @@
           </section>
           <section v-if="hasViewingSection(order)" class="viewing-section">
             <header>
-              <h4>预约看房</h4>
+              <h4>Viewing appointment</h4>
               <span v-if="order.viewingTime" class="viewing-time">{{ viewingTimeLabel(order) }}</span>
             </header>
             <p v-if="order.viewingTime" class="viewing-summary">
-              预约时间：{{ viewingTimeLabel(order) }}
-              <span v-if="order.viewingMessage">备注：{{ order.viewingMessage }}</span>
+              Appointment: {{ viewingTimeLabel(order) }}
+              <span v-if="order.viewingMessage">Notes: {{ order.viewingMessage }}</span>
             </p>
             <div class="viewing-actions">
               <button
@@ -105,7 +105,7 @@
                 :disabled="loading"
                 @click="openScheduleDialog(order)"
               >
-                选择看房时间
+                Schedule viewing
               </button>
               <button
                 v-if="canAdvance(order)"
@@ -114,7 +114,7 @@
                 :disabled="loading"
                 @click="advanceProgress(order)"
               >
-                推进至{{ nextStageLabel(order) }}
+                Advance to {{ nextStageLabel(order) }}
               </button>
               <button
                 v-if="canConfirmViewing(order)"
@@ -123,13 +123,13 @@
                 :disabled="loading"
                 @click="confirmViewing(order)"
               >
-                确认预约
+                Confirm appointment
               </button>
             </div>
           </section>
           <footer v-if="canRequestReturn(order)" class="actions">
             <button type="button" :disabled="loading" @click="requestReturn(order)">
-              申请退换
+              Request return
             </button>
           </footer>
         </li>
@@ -138,27 +138,27 @@
         <div v-if="scheduleState.visible" class="schedule-overlay" @click.self="closeScheduleDialog">
           <div class="schedule-dialog">
             <header>
-              <h3>安排看房</h3>
+              <h3>Schedule viewing</h3>
               <p>{{ scheduleState.title }}</p>
             </header>
             <form @submit.prevent="submitSchedule">
               <label>
-                <span>看房时间</span>
+                <span>Viewing time</span>
                 <input v-model="scheduleState.time" type="datetime-local" required />
               </label>
               <label>
-                <span>备注（可选）</span>
+                <span>Notes (optional)</span>
                 <textarea
                   v-model="scheduleState.message"
                   rows="2"
                   maxlength="120"
-                  placeholder="给买家的补充说明"
+                  placeholder="Additional notes for the buyer"
                 ></textarea>
               </label>
               <p v-if="scheduleError" class="form-error">{{ scheduleError }}</p>
               <div class="dialog-actions">
-                <button type="button" class="ghost" @click="closeScheduleDialog">取消</button>
-                <button type="submit" class="primary" :disabled="loading">确认安排</button>
+                <button type="button" class="ghost" @click="closeScheduleDialog">Cancel</button>
+                <button type="submit" class="primary" :disabled="loading">Confirm</button>
               </div>
             </form>
           </div>
@@ -201,16 +201,16 @@ const props = defineProps({
 const emit = defineEmits(['request-return', 'schedule-viewing', 'advance-progress', 'confirm-viewing']);
 
 const statusLabels = {
-  PENDING: '待支付',
-  RESERVED: '已预定',
-  PAID: '已支付',
-  RETURNED: '已退回',
-  CANCELLED: '已取消'
+  PENDING: 'Pending payment',
+  RESERVED: 'Reserved',
+  PAID: 'Paid',
+  RETURNED: 'Returned',
+  CANCELLED: 'Cancelled'
 };
 
 const paymentMethodLabels = {
-  FULL: '全款支付',
-  INSTALLMENT: '分期付款'
+  FULL: 'Full payment',
+  INSTALLMENT: 'Instalments'
 };
 
 const progressOrderDefault = [
@@ -288,7 +288,7 @@ const requestReturn = (order) => {
   if (!canRequestReturn(order) || props.loading) {
     return;
   }
-  const reason = window.prompt('请输入退换原因（可选）', order.returnReason ?? '');
+  const reason = window.prompt('Enter a return reason (optional)', order.returnReason ?? '');
   if (reason === null) {
     return;
   }
@@ -303,7 +303,7 @@ const formatAmount = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -320,14 +320,14 @@ const escrowStatus = (order) => {
   }
   if (order.adminReviewed) {
     if (order.fundsReleasedTo === 'SELLER') {
-      return '款项已发放给卖家';
+      return 'Funds released to seller';
     }
     if (order.fundsReleasedTo === 'BUYER') {
-      return '款项已退回买家';
+      return 'Funds refunded to buyer';
     }
-    return '资金结算完成';
+    return 'Escrow settled';
   }
-  return '等待管理员审核';
+  return 'Awaiting administrator review';
 };
 
 const escrowClass = (order) => {
@@ -349,11 +349,11 @@ const escrowSupplement = (order) => {
     if (hold == null) {
       return '';
     }
-    return `托管金额：￥${formatAmount(hold)}`;
+    return `Escrow hold: ￥${formatAmount(hold)}`;
   }
   const released = toNumberSafe(order.releasedAmount);
   if (released > 0) {
-    return `发放金额：￥${formatAmount(order.releasedAmount)}`;
+    return `Released amount: ￥${formatAmount(order.releasedAmount)}`;
   }
   return '';
 };
@@ -430,7 +430,7 @@ const formatTime = (value) => {
   if (!value) {
     return '';
   }
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+  return new Date(value).toLocaleString('en-US', { hour12: false });
 };
 
 const toLocalInputValue = (value) => {
@@ -472,7 +472,7 @@ const submitSchedule = () => {
     return;
   }
   if (!scheduleState.time) {
-    scheduleError.value = '请选择预约时间';
+    scheduleError.value = 'Please choose a viewing time.';
     return;
   }
   emit('schedule-viewing', {

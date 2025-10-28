@@ -2,9 +2,9 @@
   <form class="house-form" @submit.prevent="submitForm">
     <header class="form-header">
       <div>
-        <h2>{{ isEditing ? '编辑房源' : '新增房源' }}</h2>
+        <h2>{{ isEditing ? 'Edit listing' : 'Add listing' }}</h2>
         <p v-if="!canManage" class="notice">
-          当前角色仅支持浏览房源，如需发布或维护房源请使用卖家或管理员账号。
+          This account can browse listings only. Switch to a seller or admin account to manage listings.
         </p>
       </div>
       <div v-if="isEditing" class="status-indicator" :class="statusClass">
@@ -15,161 +15,161 @@
 
     <div class="form-grid">
       <label>
-        标题
+        Title
         <input
           v-model.trim="form.title"
           type="text"
           required
-          placeholder="请输入房源标题"
+          placeholder="Enter listing title"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        地址
+        Address
         <input
           v-model.trim="form.address"
           type="text"
           required
-          placeholder="请输入房源地址"
+          placeholder="Enter property address"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        价格（元）
+        Total price (CNY)
         <input
           v-model.number="form.price"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="例如 2000000"
+          placeholder="e.g. 2000000"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        首付（元）
+        Down payment (CNY)
         <input
           v-model.number="form.downPayment"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="例如 600000"
+          placeholder="e.g. 600000"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        房源面积（㎡）
+        Floor area (㎡)
         <input
           v-model.number="form.area"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="例如 89"
+          placeholder="e.g. 89"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        分期月供（元）
+        Estimated monthly instalment (CNY)
         <input
           :value="formattedInstallment"
           type="text"
           readonly
-          placeholder="系统根据总价、首付与期数自动计算"
+          placeholder="Calculated automatically from the price, down payment and term"
           :disabled="disabled"
         />
-        <small class="hint">系统会依据您的首付与期数智能估算每期月供。</small>
+        <small class="hint">The system estimates the monthly instalment based on your down payment and term.</small>
       </label>
 
       <label>
-        分期期数
+        Instalment term (months)
         <input
           v-model.number="form.installmentMonths"
           type="number"
           min="1"
           required
-          placeholder="例如 24"
+          placeholder="e.g. 24"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        卖家账号
+        Seller username
         <input
           v-model.trim="form.sellerUsername"
           type="text"
           required
-          placeholder="请输入卖家账号"
+          placeholder="Enter seller username"
           :disabled="disabled || disableSellerAccount"
         />
       </label>
 
       <label>
-        卖家姓名
+        Seller display name
         <input
           v-model.trim="form.sellerName"
           type="text"
           required
-          placeholder="请输入卖家姓名"
+          placeholder="Enter seller name"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        联系方式
+        Contact number
         <input
           v-model.trim="form.contactNumber"
           type="text"
           required
-          placeholder="请输入联系方式"
+          placeholder="Enter contact number"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        挂牌日期
+        Listing date
         <input v-model="form.listingDate" type="date" required :disabled="disabled" />
       </label>
 
       <label>
-        楼层（选填）
+        Floor (optional)
         <input
           v-model.number="form.floor"
           type="number"
           min="0"
-          placeholder="例如 10"
+          placeholder="e.g. 10"
           :disabled="disabled"
         />
       </label>
     </div>
 
     <label class="block">
-      房源描述
+      Listing description
       <textarea
         v-model.trim="form.description"
         rows="3"
-        placeholder="补充房源亮点或其他信息"
+        placeholder="Highlight selling points or additional details"
         :disabled="disabled"
       ></textarea>
     </label>
 
     <label class="block">
-      关键词（使用逗号、空格或顿号分隔）
+      Keywords (separate with commas or spaces)
       <input
         v-model="keywordInput"
         type="text"
-        placeholder="例如：学区房，地铁沿线，南北通透"
+        placeholder="e.g. city centre, subway nearby, south-facing"
         :disabled="disabled"
       />
     </label>
     <div v-if="keywordsPreview.length" class="keyword-preview">
-      <span class="preview-label">将提交的关键词：</span>
+      <span class="preview-label">Keywords that will be submitted:</span>
       <ul class="keyword-chips">
         <li v-for="(keyword, index) in keywordsPreview" :key="`${keyword}-${index}`">{{ keyword }}</li>
       </ul>
@@ -177,39 +177,45 @@
 
     <section class="images-section">
       <div class="images-header">
-        <h4>房源图片链接</h4>
-        <button type="button" class="btn add" :disabled="disabled" @click="addImageField">添加图片</button>
-      </div>
-      <p class="hint">支持填写多张图片的网络链接，提交前会自动忽略空白链接。</p>
-      <div class="image-inputs">
-        <div v-for="(image, index) in form.imageUrls" :key="`${index}-${image}`" class="image-input">
+        <h4>Listing photos</h4>
+        <div class="image-actions">
           <input
-            v-model.trim="form.imageUrls[index]"
-            type="url"
-            :disabled="disabled"
-            placeholder="例如：https://example.com/house.jpg"
+            ref="fileInputRef"
+            class="file-input"
+            type="file"
+            accept="image/*"
+            multiple
+            :disabled="disabled || uploadingImages"
+            @change="handleFileSelection"
           />
-          <button
-            type="button"
-            class="btn remove"
-            :disabled="disabled || form.imageUrls.length === 1"
-            @click="removeImageField(index)"
-          >
-            删除
+          <button type="button" class="btn add" :disabled="disabled || uploadingImages" @click="triggerImageUpload">
+            {{ uploadingImages ? 'Uploading…' : 'Upload images' }}
           </button>
-          <img v-if="isPreviewable(image)" :src="image" alt="预览" />
         </div>
       </div>
+      <p class="hint">Upload up to {{ maxImageCount }} images in PNG, JPG, GIF, or WEBP format.</p>
+      <p v-if="uploadError" class="error">{{ uploadError }}</p>
+      <div v-if="form.imageUrls.length" class="image-gallery">
+        <figure v-for="(image, index) in form.imageUrls" :key="`${image}-${index}`" class="image-preview">
+          <img :src="image" alt="Listing preview" />
+          <figcaption>
+            <button type="button" class="btn remove" :disabled="disabled" @click="removeImage(index)">
+              Remove
+            </button>
+          </figcaption>
+        </figure>
+      </div>
+      <p v-else class="hint">No images uploaded yet.</p>
     </section>
 
     <p v-if="formError" class="error">{{ formError }}</p>
 
     <div class="actions">
       <button class="btn primary" type="submit" :disabled="disabled">
-        {{ loading ? '提交中...' : isEditing ? '保存修改' : '提交审核' }}
+        {{ loading ? 'Submitting…' : isEditing ? 'Save changes' : 'Submit for review' }}
       </button>
       <button v-if="isEditing" class="btn ghost" type="button" :disabled="disabled" @click="cancelEdit">
-        取消编辑
+        Cancel
       </button>
     </div>
   </form>
@@ -234,16 +240,20 @@ const props = defineProps({
   currentUser: {
     type: Object,
     default: null
+  },
+  apiBaseUrl: {
+    type: String,
+    default: 'http://localhost:8080/api'
   }
 });
 
 const emit = defineEmits(['submit', 'cancel']);
 
 const listingStatusLabels = {
-  PENDING_REVIEW: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
-  SOLD: '已售出（已下架）'
+  PENDING_REVIEW: 'Pending review',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  SOLD: 'Sold (unlisted)'
 };
 
 const sellerRoles = ['SELLER', 'LANDLORD'];
@@ -262,18 +272,27 @@ const form = reactive({
   floor: '',
   installmentMonthlyPayment: '',
   installmentMonths: '',
-  imageUrls: ['']
+  imageUrls: []
 });
 
 const keywordInput = ref('');
 const formError = ref('');
+const uploadError = ref('');
+const uploadingImages = ref(false);
+const fileInputRef = ref(null);
+const maxImageCount = 10;
+
+const uploadEndpoint = computed(() => {
+  const base = props.apiBaseUrl?.replace(/\/$/, '') ?? '';
+  return `${base}/houses/images`;
+});
 
 const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
 const isEditing = computed(() => Boolean(props.initialHouse));
 const disabled = computed(() => !props.canManage || props.loading);
 const disableSellerAccount = computed(() => isSeller.value);
 const initialHouse = computed(() => props.initialHouse);
-const statusLabel = computed(() => listingStatusLabels[props.initialHouse?.status] ?? '待审核');
+const statusLabel = computed(() => listingStatusLabels[props.initialHouse?.status] ?? 'Pending review');
 const statusClass = computed(() => {
   switch (props.initialHouse?.status) {
     case 'APPROVED':
@@ -339,14 +358,13 @@ const formattedInstallment = computed(() => {
   return calculatedInstallment.value.toFixed(2);
 });
 
-const createInitialImages = (images = []) => {
-  const list = Array.isArray(images) && images.length > 0 ? [...images] : [''];
-  return list;
-};
-
 const applyImageUrls = (images = []) => {
-  const list = createInitialImages(images);
-  form.imageUrls.splice(0, form.imageUrls.length, ...list);
+  const sanitized = Array.isArray(images)
+    ? images
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter((value) => value.length > 0)
+    : [];
+  form.imageUrls.splice(0, form.imageUrls.length, ...sanitized.slice(0, maxImageCount));
 };
 
 const setFormDefaults = () => {
@@ -366,6 +384,8 @@ const setFormDefaults = () => {
   applyImageUrls();
   keywordInput.value = '';
   formError.value = '';
+  uploadError.value = '';
+  uploadingImages.value = false;
 };
 
 const fillFromHouse = (house) => {
@@ -383,8 +403,10 @@ const fillFromHouse = (house) => {
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
-  keywordInput.value = Array.isArray(house.keywords) ? house.keywords.join('、') : '';
+  keywordInput.value = Array.isArray(house.keywords) ? house.keywords.join(', ') : '';
   formError.value = '';
+  uploadError.value = '';
+  uploadingImages.value = false;
 };
 
 watch(
@@ -418,36 +440,6 @@ const parseKeywords = (value) => {
     .filter((item) => item.length > 0);
 };
 
-const addImageField = () => {
-  if (disabled.value) {
-    return;
-  }
-  form.imageUrls.push('');
-};
-
-const removeImageField = (index) => {
-  if (disabled.value || form.imageUrls.length === 1) {
-    return;
-  }
-  form.imageUrls.splice(index, 1);
-};
-
-const isPreviewable = (url) => {
-  if (typeof url !== 'string') {
-    return false;
-  }
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return false;
-  }
-  try {
-    new URL(trimmed);
-    return true;
-  } catch (error) {
-    return trimmed.startsWith('data:image/');
-  }
-};
-
 const ensurePositive = (value) => {
   if (value === '' || value == null) {
     return false;
@@ -456,21 +448,118 @@ const ensurePositive = (value) => {
   return Number.isFinite(num) && num > 0;
 };
 
+const maxUploadSize = 5 * 1024 * 1024;
+
+const triggerImageUpload = () => {
+  if (disabled.value) {
+    return;
+  }
+  if (form.imageUrls.length >= maxImageCount) {
+    uploadError.value = `You can upload up to ${maxImageCount} images.`;
+    return;
+  }
+  uploadError.value = '';
+  fileInputRef.value?.click();
+};
+
+const handleFileSelection = async (event) => {
+  if (disabled.value) {
+    if (event?.target) {
+      event.target.value = '';
+    }
+    return;
+  }
+  const input = event?.target;
+  const files = Array.from(input?.files ?? []);
+  if (input) {
+    input.value = '';
+  }
+  if (!files.length) {
+    return;
+  }
+  const remainingSlots = Math.max(0, maxImageCount - form.imageUrls.length);
+  if (remainingSlots <= 0) {
+    uploadError.value = `You can upload up to ${maxImageCount} images.`;
+    return;
+  }
+  uploadError.value = '';
+  uploadingImages.value = true;
+  try {
+    for (const file of files.slice(0, remainingSlots)) {
+      await uploadImage(file);
+    }
+    if (files.length > remainingSlots) {
+      uploadError.value = `Only ${maxImageCount} images are allowed. Extra files were ignored.`;
+    }
+  } catch (error) {
+    uploadError.value = error instanceof Error ? error.message : 'Failed to upload image. Please try again.';
+  } finally {
+    uploadingImages.value = false;
+  }
+};
+
+const uploadImage = async (file) => {
+  if (!file || !file.type?.startsWith('image/')) {
+    throw new Error('Only image files can be uploaded.');
+  }
+  if (file.size > maxUploadSize) {
+    throw new Error('Each image must be 5 MB or smaller.');
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(uploadEndpoint.value, {
+    method: 'POST',
+    body: formData
+  });
+  if (!response.ok) {
+    throw new Error(await readUploadError(response));
+  }
+  const payload = await response.json();
+  if (!payload || typeof payload.url !== 'string') {
+    throw new Error('Image upload failed. Please try again.');
+  }
+  const normalized = payload.url.trim();
+  if (normalized && !form.imageUrls.includes(normalized)) {
+    form.imageUrls.push(normalized);
+  }
+};
+
+const readUploadError = async (response) => {
+  try {
+    const data = await response.json();
+    return data?.detail || data?.message || 'Image upload failed. Please try again.';
+  } catch (error) {
+    try {
+      const text = await response.text();
+      return text || 'Image upload failed. Please try again.';
+    } catch (innerError) {
+      return 'Image upload failed. Please try again.';
+    }
+  }
+};
+
+const removeImage = (index) => {
+  if (disabled.value || index < 0 || index >= form.imageUrls.length) {
+    return;
+  }
+  form.imageUrls.splice(index, 1);
+};
+
 const validateForm = () => {
   if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
-    formError.value = '请完整填写房源基础信息。';
+    formError.value = 'Please complete all required listing information.';
     return false;
   }
   if (!form.listingDate) {
-    formError.value = '请选择挂牌日期。';
+    formError.value = 'Choose a listing date.';
     return false;
   }
   if (!ensurePositive(form.price)) {
-    formError.value = '请填写有效的房源价格。';
+    formError.value = 'Enter a valid total price.';
     return false;
   }
   if (!ensurePositive(form.downPayment)) {
-    formError.value = '请填写有效的首付金额。';
+    formError.value = 'Enter a valid down payment amount.';
     return false;
   }
   const priceNumber = Number(form.price);
@@ -478,20 +567,20 @@ const validateForm = () => {
   if (Number.isFinite(priceNumber) && Number.isFinite(downPaymentNumber)) {
     const totalWithPremium = priceNumber * premiumRate;
     if (downPaymentNumber >= totalWithPremium) {
-      formError.value = '首付金额必须低于总价的120%，以便计算分期。';
+      formError.value = 'The down payment must be below 120% of the total price to calculate instalments.';
       return false;
     }
   }
   if (!ensurePositive(form.area)) {
-    formError.value = '请填写有效的房源面积。';
+    formError.value = 'Enter a valid floor area.';
     return false;
   }
   if (!ensurePositive(form.installmentMonthlyPayment)) {
-    formError.value = '无法根据公式计算有效的分期月供，请检查首付或分期期数。';
+    formError.value = 'Unable to calculate a valid monthly instalment. Please review the down payment or term.';
     return false;
   }
   if (!ensurePositive(form.installmentMonths)) {
-    formError.value = '分期期数必须大于0。';
+    formError.value = 'The instalment term must be greater than zero.';
     return false;
   }
   formError.value = '';
@@ -712,28 +801,44 @@ textarea:focus {
   color: var(--color-text-strong);
 }
 
-.image-inputs {
+.image-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.8rem;
+}
+
+.image-preview {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.85);
 }
 
-.image-input {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.image-input input {
-  flex: 1;
-}
-
-.image-input img {
-  width: 64px;
-  height: 48px;
+.image-preview img {
+  width: 100%;
+  height: 140px;
   object-fit: cover;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.image-preview figcaption {
+  padding: 0 0 0.65rem;
+  display: flex;
+  justify-content: center;
 }
 
 .hint {

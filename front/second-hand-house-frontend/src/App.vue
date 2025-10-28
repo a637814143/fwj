@@ -43,23 +43,27 @@
     </section>
 
     <template v-else>
-      <nav class="menu">
-        <button
-          v-for="tab in navigationTabs"
-          :key="tab.value"
-          type="button"
-          :class="['menu-item', { active: tab.value === activeTab }]"
-          @click="switchTab(tab.value)"
-        >
-          {{ tab.label }}
-        </button>
-      </nav>
+      <div class="workspace-layout">
+        <aside class="sidebar">
+          <nav class="menu">
+            <button
+              v-for="tab in navigationTabs"
+              :key="tab.value"
+              type="button"
+              :class="['menu-item', { active: tab.value === activeTab }]"
+              @click="switchTab(tab.value)"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
+        </aside>
 
-      <section v-if="messages.error" class="alert">
-        <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
-      </section>
+        <section class="workspace">
+          <section v-if="messages.error" class="alert">
+            <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
+          </section>
 
-      <main class="main-content">
+          <main class="main-content">
         <HouseExplorer
           v-if="activeTab === 'home'"
           :houses="houses"
@@ -84,6 +88,7 @@
             :loading="loading"
             :can-manage="canManageHouses"
             :current-user="currentUser"
+            :api-base-url="apiBaseUrl"
             @submit="handleSubmit"
             @cancel="handleCancel"
           />
@@ -164,7 +169,9 @@
             @delete-user="handleDeleteUser"
           />
         </div>
-      </main>
+          </main>
+        </section>
+      </div>
     </template>
 
     <ConversationPanel
@@ -255,7 +262,7 @@ const client = axios.create({
 const settingsStorageKey = 'shh-interface-settings';
 const defaultSettings = Object.freeze({
   fontSize: 'medium',
-  language: 'zh',
+  language: 'en',
   theme: 'dark'
 });
 
@@ -2767,25 +2774,45 @@ onMounted(() => {
   justify-content: center;
 }
 
+.workspace-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+
+.sidebar {
+  position: sticky;
+  top: 1.5rem;
+  align-self: start;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
 .menu {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.9rem;
-  padding: 0.85rem;
-  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
-  border-radius: var(--radius-pill);
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem;
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
   backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
 .menu-item {
   border: none;
-  border-radius: var(--radius-pill);
-  padding: 0.55rem 1.5rem;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.1rem;
   background: transparent;
   color: var(--color-accent);
   font-weight: 600;
+  text-align: left;
   letter-spacing: 0.01em;
   transition: all var(--transition-base);
 }
@@ -2793,12 +2820,13 @@ onMounted(() => {
 .menu-item.active {
   background: var(--gradient-primary);
   color: var(--color-text-on-emphasis);
-  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.26);
 }
 
 .menu-item:not(.active):hover {
   background: var(--color-accent-soft);
   color: var(--color-text-strong);
+  transform: translateX(2px);
 }
 
 .alert {
@@ -2916,6 +2944,26 @@ onMounted(() => {
     align-items: stretch;
   }
 
+  .workspace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+
+  .menu {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-radius: var(--radius-pill);
+    justify-content: center;
+  }
+
+  .menu-item {
+    text-align: center;
+    flex: 1 1 160px;
+  }
+
   .admin-panels {
     grid-template-columns: 1fr;
   }
@@ -2949,6 +2997,10 @@ onMounted(() => {
   .messages-trigger {
     width: 100%;
     justify-content: center;
+  }
+
+  .menu {
+    gap: 0.6rem;
   }
 }
 </style>

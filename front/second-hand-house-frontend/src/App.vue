@@ -883,24 +883,29 @@ const translations = {
     },
     locationViewer: {
       title: '房源地段地图',
-      subtitle: '结合地图服务查看房源所在区域，当前展示预留占位信息。',
+      subtitle: '接入腾讯地图实时查看房源位置，可随时刷新同步最新房源。',
       refresh: '刷新房源数据',
       refreshing: '刷新中…',
-      loading: '地图数据同步中…',
+      loading: '房源数据同步中…',
+      mapLoading: '腾讯地图加载中…',
       updatedAt: '数据更新：{time}',
       listTitle: '房源列表',
       empty: '暂无可展示的房源位置，请先在首页检索或发布房源。',
       noTitle: '未命名房源',
       noAddress: '地址信息待补充',
       priceLabel: '参考价：￥{price}',
-      placeholder: {
-        heading: '地图服务待接入',
-        description: '完成地图 API 申请后，可在此渲染实时地图并展示房源位置。',
-        focus: '当前定位：{title}（{address}）'
-      },
       item: {
         focus: '查看位置',
         active: '正在查看'
+      },
+      errors: {
+        mapInit: '地图加载失败，请稍后重试。',
+        geocode: '暂时无法定位房源，请检查地址信息。',
+        missingKey: '缺少腾讯地图密钥，无法加载地图。',
+        partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
+      },
+      aria: {
+        map: '腾讯地图房源分布图'
       }
     },
     prediction: {
@@ -1679,24 +1684,29 @@ const translations = {
     },
     locationViewer: {
       title: 'Listing map overview',
-      subtitle: 'Preview where each listing is located. A live map will appear once the map API is connected.',
+      subtitle: 'Inspect listing areas on Tencent Maps and refresh to keep coordinates up to date.',
       refresh: 'Refresh listings',
       refreshing: 'Refreshing…',
-      loading: 'Synchronising map data…',
+      loading: 'Synchronising listing data…',
+      mapLoading: 'Loading Tencent Map…',
       updatedAt: 'Data updated: {time}',
       listTitle: 'Listings',
-      empty: 'No locations to display yet. Try searching or publishing listings first.',
+      empty: 'No listing locations are available yet. Try searching or publishing first.',
       noTitle: 'Untitled listing',
       noAddress: 'Address pending',
       priceLabel: 'Price: ￥{price}',
-      placeholder: {
-        heading: 'Map service coming soon',
-        description: 'Once the map API is approved, an interactive map will be rendered here with live coordinates.',
-        focus: 'Focused listing: {title} ({address})'
-      },
       item: {
-        focus: 'View location',
+        focus: 'Focus on map',
         active: 'Viewing'
+      },
+      errors: {
+        mapInit: 'The map failed to load. Please try again later.',
+        geocode: 'Some listings could not be located on the map.',
+        missingKey: 'Tencent Map key is missing, so the map cannot be displayed.',
+        partial: '{count} listing(s) could not be located. Their addresses are listed below.'
+      },
+      aria: {
+        map: 'Tencent map showing listing locations'
       }
     },
     prediction: {

@@ -15,8 +15,8 @@
                 {{ stageLabel(order.progressStage) }}
               </span>
             </div>
-            <span class="status" :class="order.status.toLowerCase()">
-              {{ statusLabels[order.status] ?? order.status }}
+            <span class="status" :class="statusClass(order.status)">
+              {{ statusLabel(order.status) }}
             </span>
           </header>
           <dl>
@@ -241,6 +241,40 @@ const progressOrderDefault = [
   'FUNDS_RELEASED'
 ];
 
+const normalizeKey = (value) => {
+  if (value == null) {
+    return '';
+  }
+  const text = String(value).trim();
+  return text ? text.toUpperCase() : '';
+};
+
+const statusLabel = (value) => {
+  const key = normalizeKey(value);
+  if (!key) {
+    return fallbackText.value;
+  }
+  const map = statusLabels.value ?? {};
+  return map[key] ?? map[value] ?? map[key.replace(/\s+/g, '_')] ?? fallbackText.value;
+};
+
+const statusClass = (value) => {
+  const key = String(value ?? '').trim();
+  if (!key) {
+    return 'unknown';
+  }
+  return key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+};
+
+const paymentMethodLabel = (value) => {
+  const key = normalizeKey(value);
+  if (!key) {
+    return fallbackText.value;
+  }
+  const map = paymentMethodLabels.value ?? {};
+  return map[key] ?? map[value] ?? fallbackText.value;
+};
+
 const progressLocaleLabels = computed(() => {
   const labels = t('orders.progress');
   return labels && typeof labels === 'object' ? labels : {};
@@ -392,9 +426,6 @@ const escrowSupplement = (order) => {
 const shouldShowPlatformFee = (order) => toNumberSafe(order?.platformFee) > 0;
 
 const shouldShowReleasedAmount = (order) => toNumberSafe(order?.releasedAmount) > 0;
-
-const paymentMethodLabel = (value) =>
-  paymentMethodLabels.value?.[value] ?? fallbackText.value;
 
 const maskName = (value) => {
   if (!value) {

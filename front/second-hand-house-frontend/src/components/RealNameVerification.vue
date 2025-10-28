@@ -1,59 +1,63 @@
 <template>
   <section class="verification" v-if="currentUser">
     <header>
-      <h2>Real-name verification</h2>
+      <h2>{{ t('verify.panel.title') }}</h2>
       <span :class="['status', currentUser.realNameVerified ? 'verified' : 'pending']">
-        {{ currentUser.realNameVerified ? 'Verified' : 'Not verified' }}
+        {{ currentUser.realNameVerified ? t('verify.panel.status.verified') : t('verify.panel.status.pending') }}
       </span>
     </header>
-    <p class="hint">
-      Verification is required to reserve or purchase listings and increases your reputation score.
-    </p>
+    <p class="hint">{{ t('verify.panel.hint') }}</p>
 
     <div v-if="currentUser.realNameVerified" class="summary">
-      <p><strong>Name:</strong> {{ currentUser.realName || '—' }}</p>
-      <p><strong>Phone:</strong> {{ currentUser.maskedPhoneNumber || '—' }}</p>
+      <p><strong>{{ t('verify.panel.summary.name') }}</strong> {{ currentUser.realName || '—' }}</p>
+      <p><strong>{{ t('verify.panel.summary.phone') }}</strong> {{ currentUser.maskedPhoneNumber || '—' }}</p>
       <button type="button" @click="editing = !editing">
-        {{ editing ? 'Cancel' : 'Update verification' }}
+        {{ editing ? t('verify.panel.actions.cancel') : t('verify.panel.actions.edit') }}
       </button>
     </div>
 
     <form v-if="!currentUser.realNameVerified || editing" class="form" @submit.prevent="submit">
       <div class="field">
-        <label for="real-name">Full name</label>
+        <label for="real-name">{{ t('verify.panel.form.name') }}</label>
         <input
           id="real-name"
           v-model.trim="form.realName"
           type="text"
-          placeholder="Enter your full name"
+          :placeholder="t('verify.panel.form.placeholders.name')"
           :disabled="loading"
           required
         />
       </div>
       <div class="field">
-        <label for="id-number">ID number</label>
+        <label for="id-number">{{ t('verify.panel.form.idNumber') }}</label>
         <input
           id="id-number"
           v-model.trim="form.idNumber"
           type="text"
-          placeholder="Enter your ID number"
+          :placeholder="t('verify.panel.form.placeholders.idNumber')"
           :disabled="loading"
           required
         />
       </div>
       <div class="field">
-        <label for="phone-number">Phone number</label>
+        <label for="phone-number">{{ t('verify.panel.form.phoneNumber') }}</label>
         <input
           id="phone-number"
           v-model.trim="form.phoneNumber"
           type="tel"
-          placeholder="Enter your phone number"
+          :placeholder="t('verify.panel.form.placeholders.phoneNumber')"
           :disabled="loading"
           required
         />
       </div>
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Submitting…' : currentUser.realNameVerified ? 'Save updates' : 'Verify now' }}
+        {{
+          loading
+            ? t('verify.panel.form.actions.submitting')
+            : currentUser.realNameVerified
+            ? t('verify.panel.form.actions.update')
+            : t('verify.panel.form.actions.submit')
+        }}
       </button>
     </form>
 
@@ -62,7 +66,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue';
+import { inject, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -77,6 +81,18 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['verified']);
+
+const translate = inject('translate', (key, vars) => {
+  if (typeof key !== 'string') {
+    return '';
+  }
+  if (!vars) {
+    return key;
+  }
+  return key;
+});
+
+const t = (key, vars) => translate(key, vars);
 
 const client = axios.create({
   baseURL: props.apiBaseUrl,
@@ -120,11 +136,11 @@ const submit = async () => {
   error.value = '';
   try {
     if (!idNumberPattern.test(form.idNumber)) {
-      error.value = 'The ID number must contain exactly 18 digits.';
+      error.value = t('verify.panel.errors.idNumber');
       return;
     }
     if (!phoneNumberPattern.test(form.phoneNumber)) {
-      error.value = 'The phone number must contain exactly 13 digits.';
+      error.value = t('verify.panel.errors.phoneNumber');
       return;
     }
     const { data } = await client.post(`/auth/verify/${props.currentUser.username}`, {
@@ -140,7 +156,7 @@ const submit = async () => {
       const firstError = Object.values(detail.errors)[0];
       error.value = Array.isArray(firstError) ? firstError[0] : firstError;
     } else {
-      error.value = detail?.detail ?? 'Verification failed. Please try again later.';
+      error.value = detail?.detail ?? t('verify.panel.errors.generic');
     }
   } finally {
     loading.value = false;

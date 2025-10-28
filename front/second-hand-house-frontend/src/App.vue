@@ -76,6 +76,8 @@
           :reservation-loading="reservationLoading"
           :reservation-target="reservationTarget"
           :api-base-url="apiBaseUrl"
+          :wallet="wallet"
+          :consume-points="consumePredictionPoints"
           @search="handleFilterSearch"
           @reserve="handleReserve"
           @purchase="handlePurchase"
@@ -231,6 +233,7 @@ import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
 import ReviewModeration from './components/ReviewModeration.vue';
+import AccountCenter from './components/AccountCenter.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -245,6 +248,8 @@ const reservationLoading = ref(false);
 const reservationTarget = ref(null);
 const dismissedUrgentTaskKeys = ref([]);
 const messages = reactive({ error: '', success: '' });
+const accountSaving = ref(false);
+const accountError = ref('');
 const houseReviews = ref([]);
 const recommendations = reactive({ sellers: [], buyers: [] });
 const adminUsers = ref([]);
@@ -267,7 +272,9 @@ const houseFilters = reactive({
   minPrice: '',
   maxPrice: '',
   minArea: '',
-  maxArea: ''
+  maxArea: '',
+  sellerUsername: '',
+  sellerDisplayName: ''
 });
 const storageKey = 'secondhand-house-current-user';
 const urgentDismissedStoragePrefix = 'shh-urgent-dismissed-';
@@ -277,6 +284,75 @@ const client = axios.create({
   baseURL: apiBaseUrl,
   headers: { 'Content-Type': 'application/json' }
 });
+
+const coerceNumber = (value, fallback = 0) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    const fallbackNum = Number(fallback);
+    return Number.isFinite(fallbackNum) ? fallbackNum : 0;
+  }
+  return num;
+};
+
+const normalizeWallet = (next, previous = null) => {
+  const prev = previous && typeof previous === 'object' ? previous : {};
+  const source = next && typeof next === 'object' ? next : {};
+  const normalizedBalance = coerceNumber(source.balance, prev.balance ?? 0);
+  const normalizedPoints = Math.max(0, coerceNumber(source.points, prev.points ?? 0));
+  const transactions = Array.isArray(source.transactions)
+    ? source.transactions
+    : Array.isArray(prev.transactions)
+      ? prev.transactions
+      : [];
+  return {
+    ...prev,
+    ...source,
+    balance: normalizedBalance,
+    points: normalizedPoints,
+    transactions,
+    virtualPort: source.virtualPort ?? prev.virtualPort ?? ''
+  };
+};
+
+const extractErrorMessage = (error) => {
+  const detail = error?.response?.data;
+  if (!detail) {
+    return '';
+  }
+  if (typeof detail === 'string') {
+    return detail;
+  }
+  if (typeof detail?.detail === 'string') {
+    return detail.detail;
+  }
+  if (typeof detail?.message === 'string') {
+    return detail.message;
+  }
+  return '';
+};
+
+const shouldRetryWithoutRequester = (error) => {
+  const status = error?.response?.status;
+  if (!status) {
+    return false;
+  }
+  if ([404, 405, 415].includes(status)) {
+    return true;
+  }
+  if (status === 400) {
+    if (error?.response?.data?.errors) {
+      return false;
+    }
+    const message = extractErrorMessage(error);
+    return message ? /requester/i.test(message) : false;
+  }
+  return false;
+};
+
+const shouldRetryProfileFetch = (error) => {
+  const status = error?.response?.status;
+  return status === 404 || status === 405;
+};
 
 const settingsStorageKey = 'shh-interface-settings';
 const defaultSettings = Object.freeze({
@@ -335,6 +411,7 @@ const translations = {
       feedback: '房源评价',
       urgent: '紧急待办',
       orders: '订单与钱包',
+      account: '个人中心',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
       admin: '管理员面板',
@@ -588,7 +665,8 @@ const translations = {
       reservation: '已成功预定房源《{title}》，定金 ￥{amount}。',
       orderReleasedSeller: '订单资金已发放给卖家。',
       orderReleasedBuyer: '订单资金已退回买家。',
-      walletTopUp: '钱包充值成功，充值金额 ￥{amount}。',
+      walletTopUp: '钱包充值成功，充值金额 ￥{amount}，获赠 {points} 积分。',
+      accountUpdated: '账号信息已更新。',
       orderReturned: '订单《{title}》已退换成功。',
       viewingScheduled: '已为房源《{title}》安排看房，时间 {time}。',
       progressUpdated: '交易进度已更新至 {stage}。',
@@ -639,6 +717,9 @@ const translations = {
       installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
+      consumePoints: '扣减积分失败，请稍后重试。',
+      updateAccount: '更新账号信息失败。',
+      accountLoginRequired: '请登录后再管理账号信息。',
       returnLoginRequired: '请先登录后再申请退换。',
       returnFailed: '退换请求失败。',
       updateBlacklist: '更新黑名单状态失败。',
@@ -721,7 +802,10 @@ const translations = {
       recommendations: {
         sellers: {
           title: '优质卖家',
-          score: '信誉分 {score}'
+          score: '信誉分 {score}',
+          cta: '查看房源',
+          active: '正在查看卖家「{name}」的房源',
+          clear: '清除筛选'
         },
         buyers: {
           title: '优质买家',
@@ -750,12 +834,15 @@ const translations = {
       labels: {
         balance: '当前余额',
         unitYuan: '元',
+        points: '成长积分',
+        pointsHint: '充值返利与功能兑换积分',
+        pointsUnit: '积分',
         virtualPort: '虚拟端口号',
         virtualPortHint: '该编号用于识别充值与收款'
       },
       topUp: {
         title: '充值钱包',
-        hint: '系统以人民币元为结算单位。',
+        hint: '系统以人民币元为结算单位，每充值 100 元获赠 10 积分。',
         amountLabel: '充值金额（元）',
         amountPlaceholder: '例如：5000',
         referenceLabel: '备注（选填）',
@@ -812,6 +899,15 @@ const translations = {
         calculating: '模型计算中…',
         reset: '恢复默认参数'
       },
+      limits: {
+        label: '今日剩余免费次数：{count} 次',
+        loginLabel: '登录以使用预测功能',
+        loginHint: '登录后可享受每日 3 次免费预测，之后使用积分继续体验。',
+        freeAvailable: '今日仍可免费预测 {count} 次。',
+        paidHint: '今日免费次数已用完，继续使用需消耗 {cost} 积分 / 次。',
+        pointsReady: '当前积分余额 {balance}，可消耗 {cost} 积分继续预测。',
+        pointsBalance: '当前积分余额 {balance}。'
+      },
       result: {
         estimate: '预测成交价',
         lower: '参考下限',
@@ -842,7 +938,48 @@ const translations = {
         crimeMin: '治安指数不能为负数',
         schoolRequired: '请填写学校评分',
         schoolMin: '学校评分不能为负数',
-        schoolMax: '学校评分不能超过 100 分'
+        schoolMax: '学校评分不能超过 100 分',
+        loginRequired: '请登录后再使用房价预测功能。',
+        pointsUnsupported: '当前暂不支持扣减积分。',
+        consumeFailed: '扣减积分失败，请稍后再试。',
+        pointsInsufficient: '积分不足，请先充值获取更多积分。'
+      }
+    },
+    accountCenter: {
+      title: '个人中心',
+      subtitle: '查看账号摘要并更新用户名或登录密码。',
+      summaryTitle: '账号概要',
+      summary: {
+        username: '登录账号',
+        displayName: '昵称',
+        role: '当前角色',
+        verification: '实名认证状态',
+        realName: '实名信息',
+        phone: '联系方式',
+        verified: '已认证',
+        pending: '待认证'
+      },
+      credentialTitle: '安全设置',
+      credentialHint: '可修改登录账号、展示昵称或重置密码。',
+      fields: {
+        username: '新的登录账号',
+        displayName: '新的昵称',
+        newPassword: '新的登录密码',
+        confirmPassword: '确认新密码'
+      },
+      placeholders: {
+        password: '至少 6 位密码',
+        confirmPassword: '请再次输入新密码'
+      },
+      actions: {
+        save: '保存修改',
+        saving: '保存中…',
+        cancel: '返回'
+      },
+      errors: {
+        noChanges: '请修改后再提交。',
+        passwordMismatch: '两次输入的新密码不一致。',
+        passwordLength: '密码长度至少 6 位。'
       }
     },
     serverMessages: {
@@ -965,6 +1102,7 @@ const translations = {
       feedback: 'Listing feedback',
       urgent: 'Urgent tasks',
       orders: 'Orders & wallet',
+      account: 'Personal hub',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
       admin: 'Admin dashboard',
@@ -1219,7 +1357,8 @@ const translations = {
       reservation: 'Successfully reserved “{title}” with a deposit of ¥{amount}.',
       orderReleasedSeller: 'Funds released to the seller.',
       orderReleasedBuyer: 'Funds returned to the buyer.',
-      walletTopUp: 'Wallet top-up successful, amount ¥{amount}.',
+      walletTopUp: 'Wallet top-up successful: ¥{amount} added, {points} points awarded.',
+      accountUpdated: 'Account details updated successfully.',
       orderReturned: 'Order “{title}” has been refunded.',
       viewingScheduled: 'Viewing for “{title}” has been scheduled at {time}.',
       progressUpdated: 'Progress updated to {stage}.',
@@ -1270,6 +1409,9 @@ const translations = {
       installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
+      consumePoints: 'Failed to deduct points. Please try again later.',
+      updateAccount: 'Failed to update account details.',
+      accountLoginRequired: 'Please sign in before managing account details.',
       returnLoginRequired: 'Please sign in before requesting a refund.',
       returnFailed: 'Failed to submit refund request.',
       updateBlacklist: 'Failed to update blacklist status.',
@@ -1380,12 +1522,15 @@ const translations = {
       },
       labels: {
         balance: 'Current balance',
+        points: 'Reward points',
+        pointsHint: 'Redeemable credits earned through top-ups',
+        pointsUnit: 'pts',
         virtualPort: 'Virtual account number',
         virtualPortHint: 'Use this identifier when adding funds or receiving payments.'
       },
       topUp: {
         title: 'Top up wallet',
-        hint: 'Balances are stored in Chinese Yuan.',
+        hint: 'Balances are stored in Chinese Yuan. Earn 10 points for every ¥100 top-up.',
         amountLabel: 'Amount (CNY)',
         amountPlaceholder: 'e.g. 5000',
         referenceLabel: 'Reference (optional)',
@@ -1442,6 +1587,15 @@ const translations = {
         calculating: 'Calculating…',
         reset: 'Reset to defaults'
       },
+      limits: {
+        label: 'Free predictions left today: {count}',
+        loginLabel: 'Sign in to predict prices',
+        loginHint: 'Enjoy three free predictions per day when signed in. Continue with reward points afterwards.',
+        freeAvailable: '{count} free prediction(s) remaining today.',
+        paidHint: 'Free quota has been used. Each additional prediction costs {cost} points.',
+        pointsReady: '{balance} points available. {cost} points will be used for this prediction.',
+        pointsBalance: 'Current points balance: {balance}.'
+      },
       result: {
         estimate: 'Estimated price',
         lower: 'Lower bound',
@@ -1472,7 +1626,48 @@ const translations = {
         crimeMin: 'Safety index cannot be negative.',
         schoolRequired: 'School score is required.',
         schoolMin: 'School score cannot be negative.',
-        schoolMax: 'School score cannot exceed 100.'
+        schoolMax: 'School score cannot exceed 100.',
+        loginRequired: 'Please sign in before using price prediction.',
+        pointsUnsupported: 'Point deduction is currently unavailable.',
+        consumeFailed: 'Failed to deduct points. Please try again later.',
+        pointsInsufficient: 'Insufficient points. Please top up to continue.'
+      }
+    },
+    accountCenter: {
+      title: 'Personal hub',
+      subtitle: 'Review account information and update credentials securely.',
+      summaryTitle: 'Account overview',
+      summary: {
+        username: 'Username',
+        displayName: 'Display name',
+        role: 'Role',
+        verification: 'Verification status',
+        realName: 'Real name',
+        phone: 'Phone number',
+        verified: 'Verified',
+        pending: 'Pending'
+      },
+      credentialTitle: 'Security settings',
+      credentialHint: 'Update your username, display name or reset the password.',
+      fields: {
+        username: 'New username',
+        displayName: 'New display name',
+        newPassword: 'New password',
+        confirmPassword: 'Confirm new password'
+      },
+      placeholders: {
+        password: 'Minimum 6 characters',
+        confirmPassword: 'Re-enter new password'
+      },
+      actions: {
+        save: 'Save changes',
+        saving: 'Saving…',
+        cancel: 'Back'
+      },
+      errors: {
+        noChanges: 'Please modify a field before saving.',
+        passwordMismatch: 'The new passwords do not match.',
+        passwordLength: 'Password must contain at least 6 characters.'
       }
     },
     serverMessages: {
@@ -1600,6 +1795,7 @@ const serverMessageKeyMap = Object.freeze({
   '买家未完成实名认证，无法购买房源': 'errors.purchaseVerifyFirst',
   '房源尚未通过审核，暂不可预定。': 'errors.reserveNotApproved',
   '房源尚未通过审核，暂不可购买。': 'errors.purchaseNotApproved',
+  '积分不足': 'prediction.errors.pointsInsufficient',
   '请求参数校验失败': 'serverMessages.generic.validationFailed',
   '填写19位数字': 'errors.installmentCardRequired'
 });
@@ -1952,6 +2148,7 @@ const navigationTabs = computed(() => {
   if (canAccessOrders.value) {
     tabs.push({ value: 'orders', label: t('nav.orders') });
   }
+  tabs.push({ value: 'account', label: t('nav.account') });
   if (isAdmin.value) {
     const pendingLabel = pendingReviewHouses.value.length
       ? t('nav.reviewWithCount', { count: pendingReviewHouses.value.length })
@@ -1971,6 +2168,15 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => activeTab.value,
+  (value) => {
+    if (value !== 'account') {
+      accountError.value = '';
+    }
+  }
 );
 
 watch(
@@ -2143,6 +2349,9 @@ const normalizeHouse = (house) => ({
 const buildFilterParams = (filters) => {
   const params = {};
   Object.entries(filters).forEach(([key, value]) => {
+    if (key === 'sellerDisplayName') {
+      return;
+    }
     if (value === null || value === undefined) {
       return;
     }
@@ -2210,13 +2419,33 @@ const fetchWallet = async ({ silent = false } = {}) => {
   }
   try {
     const { data } = await client.get(`/wallets/${currentUser.value.username}`);
-    wallet.value = data;
+    wallet.value = normalizeWallet(data, wallet.value);
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadWallet');
   } finally {
     if (!silent) {
       walletLoading.value = false;
     }
+  }
+};
+
+const consumePredictionPoints = async (amount) => {
+  if (!currentUser.value) {
+    throw new Error(t('errors.walletLoginRequired'));
+  }
+  try {
+    const { data } = await client.post(`/wallets/${currentUser.value.username}/points/consume`, {
+      amount,
+      reason: 'PRICE_PREDICTION'
+    });
+    wallet.value = normalizeWallet(data, wallet.value);
+    return wallet.value;
+  } catch (error) {
+    if (error?.response?.status === 404 || error?.response?.status === 405) {
+      throw new Error(t('prediction.errors.pointsUnsupported'));
+    }
+    const message = resolveError(error, 'errors.consumePoints');
+    throw new Error(message);
   }
 };
 
@@ -2522,20 +2751,33 @@ const refreshCurrentUser = async ({ silent = true } = {}) => {
   if (!currentUser.value) {
     return;
   }
-  try {
-    const { data } = await client.get(`/auth/profile/${currentUser.value.username}`);
-    const updated = {
-      ...currentUser.value,
-      ...data,
-      message: data.message ?? currentUser.value.message
-    };
-    currentUser.value = updated;
-    persistUser(updated);
-  } catch (error) {
-    if (!silent) {
-      messages.error = resolveError(error, 'errors.refreshUser');
+  const username = currentUser.value.username;
+  const endpoints = [`/auth/profile/${username}`, '/auth/profile'];
+  let response = null;
+  for (const endpoint of endpoints) {
+    try {
+      response = await client.get(endpoint);
+      break;
+    } catch (error) {
+      if (!shouldRetryProfileFetch(error)) {
+        if (!silent) {
+          messages.error = resolveError(error, 'errors.refreshUser');
+        }
+        return;
+      }
     }
   }
+  if (!response) {
+    return;
+  }
+  const data = response.data;
+  const updated = {
+    ...currentUser.value,
+    ...data,
+    message: data.message ?? currentUser.value.message
+  };
+  currentUser.value = updated;
+  persistUser(updated);
 };
 
 const guardReadOnly = () => {
@@ -2808,16 +3050,96 @@ const handleTopUp = async ({ amount, reference }) => {
   messages.error = '';
   messages.success = '';
   try {
-    const { data } = await client.post(`/wallets/${currentUser.value.username}/top-up`, {
-      amount,
-      reference
+    const endpoint = `/wallets/${currentUser.value.username}/top-up`;
+    const basePayload = { amount, reference };
+    const attempts = [
+      { payload: { ...basePayload, requesterUsername: currentUser.value.username }, allowFallback: true },
+      { payload: basePayload, allowFallback: false }
+    ];
+    let response = null;
+    let lastError = null;
+    for (const attempt of attempts) {
+      try {
+        response = await client.post(endpoint, attempt.payload);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt.allowFallback && shouldRetryWithoutRequester(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    if (!response) {
+      throw lastError ?? new Error('Top-up failed');
+    }
+    const { data } = response;
+    wallet.value = normalizeWallet(data, wallet.value);
+    const bonusPoints = Math.floor((Number(amount) || 0) / 100) * 10;
+    messages.success = t('success.walletTopUp', {
+      amount: formatCurrencyYuan(amount),
+      points: bonusPoints
     });
-    wallet.value = data;
-    messages.success = t('success.walletTopUp', { amount: formatCurrencyYuan(amount) });
   } catch (error) {
     messages.error = resolveError(error, 'errors.walletTopUp');
   } finally {
     walletLoading.value = false;
+  }
+};
+
+const handleAccountSubmit = async (payload = {}) => {
+  if (!currentUser.value) {
+    accountError.value = t('errors.accountLoginRequired');
+    return;
+  }
+  if (!payload || Object.keys(payload).length === 0) {
+    accountError.value = t('accountCenter.errors.noChanges');
+    return;
+  }
+  accountSaving.value = true;
+  accountError.value = '';
+  messages.error = '';
+  try {
+    const username = currentUser.value.username;
+    const attempts = [
+      { url: `/auth/profile/${username}`, payload: { ...payload, requesterUsername: username }, allowFallback: true },
+      { url: `/auth/profile/${username}`, payload: { ...payload }, allowFallback: false },
+      { url: '/auth/profile', payload: { ...payload, requesterUsername: username }, allowFallback: true },
+      { url: '/auth/profile', payload: { ...payload }, allowFallback: false }
+    ];
+    let response = null;
+    let lastError = null;
+    for (const attempt of attempts) {
+      try {
+        response = await client.patch(attempt.url, attempt.payload);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt.allowFallback && shouldRetryWithoutRequester(error)) {
+          continue;
+        }
+        if (shouldRetryProfileFetch(error)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    if (!response) {
+      throw lastError ?? new Error(t('errors.updateAccount'));
+    }
+    const { data } = response;
+    const merged = { ...currentUser.value, ...data };
+    currentUser.value = merged;
+    persistUser(merged);
+    messages.success = t('success.accountUpdated');
+    await Promise.all([
+      refreshCurrentUser({ silent: true }),
+      fetchWallet({ silent: true })
+    ]);
+  } catch (error) {
+    accountError.value = resolveError(error, 'errors.updateAccount');
+  } finally {
+    accountSaving.value = false;
   }
 };
 
@@ -3235,7 +3557,7 @@ onMounted(() => {
 .app::before {
   width: 420px;
   height: 420px;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.4), rgba(14, 165, 233, 0));
+  background: radial-gradient(circle, rgba(204, 188, 172, 0.45), rgba(204, 188, 172, 0));
   top: -160px;
   right: -110px;
 }
@@ -3243,17 +3565,17 @@ onMounted(() => {
 .app::after {
   width: 360px;
   height: 360px;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.42), rgba(129, 140, 248, 0));
+  background: radial-gradient(circle, rgba(168, 178, 188, 0.35), rgba(168, 178, 188, 0));
   bottom: -140px;
   left: -100px;
 }
 
 .header {
-  background: linear-gradient(130deg, rgba(14, 165, 233, 0.95), rgba(37, 99, 235, 0.95));
+  background: linear-gradient(130deg, rgba(180, 140, 110, 0.92), rgba(154, 161, 168, 0.9));
   color: var(--color-text-on-emphasis);
   padding: 2.35rem;
   border-radius: calc(var(--radius-lg) + 0.35rem);
-  box-shadow: 0 26px 60px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 26px 60px rgba(150, 132, 118, 0.28);
   display: grid;
   gap: 1.5rem;
   position: relative;
@@ -3273,7 +3595,7 @@ onMounted(() => {
 .header::before {
   width: 320px;
   height: 320px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.35), transparent 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.45), transparent 70%);
   top: -160px;
   left: -80px;
 }
@@ -3281,7 +3603,7 @@ onMounted(() => {
 .header::after {
   width: 380px;
   height: 380px;
-  background: radial-gradient(circle at top right, rgba(125, 211, 252, 0.7), transparent 70%);
+  background: radial-gradient(circle at top right, rgba(196, 178, 162, 0.55), transparent 70%);
   top: -180px;
   right: -120px;
 }
@@ -3317,14 +3639,14 @@ onMounted(() => {
 }
 
 .header-actions :deep(.settings-toggle) {
-  background: color-mix(in srgb, var(--color-text-on-emphasis) 18%, transparent);
+  background: rgba(255, 255, 255, 0.22);
   border: 1px solid rgba(255, 255, 255, 0.45);
   color: var(--color-text-on-emphasis);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 12px 28px rgba(120, 110, 100, 0.22);
 }
 
 .header-actions :deep(.settings-toggle:hover) {
-  background: color-mix(in srgb, var(--color-text-on-emphasis) 28%, transparent);
+  background: rgba(255, 255, 255, 0.32);
   color: var(--color-text-on-emphasis);
 }
 
@@ -3367,8 +3689,8 @@ onMounted(() => {
 
 .logout,
 .messages-trigger {
-  background: color-mix(in srgb, var(--color-text-on-emphasis) 22%, transparent);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(135deg, rgba(180, 140, 110, 0.28), rgba(154, 161, 168, 0.32));
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: var(--radius-pill);
   color: var(--color-text-on-emphasis);
   font-weight: 600;
@@ -3380,9 +3702,9 @@ onMounted(() => {
 
 .logout:hover,
 .messages-trigger:hover {
-  background: color-mix(in srgb, var(--color-text-on-emphasis) 32%, transparent);
+  background: linear-gradient(135deg, rgba(180, 140, 110, 0.38), rgba(154, 161, 168, 0.42));
   transform: translateY(-1px);
-  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 14px 26px rgba(150, 132, 118, 0.22);
 }
 
 .login-section {
@@ -3414,10 +3736,10 @@ onMounted(() => {
   flex-direction: column;
   gap: 0.75rem;
   padding: 1.25rem 1rem;
-  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
   backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
@@ -3426,7 +3748,7 @@ onMounted(() => {
   border-radius: var(--radius-md);
   padding: 0.75rem 1.1rem;
   background: transparent;
-  color: var(--color-accent);
+  color: color-mix(in srgb, var(--color-text-soft) 75%, var(--color-text-strong));
   font-weight: 600;
   text-align: left;
   letter-spacing: 0.01em;
@@ -3436,31 +3758,31 @@ onMounted(() => {
 .menu-item.active {
   background: var(--gradient-primary);
   color: var(--color-text-on-emphasis);
-  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.26);
+  box-shadow: 0 18px 36px rgba(176, 132, 99, 0.28);
 }
 
 .menu-item:not(.active):hover {
-  background: var(--color-accent-soft);
+  background: color-mix(in srgb, var(--color-accent) 22%, rgba(255, 255, 255, 0.7));
   color: var(--color-text-strong);
   transform: translateX(2px);
 }
 
 .alert {
-  background: color-mix(in srgb, rgba(248, 113, 113, 0.35) 55%, transparent);
+  background: color-mix(in srgb, rgba(198, 106, 96, 0.32) 65%, transparent);
   border-radius: var(--radius-md);
-  color: color-mix(in srgb, #7f1d1d 80%, var(--color-text-strong));
+  color: color-mix(in srgb, #7b3730 75%, var(--color-text-strong));
   padding: 1.05rem 1.45rem;
-  border: 1px solid rgba(239, 68, 68, 0.32);
+  border: 1px solid rgba(198, 106, 96, 0.28);
   backdrop-filter: blur(calc(var(--glass-blur) / 3));
 }
 
 .success {
-  background: color-mix(in srgb, rgba(34, 197, 94, 0.28) 60%, transparent);
+  background: color-mix(in srgb, rgba(168, 192, 170, 0.4) 60%, transparent);
   border-radius: var(--radius-md);
-  color: color-mix(in srgb, #14532d 85%, var(--color-text-strong));
+  color: color-mix(in srgb, #315942 80%, var(--color-text-strong));
   margin: 0;
   padding: 0.9rem 1.2rem;
-  border: 1px solid rgba(34, 197, 94, 0.32);
+  border: 1px solid rgba(146, 174, 150, 0.35);
   backdrop-filter: blur(calc(var(--glass-blur) / 3));
 }
 
@@ -3505,50 +3827,50 @@ onMounted(() => {
 }
 
 :global(body[data-theme='dark']) .app {
-  background: linear-gradient(165deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88));
+  background: linear-gradient(160deg, rgba(44, 38, 34, 0.94), rgba(24, 21, 19, 0.9));
   border-color: color-mix(in srgb, var(--color-border) 70%, transparent);
 }
 
 :global(body[data-theme='dark']) .app::before {
-  background: radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.28), transparent 70%);
-  opacity: 0.45;
-}
-
-:global(body[data-theme='dark']) .app::after {
-  background: radial-gradient(circle at 85% 80%, rgba(129, 140, 248, 0.32), transparent 72%);
+  background: radial-gradient(circle at 20% 25%, rgba(180, 140, 110, 0.32), transparent 70%);
   opacity: 0.42;
 }
 
+:global(body[data-theme='dark']) .app::after {
+  background: radial-gradient(circle at 80% 80%, rgba(122, 128, 136, 0.35), transparent 72%);
+  opacity: 0.38;
+}
+
 :global(body[data-theme='dark']) .header {
-  background: linear-gradient(130deg, rgba(56, 189, 248, 0.85), rgba(99, 102, 241, 0.88));
-  box-shadow: 0 26px 60px rgba(15, 118, 221, 0.32);
+  background: linear-gradient(135deg, rgba(176, 132, 99, 0.85), rgba(128, 134, 140, 0.82));
+  box-shadow: 0 26px 60px rgba(70, 55, 42, 0.45);
 }
 
 :global(body[data-theme='dark']) .header::before {
-  background: radial-gradient(circle, rgba(148, 163, 184, 0.35), transparent 70%);
-  opacity: 0.4;
+  background: radial-gradient(circle, rgba(204, 189, 170, 0.32), transparent 70%);
+  opacity: 0.42;
 }
 
 :global(body[data-theme='dark']) .header::after {
-  background: radial-gradient(circle at top right, rgba(125, 211, 252, 0.5), transparent 72%);
+  background: radial-gradient(circle at top right, rgba(168, 176, 182, 0.38), transparent 72%);
   opacity: 0.38;
 }
 
 :global(body[data-theme='dark']) .menu-item {
-  color: color-mix(in srgb, var(--color-text-soft) 80%, var(--color-text-on-emphasis));
+  color: color-mix(in srgb, var(--color-text-soft) 85%, var(--color-text-on-emphasis));
 }
 
 :global(body[data-theme='dark']) .menu-item.active {
-  box-shadow: 0 20px 42px rgba(99, 102, 241, 0.34);
+  box-shadow: 0 20px 42px rgba(120, 96, 78, 0.4);
 }
 
 :global(body[data-theme='dark']) .menu-item:not(.active):hover {
-  background: color-mix(in srgb, rgba(99, 102, 241, 0.35) 45%, transparent);
+  background: color-mix(in srgb, rgba(176, 132, 99, 0.28) 55%, transparent);
   color: var(--color-text-on-emphasis);
 }
 
 :global(body[data-theme='dark']) .menu {
-  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
   border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
@@ -3633,3 +3955,15 @@ onMounted(() => {
   }
 }
 </style>
+        <AccountCenter
+          v-else-if="activeTab === 'account'"
+          inline
+          :visible="true"
+          :current-user="currentUser"
+          :wallet="wallet"
+          :role-label="roleLabels[currentUser?.role]"
+          :saving="accountSaving"
+          :error="accountError"
+          @submit="handleAccountSubmit"
+        />
+

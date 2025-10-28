@@ -260,11 +260,11 @@ const submitReview = () => {
 
 .review-form,
 .public-reviews {
-  background: rgba(248, 250, 252, 0.78);
+  background: rgba(248, 244, 239, 0.85);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 20px 45px rgba(140, 126, 112, 0.15);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -301,9 +301,9 @@ textarea {
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 50%;
-  border: none;
-  background: rgba(244, 244, 249, 0.9);
-  color: #cbd5f5;
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: #ffffff;
+  color: #d9c7b1;
   font-size: 1.25rem;
   font-weight: 700;
   cursor: pointer;
@@ -312,9 +312,10 @@ textarea {
 }
 
 .star.active {
-  background: var(--gradient-primary);
-  color: var(--color-text-on-emphasis);
-  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.25);
+  background: #ffffff;
+  color: #c48b5a;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 10px 20px rgba(196, 139, 90, 0.18);
 }
 
 .star:hover {
@@ -329,9 +330,9 @@ textarea {
 
 .form-error {
   margin: 0;
-  color: #b91c1c;
-  background: rgba(254, 202, 202, 0.6);
-  border-left: 4px solid #ef4444;
+  color: #8f3b3b;
+  background: rgba(235, 200, 194, 0.65);
+  border-left: 4px solid rgba(198, 120, 110, 0.75);
   padding: 0.6rem 0.8rem;
   border-radius: var(--radius-md);
 }
@@ -374,8 +375,8 @@ textarea {
 .public-item,
 .my-item {
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: rgba(255, 255, 255, 0.92);
   padding: 1.1rem;
   display: flex;
   flex-direction: column;

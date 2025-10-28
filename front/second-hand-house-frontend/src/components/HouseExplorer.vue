@@ -87,11 +87,16 @@
         <h3>{{ t('explorer.recommendations.sellers.title') }}</h3>
         <ul>
           <li v-for="seller in recommendations.sellers" :key="`seller-${seller.username}`">
-            <strong>{{ seller.displayName }}</strong>
-            <span class="username">@{{ seller.username }}</span>
-            <span class="score">
-              {{ t('explorer.recommendations.sellers.score', { score: seller.reputationScore ?? '—' }) }}
-            </span>
+            <button type="button" class="seller-link" @click="viewSellerListings(seller)">
+              <div class="seller-text">
+                <strong>{{ seller.displayName }}</strong>
+                <span class="username">@{{ seller.username }}</span>
+              </div>
+              <span class="score">
+                {{ t('explorer.recommendations.sellers.score', { score: seller.reputationScore ?? '—' }) }}
+              </span>
+              <span class="cta">{{ t('explorer.recommendations.sellers.cta') }}</span>
+            </button>
           </li>
         </ul>
       </div>
@@ -109,7 +114,19 @@
       </div>
     </section>
 
-    <PricePredictor :api-base-url="apiBaseUrl" />
+    <transition name="fade">
+      <div v-if="hasSellerFilter" class="active-seller-filter">
+        <span>{{ t('explorer.recommendations.sellers.active', { name: selectedSeller?.displayName }) }}</span>
+        <button type="button" @click="clearSellerFilter">{{ t('explorer.recommendations.sellers.clear') }}</button>
+      </div>
+    </transition>
+
+    <PricePredictor
+      :api-base-url="apiBaseUrl"
+      :current-user="currentUser"
+      :wallet="wallet"
+      :consume-points="consumePoints"
+    />
 
     <div v-if="loading" class="loading">{{ t('explorer.states.loading') }}</div>
     <div v-else-if="!houses || houses.length === 0" class="empty">{{ t('explorer.states.empty') }}</div>
@@ -293,6 +310,14 @@ const props = defineProps({
   apiBaseUrl: {
     type: String,
     required: true
+  },
+  wallet: {
+    type: Object,
+    default: null
+  },
+  consumePoints: {
+    type: Function,
+    default: null
   }
 });
 
@@ -315,8 +340,11 @@ const localFilters = reactive({
   minPrice: '',
   maxPrice: '',
   minArea: '',
-  maxArea: ''
+  maxArea: '',
+  sellerUsername: ''
 });
+
+const selectedSeller = ref(null);
 
 const historyStorageKey = 'house-search-history';
 const historyVisible = ref(false);
@@ -347,6 +375,8 @@ const hasRecommendations = computed(() => {
   return sellers + buyers > 0;
 });
 
+const hasSellerFilter = computed(() => Boolean(localFilters.sellerUsername));
+
 watch(
   () => props.filters,
   (value) => {
@@ -358,6 +388,14 @@ watch(
         localFilters[key] = val ?? '';
       }
     });
+    if (value.sellerUsername) {
+      selectedSeller.value = {
+        username: value.sellerUsername,
+        displayName: value.sellerDisplayName ?? value.sellerUsername
+      };
+    } else {
+      selectedSeller.value = null;
+    }
   },
   { immediate: true, deep: true }
 );
@@ -418,7 +456,28 @@ watch(
 const submitFilters = () => {
   historyVisible.value = false;
   recordHistory(localFilters.keyword);
-  emit('search', { ...localFilters });
+  const extra = selectedSeller.value
+    ? { sellerDisplayName: selectedSeller.value.displayName }
+    : { sellerDisplayName: '' };
+  emit('search', { ...localFilters, ...extra });
+};
+
+const viewSellerListings = (seller) => {
+  if (!seller?.username) {
+    return;
+  }
+  selectedSeller.value = {
+    username: seller.username,
+    displayName: seller.displayName || seller.username
+  };
+  localFilters.sellerUsername = seller.username;
+  emit('search', { ...localFilters, sellerDisplayName: selectedSeller.value.displayName });
+};
+
+const clearSellerFilter = () => {
+  selectedSeller.value = null;
+  localFilters.sellerUsername = '';
+  emit('search', { ...localFilters, sellerDisplayName: '' });
 };
 
 const contactSeller = (house) => {
@@ -435,8 +494,9 @@ const resetFilters = () => {
   Object.keys(localFilters).forEach((key) => {
     localFilters[key] = '';
   });
+  selectedSeller.value = null;
   historyVisible.value = false;
-  emit('search', { ...localFilters });
+  emit('search', { ...localFilters, sellerDisplayName: '' });
 };
 
 const loadHistory = () => {
@@ -762,11 +822,11 @@ const statusClass = (house) => {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
-  background: linear-gradient(135deg, rgba(241, 245, 249, 0.8), rgba(224, 231, 255, 0.85));
+  background: linear-gradient(135deg, rgba(246, 240, 234, 0.92), rgba(232, 225, 218, 0.88));
   border-radius: var(--radius-lg);
   padding: 1.9rem;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  box-shadow: 0 22px 48px rgba(148, 163, 184, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  box-shadow: 0 22px 48px rgba(150, 132, 118, 0.28);
   backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
@@ -803,7 +863,7 @@ const statusClass = (house) => {
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(148, 163, 184, 0.38);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
@@ -818,13 +878,13 @@ const statusClass = (house) => {
 }
 
 .search-field input::placeholder {
-  color: rgba(100, 116, 139, 0.75);
+  color: color-mix(in srgb, var(--color-text-soft) 70%, rgba(0, 0, 0, 0.3));
 }
 
 .history-toggle {
   border: none;
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
+  background: rgba(180, 140, 110, 0.18);
+  color: #8c6545;
   border-radius: var(--radius-pill);
   padding: 0.45rem 0.95rem;
   font-weight: 600;
@@ -833,7 +893,7 @@ const statusClass = (house) => {
 }
 
 .history-toggle:hover {
-  background: rgba(37, 99, 235, 0.22);
+  background: rgba(180, 140, 110, 0.28);
 }
 
 .search-submit {
@@ -843,14 +903,14 @@ const statusClass = (house) => {
   background: var(--gradient-primary);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.24);
+  box-shadow: 0 18px 38px rgba(150, 132, 118, 0.28);
   cursor: pointer;
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .search-submit:hover {
   transform: translateY(-1px);
-  box-shadow: 0 24px 45px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 24px 50px rgba(150, 132, 118, 0.32);
 }
 
 .history-dropdown {
@@ -860,7 +920,7 @@ const statusClass = (house) => {
   width: min(520px, 100%);
   background: rgba(255, 255, 255, 0.96);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   box-shadow: var(--shadow-md);
   padding: 0.6rem;
   list-style: none;
@@ -884,8 +944,8 @@ const statusClass = (house) => {
 }
 
 .history-dropdown li button:hover {
-  background: rgba(37, 99, 235, 0.14);
-  color: #1d4ed8;
+  background: rgba(180, 140, 110, 0.22);
+  color: #8c6545;
 }
 
 .fade-enter-active,
@@ -915,8 +975,8 @@ const statusClass = (house) => {
 .range input {
   padding: 0.6rem 0.9rem;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .actions {
@@ -933,20 +993,20 @@ const statusClass = (house) => {
   cursor: pointer;
   background: var(--gradient-primary);
   color: #fff;
-  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.24);
+  box-shadow: 0 18px 35px rgba(150, 132, 118, 0.26);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .actions button.secondary {
   background: rgba(255, 255, 255, 0.75);
   color: var(--color-text-strong);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   box-shadow: none;
 }
 
 .actions button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 24px 45px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 24px 45px rgba(150, 132, 118, 0.3);
 }
 
 .recommendations {
@@ -956,16 +1016,16 @@ const statusClass = (house) => {
 }
 
 .recommendation {
-  background: var(--gradient-surface);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2));
+  box-shadow: 0 20px 45px rgba(130, 120, 110, 0.16);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
 }
 
 .recommendation h3 {
   margin: 0 0 0.65rem;
+  color: var(--color-text-strong);
 }
 
 .recommendation ul {
@@ -974,14 +1034,11 @@ const statusClass = (house) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
 .recommendation li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  color: var(--color-text-muted);
+  padding: 0;
 }
 
 .recommendation .username {
@@ -991,15 +1048,81 @@ const statusClass = (house) => {
 
 .recommendation .score {
   font-size: 0.85rem;
-  color: #2563eb;
   font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.recommendation li {
+  display: block;
+}
+
+.seller-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.seller-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px rgba(146, 138, 129, 0.22);
+}
+
+.seller-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.seller-text strong {
+  font-size: 1.05rem;
+  color: var(--color-text-strong);
+}
+
+.seller-text .username {
+  color: var(--color-text-soft);
+}
+
+.seller-link .score {
+  color: var(--color-text-muted);
+}
+
+.seller-link .cta {
+  color: var(--color-accent);
+  font-size: 0.9rem;
+}
+
+.active-seller-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: rgba(222, 214, 205, 0.6);
+  color: var(--color-text-strong);
+}
+
+.active-seller-filter button {
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .loading,
 .empty {
   padding: 2rem;
   border-radius: var(--radius-lg);
-  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border: 1px dashed color-mix(in srgb, var(--color-border) 70%, transparent);
   color: var(--color-text-muted);
   text-align: center;
 }
@@ -1016,8 +1139,8 @@ const statusClass = (house) => {
   background: rgba(255, 255, 255, 0.9);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: 0 22px 45px rgba(148, 163, 184, 0.22);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  box-shadow: 0 22px 45px rgba(150, 132, 118, 0.24);
 }
 
 .status {
@@ -1028,49 +1151,49 @@ const statusClass = (house) => {
 }
 
 .status.pending {
-  background: rgba(234, 179, 8, 0.15);
-  color: #b45309;
+  background: rgba(214, 189, 120, 0.2);
+  color: #8f6a2a;
 }
 
 .status.approved {
-  background: rgba(16, 185, 129, 0.15);
-  color: #047857;
+  background: rgba(176, 196, 186, 0.22);
+  color: #3f6650;
 }
 
 .status.rejected {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
+  background: rgba(198, 132, 122, 0.22);
+  color: #8a3f38;
 }
 
 .status.sold {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(188, 182, 174, 0.24);
   color: var(--color-text-strong);
 }
 
 :global(body[data-theme='dark']) :deep(.house-explorer .explorer-header) {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.92));
-  border-color: color-mix(in srgb, rgba(148, 163, 184, 0.4) 65%, transparent);
-  box-shadow: 0 26px 56px rgba(2, 6, 23, 0.55);
+  background: linear-gradient(135deg, rgba(72, 60, 54, 0.9), rgba(40, 34, 31, 0.9));
+  border-color: color-mix(in srgb, rgba(141, 126, 112, 0.45) 65%, transparent);
+  box-shadow: 0 26px 56px rgba(34, 26, 23, 0.52);
 }
 
 :global(body[data-theme='dark']) :deep(.house-explorer .status.pending) {
-  background: rgba(253, 224, 71, 0.16);
-  color: #facc15;
+  background: rgba(214, 189, 120, 0.24);
+  color: #f1deb5;
 }
 
 :global(body[data-theme='dark']) :deep(.house-explorer .status.approved) {
-  background: rgba(74, 222, 128, 0.16);
-  color: #bbf7d0;
+  background: rgba(150, 176, 162, 0.26);
+  color: #d7e5d9;
 }
 
 :global(body[data-theme='dark']) :deep(.house-explorer .status.rejected) {
-  background: rgba(248, 113, 113, 0.18);
-  color: #fecaca;
+  background: rgba(198, 132, 122, 0.26);
+  color: #f3d6cf;
 }
 
 :global(body[data-theme='dark']) :deep(.house-explorer .status.sold) {
-  background: rgba(148, 163, 184, 0.22);
-  color: rgba(226, 232, 240, 0.9);
+  background: rgba(128, 120, 114, 0.28);
+  color: rgba(244, 236, 228, 0.9);
 }
 
 .cover {
@@ -1092,7 +1215,7 @@ const statusClass = (house) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(226, 232, 240, 0.6);
+  background: rgba(226, 218, 209, 0.6);
   color: var(--color-text-muted);
   font-size: 0.95rem;
 }
@@ -1181,8 +1304,8 @@ const statusClass = (house) => {
 }
 
 .keyword-list li {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+  background: rgba(180, 140, 110, 0.18);
+  color: #8c6545;
   padding: 0.3rem 0.65rem;
   border-radius: var(--radius-pill);
   font-size: 0.85rem;
@@ -1194,8 +1317,8 @@ const statusClass = (house) => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(248, 250, 252, 0.85);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: rgba(248, 244, 239, 0.88);
 }
 
 .payment {
@@ -1235,8 +1358,8 @@ const statusClass = (house) => {
 
 .installment-card-input input:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.55);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .card-error {
@@ -1261,8 +1384,8 @@ const statusClass = (house) => {
 }
 
 .action-buttons .contact {
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
+  background: rgba(180, 140, 110, 0.18);
+  color: #8c6545;
 }
 
 .action-buttons .reserve {
@@ -1273,7 +1396,7 @@ const statusClass = (house) => {
 .action-buttons .purchase {
   background: var(--gradient-primary);
   color: #fff;
-  box-shadow: 0 15px 30px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 15px 30px rgba(150, 132, 118, 0.24);
 }
 
 .action-buttons button:disabled {

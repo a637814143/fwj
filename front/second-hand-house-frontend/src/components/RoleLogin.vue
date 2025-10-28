@@ -1,140 +1,153 @@
 <template>
-  <div class="auth-panel">
-    <div class="mode-toggle" role="tablist">
-      <button
-        v-for="tab in tabs"
-        :key="tab.value"
-        :class="['mode-tab', { active: tab.value === mode }]"
-        type="button"
-        role="tab"
-        @click="switchMode(tab.value)"
-      >
-        {{ tab.label }}
-      </button>
+  <div class="auth-layout">
+    <aside class="brand-showcase">
+      <h2>和光空间不动产</h2>
+      <p>科技赋能的二手房交易平台，为家庭量身打造舒心的安居旅程。</p>
+      <ul>
+        <li>• AI 房价洞察，精准掌握社区走势</li>
+        <li>• 严选优质经纪人，提供一对一陪伴服务</li>
+        <li>• 资产安全托管与积分体系，守护每一笔心动交易</li>
+      </ul>
+      <div class="brand-note">让家的温度，从登录这一刻开始。</div>
+    </aside>
+
+    <div class="auth-panel">
+      <div class="mode-toggle" role="tablist">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          :class="['mode-tab', { active: tab.value === mode }]"
+          type="button"
+          role="tab"
+          @click="switchMode(tab.value)"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <form v-if="mode === 'login'" class="form" @submit.prevent="submitLogin">
+        <div class="field">
+          <label for="login-username">{{ t('auth.fields.username') }}</label>
+          <input
+            id="login-username"
+            v-model.trim="loginForm.username"
+            type="text"
+            :placeholder="t('auth.placeholders.username')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="login-password">{{ t('auth.fields.password') }}</label>
+          <input
+            id="login-password"
+            v-model.trim="loginForm.password"
+            type="password"
+            :placeholder="t('auth.placeholders.password')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field captcha-field">
+          <label for="login-captcha">{{ t('auth.fields.captcha') }}</label>
+          <div class="captcha-display">
+            <span>{{ captcha.question }}</span>
+            <button type="button" class="refresh" @click="refreshCaptcha" :disabled="loading">
+              {{ t('auth.captcha.refresh') }}
+            </button>
+          </div>
+          <input
+            id="login-captcha"
+            v-model.trim="loginForm.captcha"
+            type="text"
+            inputmode="numeric"
+            :placeholder="t('auth.placeholders.captchaAnswer')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <p v-if="loginError" class="error">{{ loginError }}</p>
+
+        <button class="submit" type="submit" :disabled="loading">
+          {{ loading ? t('auth.actions.loggingIn') : t('auth.actions.login') }}
+        </button>
+      </form>
+
+      <form v-else class="form" @submit.prevent="submitRegister">
+        <div class="field">
+          <label for="register-username">{{ t('auth.fields.username') }}</label>
+          <input
+            id="register-username"
+            v-model.trim="registerForm.username"
+            type="text"
+            :placeholder="t('auth.placeholders.username')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="register-display-name">{{ t('auth.fields.displayName') }}</label>
+          <input
+            id="register-display-name"
+            v-model.trim="registerForm.displayName"
+            type="text"
+            :placeholder="t('auth.placeholders.displayName')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="register-password">{{ t('auth.fields.password') }}</label>
+          <input
+            id="register-password"
+            v-model.trim="registerForm.password"
+            type="password"
+            :placeholder="t('auth.placeholders.passwordWithHint')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="register-confirm">{{ t('auth.fields.confirmPassword') }}</label>
+          <input
+            id="register-confirm"
+            v-model.trim="registerForm.confirm"
+            type="password"
+            :placeholder="t('auth.placeholders.confirmPassword')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <span class="label">{{ t('auth.fields.role') }}</span>
+          <div class="roles">
+            <label v-for="role in roles" :key="role.value" class="role-option">
+              <input
+                v-model="registerForm.role"
+                type="radio"
+                name="register-role"
+                :value="role.value"
+                :disabled="loading"
+              />
+              <span>{{ role.label }}</span>
+            </label>
+          </div>
+        </div>
+
+        <p v-if="registerError" class="error">{{ registerError }}</p>
+
+        <button class="submit" type="submit" :disabled="loading">
+          {{ loading ? t('auth.actions.registering') : t('auth.actions.register') }}
+        </button>
+      </form>
     </div>
-
-    <form v-if="mode === 'login'" class="form" @submit.prevent="submitLogin">
-      <div class="field">
-        <label for="login-username">{{ t('auth.fields.username') }}</label>
-        <input
-          id="login-username"
-          v-model.trim="loginForm.username"
-          type="text"
-          :placeholder="t('auth.placeholders.username')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <div class="field">
-        <label for="login-password">{{ t('auth.fields.password') }}</label>
-        <input
-          id="login-password"
-          v-model.trim="loginForm.password"
-          type="password"
-          :placeholder="t('auth.placeholders.password')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <div class="field captcha-field">
-        <label for="login-captcha">{{ t('auth.fields.captcha') }}</label>
-        <div class="captcha-display">
-          <span>{{ captcha.question }}</span>
-          <button type="button" class="refresh" @click="refreshCaptcha" :disabled="loading">
-            {{ t('auth.captcha.refresh') }}
-          </button>
-        </div>
-        <input
-          id="login-captcha"
-          v-model.trim="loginForm.captcha"
-          type="text"
-          inputmode="numeric"
-          :placeholder="t('auth.placeholders.captchaAnswer')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <p v-if="loginError" class="error">{{ loginError }}</p>
-
-      <button class="submit" type="submit" :disabled="loading">
-        {{ loading ? t('auth.actions.loggingIn') : t('auth.actions.login') }}
-      </button>
-    </form>
-
-    <form v-else class="form" @submit.prevent="submitRegister">
-      <div class="field">
-        <label for="register-username">{{ t('auth.fields.username') }}</label>
-        <input
-          id="register-username"
-          v-model.trim="registerForm.username"
-          type="text"
-          :placeholder="t('auth.placeholders.username')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <div class="field">
-        <label for="register-display-name">{{ t('auth.fields.displayName') }}</label>
-        <input
-          id="register-display-name"
-          v-model.trim="registerForm.displayName"
-          type="text"
-          :placeholder="t('auth.placeholders.displayName')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <div class="field">
-        <label for="register-password">{{ t('auth.fields.password') }}</label>
-        <input
-          id="register-password"
-          v-model.trim="registerForm.password"
-          type="password"
-          :placeholder="t('auth.placeholders.passwordWithHint')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <div class="field">
-        <label for="register-confirm">{{ t('auth.fields.confirmPassword') }}</label>
-        <input
-          id="register-confirm"
-          v-model.trim="registerForm.confirm"
-          type="password"
-          :placeholder="t('auth.placeholders.confirmPassword')"
-          :disabled="loading"
-          required
-        />
-      </div>
-
-      <div class="field">
-        <span class="label">{{ t('auth.fields.role') }}</span>
-        <div class="roles">
-          <label v-for="role in roles" :key="role.value" class="role-option">
-            <input
-              v-model="registerForm.role"
-              type="radio"
-              name="register-role"
-              :value="role.value"
-              :disabled="loading"
-            />
-            <span>{{ role.label }}</span>
-          </label>
-        </div>
-      </div>
-
-      <p v-if="registerError" class="error">{{ registerError }}</p>
-
-      <button class="submit" type="submit" :disabled="loading">
-        {{ loading ? t('auth.actions.registering') : t('auth.actions.register') }}
-      </button>
-    </form>
   </div>
 </template>
 
@@ -341,83 +354,99 @@ const submitRegister = async () => {
 </script>
 
 <style scoped>
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
+  gap: 2rem;
+  align-items: stretch;
+}
+
+.brand-showcase {
+  background: linear-gradient(180deg, rgba(245, 240, 233, 0.96), rgba(232, 224, 216, 0.92));
+  border-radius: var(--radius-lg);
+  padding: 2.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  box-shadow: 0 28px 45px rgba(150, 140, 130, 0.18);
+}
+
+.brand-showcase h2 {
+  margin: 0;
+  font-size: 1.85rem;
+  color: var(--color-text-strong);
+  letter-spacing: 0.04em;
+}
+
+.brand-showcase p {
+  margin: 0;
+  color: var(--color-text-soft);
+  line-height: 1.8;
+}
+
+.brand-showcase ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.brand-note {
+  margin-top: auto;
+  font-weight: 600;
+  color: #b78460;
+}
+
 .auth-panel {
   position: relative;
-  background: var(--gradient-surface);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: var(--radius-lg);
   padding: 2rem;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--color-border);
-  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: 0 24px 50px rgba(120, 110, 100, 0.2);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
   display: grid;
   gap: 1.75rem;
-  overflow: hidden;
-}
-
-.auth-panel::before,
-.auth-panel::after {
-  content: '';
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.auth-panel::before {
-  top: -140px;
-  left: -120px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.5), transparent 70%);
-}
-
-.auth-panel::after {
-  bottom: -160px;
-  right: -120px;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.45), transparent 70%);
 }
 
 .mode-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-  position: relative;
-  z-index: 1;
+  gap: 0.85rem;
 }
 
 .mode-tab {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(248, 244, 239, 0.9);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
   border-radius: var(--radius-pill);
   color: var(--color-text-strong);
   cursor: pointer;
   font-weight: 600;
   padding: 0.75rem 1rem;
   transition: all var(--transition-base);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
 .mode-tab:hover,
 .mode-tab:focus {
   outline: none;
-  color: #1d4ed8;
-  border-color: rgba(99, 102, 241, 0.45);
-  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.18);
+  color: #a06f4c;
+  border-color: rgba(176, 132, 99, 0.6);
+  box-shadow: 0 16px 30px rgba(176, 132, 99, 0.22);
 }
 
 .mode-tab.active {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #ffffff;
-  box-shadow: 0 16px 32px rgba(99, 102, 241, 0.28);
+  background: linear-gradient(135deg, #b48c6e, #9aa1a8);
+  color: #fff;
+  box-shadow: 0 20px 36px rgba(165, 137, 114, 0.3);
   border-color: transparent;
 }
 
 .form {
   display: grid;
   gap: 1.1rem;
-  position: relative;
-  z-index: 1;
 }
 
 .field {
@@ -431,9 +460,9 @@ const submitRegister = async () => {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.6rem 0.9rem;
-  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border: 1px dashed color-mix(in srgb, var(--color-border) 75%, transparent);
   border-radius: var(--radius-md);
-  background: rgba(241, 245, 249, 0.6);
+  background: rgba(244, 240, 235, 0.9);
 }
 
 .captcha-display span {
@@ -443,8 +472,8 @@ const submitRegister = async () => {
 
 .captcha-display .refresh {
   border: none;
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
+  background: rgba(180, 140, 110, 0.18);
+  color: #a06f4c;
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius-pill);
   cursor: pointer;
@@ -460,12 +489,8 @@ const submitRegister = async () => {
 .captcha-display .refresh:not(:disabled):hover,
 .captcha-display .refresh:not(:disabled):focus {
   outline: none;
-  background: rgba(59, 130, 246, 0.2);
-  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.18);
-}
-
-.captcha-field input {
-  margin-top: 0.35rem;
+  background: rgba(180, 140, 110, 0.28);
+  box-shadow: 0 10px 18px rgba(180, 140, 110, 0.2);
 }
 
 .label,
@@ -476,21 +501,19 @@ label {
 
 input {
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   padding: 0.8rem 1rem;
   font-size: 1rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.92);
   transition: border-color var(--transition-base), box-shadow var(--transition-base),
     background var(--transition-base);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(calc(var(--glass-blur) / 3));
 }
 
 input:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.65);
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
-  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(176, 132, 99, 0.55);
+  box-shadow: 0 0 0 4px rgba(176, 132, 99, 0.18);
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .roles {
@@ -501,51 +524,51 @@ input:focus {
 
 .role-option {
   align-items: center;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(250, 246, 240, 0.9);
   border-radius: var(--radius-pill);
   color: var(--color-text-strong);
   display: inline-flex;
   gap: 0.35rem;
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .role-option input {
-  accent-color: #4f46e5;
+  accent-color: #b48c6e;
 }
 
 .role-option:hover {
-  border-color: rgba(99, 102, 241, 0.55);
-  box-shadow: 0 10px 20px rgba(99, 102, 241, 0.18);
+  border-color: rgba(176, 132, 99, 0.55);
+  box-shadow: 0 14px 28px rgba(176, 132, 99, 0.18);
 }
 
 .error {
-  color: #dc2626;
+  color: #b35c4d;
   font-size: 0.95rem;
-  background: rgba(254, 226, 226, 0.65);
+  background: rgba(235, 202, 195, 0.6);
   border-radius: var(--radius-md);
   padding: 0.6rem 0.9rem;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  border: 1px solid rgba(222, 180, 170, 0.5);
 }
 
 .submit {
-  background: var(--gradient-primary);
+  background: linear-gradient(135deg, #b48c6e, #9aa1a8);
   border: none;
   border-radius: var(--radius-pill);
-  color: white;
+  color: #fff;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
   padding: 0.85rem 1.4rem;
   transition: transform var(--transition-base), box-shadow var(--transition-base);
-  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 22px 40px rgba(150, 132, 118, 0.26);
   justify-self: start;
 }
 
 .submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 24px 42px rgba(37, 99, 235, 0.32);
+  box-shadow: 0 26px 46px rgba(150, 132, 118, 0.3);
 }
 
 .submit:disabled {
@@ -554,9 +577,19 @@ input:focus {
   box-shadow: none;
 }
 
+@media (max-width: 960px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-showcase {
+    order: 2;
+  }
+}
+
 @media (max-width: 640px) {
   .auth-panel {
-    padding: 1.5rem;
+    padding: 1.6rem;
   }
 }
 </style>

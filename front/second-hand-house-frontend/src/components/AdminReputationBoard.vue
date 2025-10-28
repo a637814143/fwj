@@ -2,38 +2,38 @@
   <section class="admin-board">
     <header>
       <div>
-        <h2>Reputation dashboard</h2>
-        <p>The platform evaluates buyer and seller reputation scores based on activity. Administrators can blacklist or restore accounts.</p>
+        <h2>{{ t('adminReputation.title') }}</h2>
+        <p>{{ t('adminReputation.subtitle') }}</p>
       </div>
-      <button type="button" @click="$emit('refresh')">Refresh data</button>
+      <button type="button" @click="$emit('refresh')">{{ t('adminReputation.refresh') }}</button>
     </header>
 
-    <div v-if="loading" class="loading">Loading reputation data…</div>
+    <div v-if="loading" class="loading">{{ t('adminReputation.loading') }}</div>
     <div v-else class="content">
       <section class="summary" v-if="overview">
         <div>
-          <span class="label">Blacklisted accounts</span>
+          <span class="label">{{ t('adminReputation.summary.blacklisted') }}</span>
           <strong>{{ overview.blacklistedCount }}</strong>
         </div>
         <div>
-          <span class="label">Active sellers</span>
+          <span class="label">{{ t('adminReputation.summary.sellers') }}</span>
           <strong>{{ overview.sellers.length }}</strong>
         </div>
         <div>
-          <span class="label">Active buyers</span>
+          <span class="label">{{ t('adminReputation.summary.buyers') }}</span>
           <strong>{{ overview.buyers.length }}</strong>
         </div>
       </section>
 
       <section class="leaderboard">
         <div>
-          <h3>Top sellers</h3>
+          <h3>{{ t('adminReputation.tables.sellers.title') }}</h3>
           <table>
             <thead>
               <tr>
-                <th>Seller</th>
-                <th>Reputation</th>
-                <th>Reservation breaches</th>
+                <th>{{ t('adminReputation.tables.sellers.columns.account') }}</th>
+                <th>{{ t('adminReputation.tables.sellers.columns.reputation') }}</th>
+                <th>{{ t('adminReputation.tables.sellers.columns.breaches') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -42,23 +42,23 @@
                   <strong>{{ seller.displayName }}</strong>
                   <span class="username">@{{ seller.username }}</span>
                 </td>
-                <td>{{ seller.reputationScore }}</td>
+                <td>{{ formatNumber(seller.reputationScore) }}</td>
                 <td>{{ seller.reservationBreaches }}</td>
               </tr>
               <tr v-if="!overview || overview.sellers.length === 0">
-                <td colspan="3" class="empty">No seller data available.</td>
+                <td colspan="3" class="empty">{{ t('adminReputation.tables.sellers.empty') }}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div>
-          <h3>Top buyers</h3>
+          <h3>{{ t('adminReputation.tables.buyers.title') }}</h3>
           <table>
             <thead>
               <tr>
-                <th>Buyer</th>
-                <th>Reputation</th>
-                <th>Returns</th>
+                <th>{{ t('adminReputation.tables.buyers.columns.account') }}</th>
+                <th>{{ t('adminReputation.tables.buyers.columns.reputation') }}</th>
+                <th>{{ t('adminReputation.tables.buyers.columns.returns') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -67,11 +67,11 @@
                   <strong>{{ buyer.displayName }}</strong>
                   <span class="username">@{{ buyer.username }}</span>
                 </td>
-                <td>{{ buyer.reputationScore }}</td>
+                <td>{{ formatNumber(buyer.reputationScore) }}</td>
                 <td>{{ buyer.returnCount }}</td>
               </tr>
               <tr v-if="!overview || overview.buyers.length === 0">
-                <td colspan="3" class="empty">No buyer data available.</td>
+                <td colspan="3" class="empty">{{ t('adminReputation.tables.buyers.empty') }}</td>
               </tr>
             </tbody>
           </table>
@@ -79,16 +79,16 @@
       </section>
 
       <section class="user-table">
-        <h3>Account blacklist management</h3>
+        <h3>{{ t('adminReputation.blacklist.title') }}</h3>
         <table>
           <thead>
             <tr>
-              <th>Account</th>
-              <th>Role</th>
-              <th>Reputation</th>
-              <th>Breaches / returns</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>{{ t('adminReputation.blacklist.columns.account') }}</th>
+              <th>{{ t('adminReputation.blacklist.columns.role') }}</th>
+              <th>{{ t('adminReputation.blacklist.columns.reputation') }}</th>
+              <th>{{ t('adminReputation.blacklist.columns.behaviour') }}</th>
+              <th>{{ t('adminReputation.blacklist.columns.status') }}</th>
+              <th>{{ t('adminReputation.blacklist.columns.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -98,14 +98,28 @@
                 <span class="username">@{{ user.username }}</span>
               </td>
               <td>{{ roleLabels[user.role] ?? user.role }}</td>
-              <td>{{ user.reputationScore }}</td>
+              <td>{{ formatNumber(user.reputationScore) }}</td>
               <td>
-                <span v-if="isSellerRole(user.role)">Breaches {{ user.reservationBreaches }}</span>
-                <span v-else>Returns {{ user.returnCount }}</span>
+                <span v-if="isSellerRole(user.role)">
+                  {{
+                    t('adminReputation.blacklist.breaches', {
+                      count: Number.isFinite(Number(user.reservationBreaches))
+                        ? Number(user.reservationBreaches)
+                        : 0
+                    })
+                  }}
+                </span>
+                <span v-else>
+                  {{
+                    t('adminReputation.blacklist.returns', {
+                      count: Number.isFinite(Number(user.returnCount)) ? Number(user.returnCount) : 0
+                    })
+                  }}
+                </span>
               </td>
               <td>
                 <span class="status" :class="user.blacklisted ? 'bad' : 'good'">
-                  {{ user.blacklisted ? 'Blacklisted' : 'Active' }}
+                  {{ user.blacklisted ? t('adminReputation.status.blacklisted') : t('adminReputation.status.active') }}
                 </span>
               </td>
               <td>
@@ -115,7 +129,11 @@
                     :disabled="user.username === currentUser?.username"
                     @click="toggle(user)"
                   >
-                    {{ user.blacklisted ? 'Remove from blacklist' : 'Add to blacklist' }}
+                    {{
+                      user.blacklisted
+                        ? t('adminReputation.actions.removeBlacklist')
+                        : t('adminReputation.actions.addBlacklist')
+                    }}
                   </button>
                   <button
                     type="button"
@@ -123,13 +141,13 @@
                     :disabled="user.role === 'ADMIN' || user.username === currentUser?.username"
                     @click="remove(user)"
                   >
-                    Delete account
+                    {{ t('adminReputation.actions.deleteAccount') }}
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="!users || users.length === 0">
-              <td colspan="6" class="empty">No account data available.</td>
+              <td colspan="6" class="empty">{{ t('adminReputation.blacklist.empty') }}</td>
             </tr>
           </tbody>
         </table>
@@ -139,6 +157,8 @@
 </template>
 
 <script setup>
+import { computed, inject } from 'vue';
+
 const props = defineProps({
   loading: {
     type: Boolean,
@@ -160,16 +180,32 @@ const props = defineProps({
 
 const emit = defineEmits(['toggle-blacklist', 'refresh', 'delete-user']);
 
+const translate = inject('translate', (key, vars) => key);
+const settings = inject('appSettings', { language: 'zh' });
+const t = (key, vars) => translate(key, vars);
+
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+
 const sellerRoles = ['SELLER', 'LANDLORD'];
 
-const roleLabels = {
-  SELLER: 'Seller',
-  LANDLORD: 'Landlord',
-  BUYER: 'Buyer',
-  ADMIN: 'Administrator'
-};
+const roleLabels = computed(() => ({
+  SELLER: t('roles.seller'),
+  LANDLORD: t('roles.seller'),
+  BUYER: t('roles.buyer'),
+  ADMIN: t('roles.admin')
+}));
 
 const isSellerRole = (role) => sellerRoles.includes(role);
+
+const formatNumber = (value) => {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '0';
+  }
+  return Number(value).toLocaleString(locale.value, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+};
 
 const toggle = (user) => {
   emit('toggle-blacklist', { username: user.username, blacklisted: !user.blacklisted });

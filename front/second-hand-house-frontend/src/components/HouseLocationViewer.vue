@@ -113,6 +113,7 @@ const normalizedHouses = computed(() =>
 );
 
 const activeHouseId = ref(null);
+const pendingNavigationKey = ref(null);
 
 const formatPrice = (value) => {
   const num = Number(value);
@@ -161,10 +162,18 @@ watch(
   (items) => {
     if (!items.length) {
       activeHouseId.value = null;
+      pendingNavigationKey.value = null;
       return;
     }
-    if (!items.some((item) => item.key === activeHouseId.value)) {
+    const hasActive = items.some((item) => item.key === activeHouseId.value);
+    if (!hasActive) {
       activeHouseId.value = items[0].key;
+    }
+    if (
+      pendingNavigationKey.value &&
+      !items.some((item) => item.key === pendingNavigationKey.value)
+    ) {
+      pendingNavigationKey.value = null;
     }
   },
   { immediate: true }
@@ -183,12 +192,33 @@ const updatedTime = computed(() => {
 
 const selectHouse = (key) => {
   activeHouseId.value = key;
+  pendingNavigationKey.value = key;
 };
 
 const showLoadingOverlay = computed(() => props.loading || mapBusy.value || !mapReady.value);
 
 const geocodeCache = new Map();
 const pendingGeocodes = new Map();
+
+const extractRegion = (address) => {
+  if (!address || typeof address !== 'string') {
+    return '';
+  }
+  const text = address.trim();
+  const provinceMatch = text.match(/^(.*?(省|自治区|特别行政区))/);
+  if (provinceMatch) {
+    return provinceMatch[1];
+  }
+  const municipalityMatch = text.match(/(北京|上海|天津|重庆)/);
+  if (municipalityMatch) {
+    return `${municipalityMatch[1]}市`;
+  }
+  const cityMatch = text.match(/([\u4e00-\u9fa5]{2,6}市)/);
+  if (cityMatch) {
+    return cityMatch[1];
+  }
+  return '';
+};
 
 const markerIcon = (fill, stroke) => {
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -309,9 +339,17 @@ const geocodeHouse = async (house) => {
   if (pendingGeocodes.has(address)) {
     return pendingGeocodes.get(address);
   }
-  const request = fetch(
-    `https://apis.map.qq.com/ws/geocoder/v1/?address=${encodeURIComponent(address)}&key=${mapKey}`
-  )
+  const params = new URLSearchParams({
+    address,
+    key: mapKey,
+    output: 'json',
+    get_poi: '0'
+  });
+  const region = extractRegion(address);
+  if (region) {
+    params.set('region', region);
+  }
+  const request = fetch(`https://apis.map.qq.com/ws/geocoder/v1/?${params.toString()}`)
     .then((response) => {
       if (!response.ok) {
         throw new Error('geocoder-http');
@@ -359,8 +397,8 @@ const focusOnActiveGeometry = () => {
     }
     if (typeof mapInstance.getZoom === 'function' && typeof mapInstance.setZoom === 'function') {
       const currentZoom = mapInstance.getZoom();
-      if (!currentZoom || currentZoom < 13) {
-        mapInstance.setZoom(13);
+      if (!currentZoom || currentZoom < 16) {
+        mapInstance.setZoom(16);
       }
     }
   } catch (error) {
@@ -379,6 +417,32 @@ const highlightActiveMarker = () => {
   latestGeometries = geometries;
   markerLayer.setGeometries(geometries);
   focusOnActiveGeometry();
+  openExternalMapIfReady();
+};
+
+const openExternalMap = (geometry) => {
+  if (typeof window === 'undefined' || !geometry?.properties?.coords) {
+    return;
+  }
+  const coords = geometry.properties.coords;
+  const title = geometry.properties?.title ?? '';
+  const address = geometry.properties?.address ?? '';
+  const marker = `coord:${coords.lat},${coords.lng};title:${encodeURIComponent(title)};addr:${encodeURIComponent(address)}`;
+  const url = `https://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&marker=${marker}&zoom=18`;
+  window.open(url, '_blank', 'noopener');
+};
+
+const openExternalMapIfReady = () => {
+  if (!pendingNavigationKey.value) {
+    return;
+  }
+  const key = pendingNavigationKey.value;
+  const geometry = latestGeometries.find((item) => item.id === key);
+  if (!geometry || !geometry.properties?.coords) {
+    return;
+  }
+  pendingNavigationKey.value = null;
+  openExternalMap(geometry);
 };
 
 const updateMapMarkers = async () => {
@@ -427,7 +491,8 @@ const updateMapMarkers = async () => {
         properties: {
           title: item.title,
           address: item.address,
-          price: item.priceLabel
+          price: item.priceLabel,
+          coords
         }
       });
     });
@@ -442,6 +507,7 @@ const updateMapMarkers = async () => {
         : t('locationViewer.errors.mapInit');
     } else {
       focusOnActiveGeometry();
+      openExternalMapIfReady();
     }
   } catch (error) {
     console.error('Failed to update Tencent Map', error);

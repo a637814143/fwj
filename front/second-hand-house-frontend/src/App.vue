@@ -130,8 +130,10 @@
           v-else-if="activeTab === 'review'"
           :houses="pendingReviewHouses"
           :loading="reviewLoading"
+          :allow-delete="isAdmin"
           @refresh="fetchHouses({ silent: false })"
           @review="handleReview"
+          @delete-house="handleAdminDeleteRequest"
         />
 
         <UrgentTasks
@@ -451,6 +453,120 @@ const translations = {
       rejected: '已驳回',
       sold: '已售出（已下架）'
     },
+    adminReview: {
+      title: '房源审核工作台',
+      subtitle: '共有 {count} 套房源待审核，请尽快处理。',
+      subtitleSingle: '当前有 1 套房源待审核，请尽快处理。',
+      refresh: '刷新列表',
+      loading: '正在加载待审核房源…',
+      emptyTitle: '暂无待审核房源',
+      emptyDescription: '卖家提交的房源将在此处等待审核。',
+      noImage: '暂无封面图',
+      badgePending: '待审核',
+      fields: {
+        price: '总价',
+        downPayment: '首付',
+        installment: '分期方案',
+        area: '建筑面积',
+        listedOn: '上架时间',
+        floor: '楼层'
+      },
+      installmentUnavailable: '未提供分期方案',
+      installmentUnknownMonths: '未提供',
+      installmentValue: '￥{amount} × {months} 期',
+      floorValue: '第 {floor} 层',
+      sellerAccount: '卖家账号',
+      contactName: '联系人',
+      contactPhone: '联系电话',
+      certificate: '房产证件',
+      certificateLink: '查看证件',
+      actions: {
+        approve: '通过',
+        reject: '驳回',
+        delete: '删除房源'
+      }
+    },
+    adminOrders: {
+      title: '资金托管审核',
+      subtitle: '买家付款后资金进入托管账户，需管理员审核后才能发放。',
+      refresh: '刷新列表',
+      loading: '正在加载托管订单…',
+      empty: '暂无待审核的托管订单。',
+      columns: {
+        id: '订单编号',
+        listing: '房源信息',
+        buyer: '买家',
+        seller: '卖家',
+        escrow: '托管资金',
+        payment: '支付方式',
+        createdAt: '创建时间',
+        actions: '操作'
+      },
+      escrowBalance: '托管：￥{amount}',
+      platformFee: '手续费：￥{amount}',
+      payment: {
+        full: '全款支付',
+        installment: '分期支付'
+      },
+      actions: {
+        releaseSeller: '放款给卖家',
+        refundBuyer: '退款给买家'
+      }
+    },
+    adminReputation: {
+      title: '信誉数据面板',
+      subtitle: '系统会根据交易行为动态调整买卖双方信誉分，管理员可以拉黑或恢复账号。',
+      refresh: '刷新数据',
+      loading: '正在加载信誉数据…',
+      summary: {
+        blacklisted: '黑名单账号',
+        sellers: '活跃卖家',
+        buyers: '活跃买家'
+      },
+      tables: {
+        sellers: {
+          title: '卖家榜单',
+          columns: {
+            account: '卖家',
+            reputation: '信誉分',
+            breaches: '违约次数'
+          },
+          empty: '暂无卖家数据。'
+        },
+        buyers: {
+          title: '买家榜单',
+          columns: {
+            account: '买家',
+            reputation: '信誉分',
+            returns: '退单次数'
+          },
+          empty: '暂无买家数据。'
+        }
+      },
+      blacklist: {
+        title: '账号黑名单管理',
+        columns: {
+          account: '账号',
+          role: '角色',
+          reputation: '信誉分',
+          behaviour: '违约 / 退单',
+          status: '状态',
+          actions: '操作'
+        },
+        breaches: '违约 {count} 次',
+        returns: '退单 {count} 次',
+        empty: '暂无账号数据。'
+      },
+      status: {
+        blacklisted: '已拉黑',
+        active: '正常'
+      },
+      actions: {
+        addBlacklist: '加入黑名单',
+        removeBlacklist: '移出黑名单',
+        deleteAccount: '删除账号'
+      }
+    },
     settings: {
       trigger: '界面设置',
       title: '界面设置',
@@ -477,7 +593,7 @@ const translations = {
       form: {
         headingCreate: '新增房源',
         headingEdit: '编辑房源',
-        noticeBrowseOnly: '当前账号仅可浏览房源，请切换为卖家或管理员账号以管理房源。',
+        noticeBrowseOnly: '当前账号仅可浏览房源，请切换为卖家账号以管理房源。',
         fields: {
           title: '房源标题',
           address: '房源地址',
@@ -1264,6 +1380,120 @@ const translations = {
       rejected: 'Rejected',
       sold: 'Sold (unlisted)'
     },
+    adminReview: {
+      title: 'Listing review dashboard',
+      subtitle: '{count} listings are waiting for administrator review.',
+      subtitleSingle: '1 listing is waiting for administrator review.',
+      refresh: 'Refresh list',
+      loading: 'Loading listings awaiting review…',
+      emptyTitle: 'No listings are waiting for review',
+      emptyDescription: 'Listings submitted by sellers will appear here for approval.',
+      noImage: 'No cover image',
+      badgePending: 'Pending review',
+      fields: {
+        price: 'Total price',
+        downPayment: 'Down payment',
+        installment: 'Instalment plan',
+        area: 'Floor area',
+        listedOn: 'Listed on',
+        floor: 'Floor'
+      },
+      installmentUnavailable: 'No instalment plan provided',
+      installmentUnknownMonths: 'N/A',
+      installmentValue: '¥{amount} × {months} months',
+      floorValue: 'Level {floor}',
+      sellerAccount: 'Seller account',
+      contactName: 'Contact name',
+      contactPhone: 'Contact phone',
+      certificate: 'Ownership certificate',
+      certificateLink: 'View certificate',
+      actions: {
+        approve: 'Approve',
+        reject: 'Reject',
+        delete: 'Delete listing'
+      }
+    },
+    adminOrders: {
+      title: 'Escrow review',
+      subtitle: 'Funds are held in escrow until an administrator approves the payout.',
+      refresh: 'Refresh list',
+      loading: 'Loading escrow orders…',
+      empty: 'No escrow orders waiting for review.',
+      columns: {
+        id: 'Order ID',
+        listing: 'Listing',
+        buyer: 'Buyer',
+        seller: 'Seller',
+        escrow: 'Escrow balance',
+        payment: 'Payment method',
+        createdAt: 'Created at',
+        actions: 'Actions'
+      },
+      escrowBalance: 'Escrow: ¥{amount}',
+      platformFee: 'Fee: ¥{amount}',
+      payment: {
+        full: 'Full payment',
+        installment: 'Instalments'
+      },
+      actions: {
+        releaseSeller: 'Release to seller',
+        refundBuyer: 'Refund to buyer'
+      }
+    },
+    adminReputation: {
+      title: 'Reputation dashboard',
+      subtitle: 'The platform evaluates user behaviour to adjust reputation scores. Administrators can blacklist or restore accounts.',
+      refresh: 'Refresh data',
+      loading: 'Loading reputation data…',
+      summary: {
+        blacklisted: 'Blacklisted accounts',
+        sellers: 'Active sellers',
+        buyers: 'Active buyers'
+      },
+      tables: {
+        sellers: {
+          title: 'Top sellers',
+          columns: {
+            account: 'Seller',
+            reputation: 'Reputation',
+            breaches: 'Reservation breaches'
+          },
+          empty: 'No seller data available.'
+        },
+        buyers: {
+          title: 'Top buyers',
+          columns: {
+            account: 'Buyer',
+            reputation: 'Reputation',
+            returns: 'Returns'
+          },
+          empty: 'No buyer data available.'
+        }
+      },
+      blacklist: {
+        title: 'Account blacklist management',
+        columns: {
+          account: 'Account',
+          role: 'Role',
+          reputation: 'Reputation',
+          behaviour: 'Breaches / returns',
+          status: 'Status',
+          actions: 'Actions'
+        },
+        breaches: 'Breaches {count}',
+        returns: 'Returns {count}',
+        empty: 'No account data available.'
+      },
+      status: {
+        blacklisted: 'Blacklisted',
+        active: 'Active'
+      },
+      actions: {
+        addBlacklist: 'Add to blacklist',
+        removeBlacklist: 'Remove from blacklist',
+        deleteAccount: 'Delete account'
+      }
+    },
     settings: {
       trigger: 'Interface settings',
       title: 'Interface settings',
@@ -1291,7 +1521,7 @@ const translations = {
         headingCreate: 'Add listing',
         headingEdit: 'Edit listing',
         noticeBrowseOnly:
-          'This account can only browse listings. Switch to a seller or administrator account to manage listings.',
+          'This account can only browse listings. Switch to a seller account to manage listings.',
         fields: {
           title: 'Listing title',
           address: 'Listing address',
@@ -2291,7 +2521,7 @@ const canViewSensitiveInfo = computed(() => {
   return Boolean(user.realNameVerified);
 });
 
-const canManageHouses = computed(() => isSeller.value || isAdmin.value);
+const canManageHouses = computed(() => isSeller.value);
 
 const urgentTasks = computed(() => {
   if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
@@ -3041,6 +3271,9 @@ const refreshCurrentUser = async ({ silent = true } = {}) => {
 };
 
 const guardReadOnly = () => {
+  if (isAdmin.value) {
+    return true;
+  }
   if (!canManageHouses.value) {
     messages.error = t('errors.manageHousesPermission');
     messages.success = '';
@@ -3161,6 +3394,13 @@ const handleRemove = async (house) => {
   } finally {
     loading.value = false;
   }
+};
+
+const handleAdminDeleteRequest = (house) => {
+  if (!isAdmin.value || !house) {
+    return;
+  }
+  handleRemove(house);
 };
 
 const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {

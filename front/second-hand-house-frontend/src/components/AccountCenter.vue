@@ -1,114 +1,127 @@
 <template>
-  <div v-if="visible" class="account-center-backdrop" @click.self="emit('close')">
-    <section class="account-center-panel">
-      <header class="panel-header">
-        <div>
-          <h2>{{ t('accountCenter.title') }}</h2>
-          <p class="panel-hint">{{ t('accountCenter.subtitle') }}</p>
-        </div>
-        <button type="button" class="close" @click="emit('close')">×</button>
-      </header>
-
-      <section class="profile-summary">
-        <h3>{{ t('accountCenter.summaryTitle') }}</h3>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <span class="label">{{ t('accountCenter.summary.username') }}</span>
-            <strong>{{ currentUser?.username ?? '—' }}</strong>
+  <div
+    v-if="inline ? true : visible"
+    :class="wrapperClass"
+    @click.self="inline ? null : emit('close')"
+  >
+    <section :class="['account-center-panel', { inline }]">
+      <div class="panel-inner">
+        <header class="panel-header">
+          <div>
+            <h2>{{ t('accountCenter.title') }}</h2>
+            <p class="panel-hint">{{ t('accountCenter.subtitle') }}</p>
           </div>
-          <div class="summary-item">
-            <span class="label">{{ t('accountCenter.summary.displayName') }}</span>
-            <strong>{{ currentUser?.displayName ?? '—' }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">{{ t('accountCenter.summary.role') }}</span>
-            <strong>{{ roleLabel || currentUser?.role || '—' }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">{{ t('accountCenter.summary.verification') }}</span>
-            <strong>{{ verificationStatus }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">{{ t('accountCenter.summary.realName') }}</span>
-            <strong>{{ realName }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">{{ t('accountCenter.summary.phone') }}</span>
-            <strong>{{ phoneNumber }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">{{ t('wallet.labels.balance') }}</span>
-            <strong>￥{{ walletBalance }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">{{ t('wallet.labels.virtualPort') }}</span>
-            <strong>{{ walletPort }}</strong>
-          </div>
-        </div>
-      </section>
-
-      <form class="credentials" @submit.prevent="submit">
-        <h3>{{ t('accountCenter.credentialTitle') }}</h3>
-        <p class="panel-hint">{{ t('accountCenter.credentialHint') }}</p>
-
-        <label>
-          {{ t('accountCenter.fields.username') }}
-          <input
-            v-model.trim="form.username"
-            type="text"
-            :placeholder="currentUser?.username ?? ''"
-            :disabled="saving"
-            maxlength="50"
-          />
-        </label>
-
-        <label>
-          {{ t('accountCenter.fields.displayName') }}
-          <input
-            v-model.trim="form.displayName"
-            type="text"
-            :placeholder="currentUser?.displayName ?? ''"
-            :disabled="saving"
-            maxlength="100"
-          />
-        </label>
-
-        <label>
-          {{ t('accountCenter.fields.newPassword') }}
-          <input
-            v-model.trim="form.password"
-            type="password"
-            :placeholder="t('accountCenter.placeholders.password')"
-            :disabled="saving"
-            minlength="6"
-            maxlength="100"
-          />
-        </label>
-
-        <label>
-          {{ t('accountCenter.fields.confirmPassword') }}
-          <input
-            v-model.trim="form.confirm"
-            type="password"
-            :placeholder="t('accountCenter.placeholders.confirmPassword')"
-            :disabled="saving"
-            minlength="6"
-            maxlength="100"
-          />
-        </label>
-
-        <p v-if="localError" class="form-error">{{ localError }}</p>
-        <p v-else-if="error" class="form-error">{{ error }}</p>
-
-        <div class="actions">
-          <button type="submit" class="primary" :disabled="saving">
-            {{ saving ? t('accountCenter.actions.saving') : t('accountCenter.actions.save') }}
+          <button
+            v-if="!inline"
+            type="button"
+            class="close"
+            @click="emit('close')"
+          >
+            ×
           </button>
-          <button type="button" class="ghost" :disabled="saving" @click="emit('close')">
-            {{ t('accountCenter.actions.cancel') }}
-          </button>
-        </div>
-      </form>
+        </header>
+
+        <section class="profile-summary">
+          <h3>{{ t('accountCenter.summaryTitle') }}</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.username') }}</span>
+              <strong>{{ currentUser?.username ?? '—' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.displayName') }}</span>
+              <strong>{{ currentUser?.displayName ?? '—' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.role') }}</span>
+              <strong>{{ roleLabel || currentUser?.role || '—' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.verification') }}</span>
+              <strong>{{ verificationStatus }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.realName') }}</span>
+              <strong>{{ realName }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.phone') }}</span>
+              <strong>{{ phoneNumber }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('wallet.labels.balance') }}</span>
+              <strong>￥{{ walletBalance }}</strong>
+            </div>
+            <div class="summary-item">
+              <span class="label">{{ t('wallet.labels.virtualPort') }}</span>
+              <strong>{{ walletPort }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <form class="credentials" @submit.prevent="submit">
+          <h3>{{ t('accountCenter.credentialTitle') }}</h3>
+          <p class="panel-hint">{{ t('accountCenter.credentialHint') }}</p>
+
+          <label>
+            {{ t('accountCenter.fields.username') }}
+            <input
+              v-model.trim="form.username"
+              type="text"
+              :placeholder="currentUser?.username ?? ''"
+              :disabled="saving"
+              maxlength="50"
+            />
+          </label>
+
+          <label>
+            {{ t('accountCenter.fields.displayName') }}
+            <input
+              v-model.trim="form.displayName"
+              type="text"
+              :placeholder="currentUser?.displayName ?? ''"
+              :disabled="saving"
+              maxlength="100"
+            />
+          </label>
+
+          <label>
+            {{ t('accountCenter.fields.newPassword') }}
+            <input
+              v-model.trim="form.password"
+              type="password"
+              :placeholder="t('accountCenter.placeholders.password')"
+              :disabled="saving"
+              minlength="6"
+              maxlength="100"
+            />
+          </label>
+
+          <label>
+            {{ t('accountCenter.fields.confirmPassword') }}
+            <input
+              v-model.trim="form.confirm"
+              type="password"
+              :placeholder="t('accountCenter.placeholders.confirmPassword')"
+              :disabled="saving"
+              minlength="6"
+              maxlength="100"
+            />
+          </label>
+
+          <p v-if="localError" class="form-error">{{ localError }}</p>
+          <p v-else-if="error" class="form-error">{{ error }}</p>
+
+          <div class="actions">
+            <button type="submit" class="primary" :disabled="saving">
+              {{ saving ? t('accountCenter.actions.saving') : t('accountCenter.actions.save') }}
+            </button>
+            <button type="button" class="ghost" :disabled="saving" @click="emit('close')">
+              {{ t('accountCenter.actions.cancel') }}
+            </button>
+          </div>
+        </form>
+      </div>
     </section>
   </div>
 </template>
@@ -140,6 +153,10 @@ const props = defineProps({
   error: {
     type: String,
     default: ''
+  },
+  inline: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -190,7 +207,7 @@ const syncForm = () => {
 };
 
 watch(
-  () => props.visible,
+  () => props.visible || props.inline,
   (value) => {
     if (value) {
       syncForm();
@@ -265,19 +282,28 @@ const submit = () => {
   emit('submit', payload);
 };
 
+const wrapperClass = computed(() =>
+  props.inline ? 'account-center-inline' : 'account-center-backdrop'
+);
+
 </script>
 
 <style scoped>
 .account-center-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(44, 36, 32, 0.48);
   backdrop-filter: blur(6px);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 4vh 1.5rem;
   z-index: 1200;
+}
+
+.account-center-inline {
+  position: relative;
+  background: transparent;
 }
 
 .account-center-panel {
@@ -287,11 +313,22 @@ const submit = () => {
   gap: 1.5rem;
   background: var(--gradient-surface);
   border-radius: var(--radius-xl);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
   box-shadow: var(--shadow-xl);
   padding: 2rem;
   max-height: calc(100vh - 8vh);
   overflow-y: auto;
+}
+
+.account-center-panel.inline {
+  max-height: none;
+  box-shadow: var(--shadow-md);
+}
+
+.panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .panel-header {
@@ -315,7 +352,7 @@ const submit = () => {
 
 .close {
   border: none;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.24);
   border-radius: var(--radius-pill);
   width: 2.4rem;
   height: 2.4rem;
@@ -326,7 +363,7 @@ const submit = () => {
 }
 
 .close:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.4);
   transform: translateY(-1px);
 }
 
@@ -348,9 +385,9 @@ const submit = () => {
 }
 
 .summary-item {
-  background: rgba(248, 250, 252, 0.85);
+  background: rgba(248, 244, 239, 0.88);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
@@ -383,13 +420,13 @@ const submit = () => {
 .credentials input {
   padding: 0.65rem 0.85rem;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   background: rgba(255, 255, 255, 0.9);
 }
 
 .form-error {
   margin: 0;
-  color: #dc2626;
+  color: #8f3b3b;
   font-weight: 600;
 }
 
@@ -417,17 +454,17 @@ const submit = () => {
 .actions .primary {
   background: var(--gradient-primary);
   color: var(--color-text-on-emphasis);
-  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 18px 32px rgba(150, 132, 118, 0.3);
 }
 
 .actions .primary:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 20px 36px rgba(37, 99, 235, 0.32);
+  box-shadow: 0 20px 36px rgba(150, 132, 118, 0.34);
 }
 
 .actions .ghost {
   background: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   color: var(--color-text-strong);
 }
 

@@ -14,6 +14,13 @@
               <strong class="amount-yuan">￥{{ formatYuan(wallet.balance) }}</strong>
             </div>
           </div>
+          <div class="summary-card points">
+            <span class="label">{{ t('wallet.labels.points') }}</span>
+            <div class="figures">
+              <strong class="amount-points">{{ pointsBalance }}</strong>
+            </div>
+            <small>{{ t('wallet.labels.pointsHint') }}</small>
+          </div>
           <div class="summary-card port">
             <span class="label">{{ t('wallet.labels.virtualPort') }}</span>
             <code>{{ wallet.virtualPort }}</code>
@@ -36,6 +43,9 @@
               :disabled="loading || submitting"
             />
             <span v-if="amountPreview" class="amount-preview">￥{{ amountPreview }}</span>
+            <span v-if="bonusPreview" class="points-preview">
+              +{{ bonusPreview }} {{ t('wallet.labels.pointsUnit') }}
+            </span>
           </label>
           <label>
             {{ t('wallet.topUp.referenceLabel') }}
@@ -132,6 +142,22 @@ const amountPreview = computed(() => {
     return '';
   }
   return formatYuan(numeric);
+});
+
+const pointsBalance = computed(() => {
+  const value = Number(props.wallet?.points ?? 0);
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+});
+
+const bonusPreview = computed(() => {
+  if (form.amount == null || form.amount === '') {
+    return 0;
+  }
+  const numeric = Number(form.amount);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return 0;
+  }
+  return Math.floor(numeric / 100) * 10;
 });
 
 watch(
@@ -255,7 +281,7 @@ const formatTime = (value) => {
   gap: 1.25rem;
   padding: 1.5rem;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
 .wallet-panel h2 {
@@ -272,7 +298,7 @@ const formatTime = (value) => {
 .empty {
   padding: 1.25rem;
   border-radius: var(--radius-md);
-  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border: 1px dashed color-mix(in srgb, var(--color-border) 70%, transparent);
   text-align: center;
   color: var(--color-text-muted);
 }
@@ -295,14 +321,15 @@ const formatTime = (value) => {
   gap: 0.6rem;
   padding: 1.1rem;
   border-radius: var(--radius-lg);
-  background: var(--gradient-surface);
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 45px rgba(140, 126, 112, 0.2);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
 }
 
 .summary-card .label {
   font-size: 0.9rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
+  letter-spacing: 0.02em;
 }
 
 .figures {
@@ -312,9 +339,23 @@ const formatTime = (value) => {
 }
 
 .amount-yuan {
-  font-size: 1.8rem;
+  font-size: 1.85rem;
   color: var(--color-text-strong);
   font-weight: 700;
+}
+
+.amount-points {
+  font-size: 1.65rem;
+  color: #b78460;
+  font-weight: 700;
+}
+
+.summary-card.points {
+  background: rgba(247, 242, 235, 0.9);
+}
+
+.summary-card.points small {
+  color: var(--color-text-muted);
 }
 
 .summary-card.port code {
@@ -352,13 +393,19 @@ const formatTime = (value) => {
 .top-up input {
   padding: 0.6rem 0.85rem;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   background: rgba(255, 255, 255, 0.9);
 }
 
 .amount-preview {
   font-size: 0.85rem;
   color: var(--color-text-soft);
+}
+
+.points-preview {
+  font-size: 0.85rem;
+  color: #b78460;
+  font-weight: 600;
 }
 
 .top-up button {
@@ -370,7 +417,7 @@ const formatTime = (value) => {
   cursor: pointer;
   background: var(--gradient-primary);
   color: #fff;
-  box-shadow: 0 15px 30px rgba(37, 99, 235, 0.24);
+  box-shadow: 0 15px 30px rgba(150, 132, 118, 0.26);
 }
 
 .top-up button:disabled {
@@ -401,7 +448,7 @@ const formatTime = (value) => {
   padding: 0.85rem 1rem;
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
 }
 
 .transaction-main {

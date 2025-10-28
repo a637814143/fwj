@@ -2,9 +2,9 @@
   <form class="house-form" @submit.prevent="submitForm">
     <header class="form-header">
       <div>
-        <h2>{{ isEditing ? 'Edit listing' : 'Add listing' }}</h2>
+        <h2>{{ isEditing ? t('manage.form.headingEdit') : t('manage.form.headingCreate') }}</h2>
         <p v-if="!canManage" class="notice">
-          This account can browse listings only. Switch to a seller or admin account to manage listings.
+          {{ t('manage.form.noticeBrowseOnly') }}
         </p>
       </div>
       <div v-if="isEditing" class="status-indicator" :class="statusClass">
@@ -15,161 +15,161 @@
 
     <div class="form-grid">
       <label>
-        Title
+        {{ t('manage.form.fields.title') }}
         <input
           v-model.trim="form.title"
           type="text"
           required
-          placeholder="Enter listing title"
+          :placeholder="t('manage.form.placeholders.title')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Address
+        {{ t('manage.form.fields.address') }}
         <input
           v-model.trim="form.address"
           type="text"
           required
-          placeholder="Enter property address"
+          :placeholder="t('manage.form.placeholders.address')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Total price (CNY)
+        {{ t('manage.form.fields.price') }}
         <input
           v-model.number="form.price"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="e.g. 2000000"
+          :placeholder="t('manage.form.placeholders.price')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Down payment (CNY)
+        {{ t('manage.form.fields.downPayment') }}
         <input
           v-model.number="form.downPayment"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="e.g. 600000"
+          :placeholder="t('manage.form.placeholders.downPayment')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Floor area (㎡)
+        {{ t('manage.form.fields.area') }}
         <input
           v-model.number="form.area"
           type="number"
           min="0"
           step="0.01"
           required
-          placeholder="e.g. 89"
+          :placeholder="t('manage.form.placeholders.area')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Estimated monthly instalment (CNY)
+        {{ t('manage.form.fields.installmentMonthly') }}
         <input
           :value="formattedInstallment"
           type="text"
           readonly
-          placeholder="Calculated automatically from the price, down payment and term"
+          :placeholder="t('manage.form.placeholders.installmentMonthly')"
           :disabled="disabled"
         />
-        <small class="hint">The system estimates the monthly instalment based on your down payment and term.</small>
+        <small class="hint">{{ t('manage.form.hints.installmentCalculation') }}</small>
       </label>
 
       <label>
-        Instalment term (months)
+        {{ t('manage.form.fields.installmentMonths') }}
         <input
           v-model.number="form.installmentMonths"
           type="number"
           min="1"
           required
-          placeholder="e.g. 24"
+          :placeholder="t('manage.form.placeholders.installmentMonths')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Seller username
+        {{ t('manage.form.fields.sellerUsername') }}
         <input
           v-model.trim="form.sellerUsername"
           type="text"
           required
-          placeholder="Enter seller username"
+          :placeholder="t('manage.form.placeholders.sellerUsername')"
           :disabled="disabled || disableSellerAccount"
         />
       </label>
 
       <label>
-        Seller display name
+        {{ t('manage.form.fields.sellerName') }}
         <input
           v-model.trim="form.sellerName"
           type="text"
           required
-          placeholder="Enter seller name"
+          :placeholder="t('manage.form.placeholders.sellerName')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Contact number
+        {{ t('manage.form.fields.contactNumber') }}
         <input
           v-model.trim="form.contactNumber"
           type="text"
           required
-          placeholder="Enter contact number"
+          :placeholder="t('manage.form.placeholders.contactNumber')"
           :disabled="disabled"
         />
       </label>
 
       <label>
-        Listing date
+        {{ t('manage.form.fields.listingDate') }}
         <input v-model="form.listingDate" type="date" required :disabled="disabled" />
       </label>
 
       <label>
-        Floor (optional)
+        {{ t('manage.form.fields.floor') }}
         <input
           v-model.number="form.floor"
           type="number"
           min="0"
-          placeholder="e.g. 10"
+          :placeholder="t('manage.form.placeholders.floor')"
           :disabled="disabled"
         />
       </label>
     </div>
 
     <label class="block">
-      Listing description
+      {{ t('manage.form.fields.description') }}
       <textarea
         v-model.trim="form.description"
         rows="3"
-        placeholder="Highlight selling points or additional details"
+        :placeholder="t('manage.form.placeholders.description')"
         :disabled="disabled"
       ></textarea>
     </label>
 
     <label class="block">
-      Keywords (separate with commas or spaces)
+      {{ t('manage.form.fields.keywords') }}
       <input
         v-model="keywordInput"
         type="text"
-        placeholder="e.g. city centre, subway nearby, south-facing"
+        :placeholder="t('manage.form.placeholders.keywords')"
         :disabled="disabled"
       />
     </label>
     <div v-if="keywordsPreview.length" class="keyword-preview">
-      <span class="preview-label">Keywords that will be submitted:</span>
+      <span class="preview-label">{{ t('manage.form.hints.keywordPreview') }}</span>
       <ul class="keyword-chips">
         <li v-for="(keyword, index) in keywordsPreview" :key="`${keyword}-${index}`">{{ keyword }}</li>
       </ul>
@@ -177,7 +177,7 @@
 
     <section class="images-section">
       <div class="images-header">
-        <h4>Listing photos</h4>
+        <h4>{{ t('manage.form.fields.images') }}</h4>
         <div class="image-actions">
           <input
             ref="fileInputRef"
@@ -189,40 +189,46 @@
             @change="handleFileSelection"
           />
           <button type="button" class="btn add" :disabled="disabled || uploadingImages" @click="triggerImageUpload">
-            {{ uploadingImages ? 'Uploading…' : 'Upload images' }}
+            {{ uploadingImages ? t('manage.form.actions.uploading') : t('manage.form.actions.upload') }}
           </button>
         </div>
       </div>
-      <p class="hint">Upload up to {{ maxImageCount }} images in PNG, JPG, GIF, or WEBP format.</p>
+      <p class="hint">{{ t('manage.form.hints.uploadLimit', { count: maxImageCount }) }}</p>
       <p v-if="uploadError" class="error">{{ uploadError }}</p>
       <div v-if="form.imageUrls.length" class="image-gallery">
         <figure v-for="(image, index) in form.imageUrls" :key="`${image}-${index}`" class="image-preview">
-          <img :src="image" alt="Listing preview" />
+          <img :src="image" :alt="t('manage.form.imageAlt', { index: index + 1 })" />
           <figcaption>
             <button type="button" class="btn remove" :disabled="disabled" @click="removeImage(index)">
-              Remove
+              {{ t('manage.form.actions.removeImage') }}
             </button>
           </figcaption>
         </figure>
       </div>
-      <p v-else class="hint">No images uploaded yet.</p>
+      <p v-else class="hint">{{ t('manage.form.hints.noImages') }}</p>
     </section>
 
     <p v-if="formError" class="error">{{ formError }}</p>
 
     <div class="actions">
       <button class="btn primary" type="submit" :disabled="disabled">
-        {{ loading ? 'Submitting…' : isEditing ? 'Save changes' : 'Submit for review' }}
+        {{
+          loading
+            ? t('manage.form.actions.submitting')
+            : isEditing
+            ? t('manage.form.actions.submitEdit')
+            : t('manage.form.actions.submitCreate')
+        }}
       </button>
       <button v-if="isEditing" class="btn ghost" type="button" :disabled="disabled" @click="cancelEdit">
-        Cancel
+        {{ t('manage.form.actions.cancel') }}
       </button>
     </div>
   </form>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, inject, reactive, ref, watch } from 'vue';
 
 const props = defineProps({
   initialHouse: {
@@ -249,12 +255,29 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel']);
 
-const listingStatusLabels = {
-  PENDING_REVIEW: 'Pending review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  SOLD: 'Sold (unlisted)'
-};
+const translate = inject('translate', (key, vars) => {
+  if (typeof key !== 'string') {
+    return '';
+  }
+  if (!vars) {
+    return key;
+  }
+  return key;
+});
+
+const t = (key, vars) => translate(key, vars);
+
+const listingStatusLabels = computed(() => ({
+  PENDING_REVIEW: t('statuses.pending'),
+  APPROVED: t('statuses.approved'),
+  REJECTED: t('statuses.rejected'),
+  SOLD: t('statuses.sold')
+}));
+
+const keywordSeparator = computed(() => {
+  const separator = t('manage.list.keywordSeparator');
+  return typeof separator === 'string' && separator.length ? separator : ', ';
+});
 
 const sellerRoles = ['SELLER', 'LANDLORD'];
 
@@ -292,7 +315,9 @@ const isEditing = computed(() => Boolean(props.initialHouse));
 const disabled = computed(() => !props.canManage || props.loading);
 const disableSellerAccount = computed(() => isSeller.value);
 const initialHouse = computed(() => props.initialHouse);
-const statusLabel = computed(() => listingStatusLabels[props.initialHouse?.status] ?? 'Pending review');
+const statusLabel = computed(
+  () => listingStatusLabels.value[props.initialHouse?.status] ?? t('statuses.pending')
+);
 const statusClass = computed(() => {
   switch (props.initialHouse?.status) {
     case 'APPROVED':
@@ -403,7 +428,9 @@ const fillFromHouse = (house) => {
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
-  keywordInput.value = Array.isArray(house.keywords) ? house.keywords.join(', ') : '';
+  keywordInput.value = Array.isArray(house.keywords)
+    ? house.keywords.join(keywordSeparator.value)
+    : '';
   formError.value = '';
   uploadError.value = '';
   uploadingImages.value = false;
@@ -455,7 +482,7 @@ const triggerImageUpload = () => {
     return;
   }
   if (form.imageUrls.length >= maxImageCount) {
-    uploadError.value = `You can upload up to ${maxImageCount} images.`;
+    uploadError.value = t('manage.form.upload.limit', { count: maxImageCount });
     return;
   }
   uploadError.value = '';
@@ -479,7 +506,7 @@ const handleFileSelection = async (event) => {
   }
   const remainingSlots = Math.max(0, maxImageCount - form.imageUrls.length);
   if (remainingSlots <= 0) {
-    uploadError.value = `You can upload up to ${maxImageCount} images.`;
+    uploadError.value = t('manage.form.upload.limit', { count: maxImageCount });
     return;
   }
   uploadError.value = '';
@@ -489,10 +516,11 @@ const handleFileSelection = async (event) => {
       await uploadImage(file);
     }
     if (files.length > remainingSlots) {
-      uploadError.value = `Only ${maxImageCount} images are allowed. Extra files were ignored.`;
+      uploadError.value = t('manage.form.upload.extraIgnored', { count: maxImageCount });
     }
   } catch (error) {
-    uploadError.value = error instanceof Error ? error.message : 'Failed to upload image. Please try again.';
+    uploadError.value =
+      error instanceof Error ? error.message : t('manage.form.upload.failure');
   } finally {
     uploadingImages.value = false;
   }
@@ -500,10 +528,10 @@ const handleFileSelection = async (event) => {
 
 const uploadImage = async (file) => {
   if (!file || !file.type?.startsWith('image/')) {
-    throw new Error('Only image files can be uploaded.');
+    throw new Error(t('manage.form.upload.invalidType'));
   }
   if (file.size > maxUploadSize) {
-    throw new Error('Each image must be 5 MB or smaller.');
+    throw new Error(t('manage.form.upload.tooLarge'));
   }
   const formData = new FormData();
   formData.append('file', file);
@@ -516,7 +544,7 @@ const uploadImage = async (file) => {
   }
   const payload = await response.json();
   if (!payload || typeof payload.url !== 'string') {
-    throw new Error('Image upload failed. Please try again.');
+    throw new Error(t('manage.form.upload.failure'));
   }
   const normalized = payload.url.trim();
   if (normalized && !form.imageUrls.includes(normalized)) {
@@ -527,13 +555,13 @@ const uploadImage = async (file) => {
 const readUploadError = async (response) => {
   try {
     const data = await response.json();
-    return data?.detail || data?.message || 'Image upload failed. Please try again.';
+    return data?.detail || data?.message || t('manage.form.upload.failure');
   } catch (error) {
     try {
       const text = await response.text();
-      return text || 'Image upload failed. Please try again.';
+      return text || t('manage.form.upload.failure');
     } catch (innerError) {
-      return 'Image upload failed. Please try again.';
+      return t('manage.form.upload.failure');
     }
   }
 };
@@ -547,19 +575,19 @@ const removeImage = (index) => {
 
 const validateForm = () => {
   if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
-    formError.value = 'Please complete all required listing information.';
+    formError.value = t('manage.form.validation.required');
     return false;
   }
   if (!form.listingDate) {
-    formError.value = 'Choose a listing date.';
+    formError.value = t('manage.form.validation.listingDate');
     return false;
   }
   if (!ensurePositive(form.price)) {
-    formError.value = 'Enter a valid total price.';
+    formError.value = t('manage.form.validation.price');
     return false;
   }
   if (!ensurePositive(form.downPayment)) {
-    formError.value = 'Enter a valid down payment amount.';
+    formError.value = t('manage.form.validation.downPayment');
     return false;
   }
   const priceNumber = Number(form.price);
@@ -567,20 +595,20 @@ const validateForm = () => {
   if (Number.isFinite(priceNumber) && Number.isFinite(downPaymentNumber)) {
     const totalWithPremium = priceNumber * premiumRate;
     if (downPaymentNumber >= totalWithPremium) {
-      formError.value = 'The down payment must be below 120% of the total price to calculate instalments.';
+      formError.value = t('manage.form.validation.downPaymentLimit');
       return false;
     }
   }
   if (!ensurePositive(form.area)) {
-    formError.value = 'Enter a valid floor area.';
+    formError.value = t('manage.form.validation.area');
     return false;
   }
   if (!ensurePositive(form.installmentMonthlyPayment)) {
-    formError.value = 'Unable to calculate a valid monthly instalment. Please review the down payment or term.';
+    formError.value = t('manage.form.validation.installmentMonthly');
     return false;
   }
   if (!ensurePositive(form.installmentMonths)) {
-    formError.value = 'The instalment term must be greater than zero.';
+    formError.value = t('manage.form.validation.installmentMonths');
     return false;
   }
   formError.value = '';

@@ -35,7 +35,7 @@
               :aria-pressed="form.rating >= score"
               @click="setRating(score)"
             >
-              ★
+              {{ form.rating >= score ? '⭐' : '' }}
             </button>
           </div>
           <small class="hint">{{ t('reviews.form.ratingHint') }}</small>

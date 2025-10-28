@@ -2,31 +2,31 @@
   <div class="house-list">
     <div class="list-header">
       <div>
-        <h2>Listing overview</h2>
-        <p>{{ houses.length }} listings in total</p>
+        <h2>{{ t('manage.list.heading') }}</h2>
+        <p>{{ t('manage.list.total', { count: houses.length }) }}</p>
       </div>
-      <span v-if="!canManage && !isAdmin" class="hint">Switch to a seller or admin account to manage listings.</span>
+      <span v-if="!canManage && !isAdmin" class="hint">{{ t('manage.list.notice') }}</span>
     </div>
 
-    <div v-if="loading" class="loading">Loading listings…</div>
+    <div v-if="loading" class="loading">{{ t('manage.list.loading') }}</div>
     <div v-else-if="houses.length === 0" class="empty">
-      {{ canManage ? 'No listings yet. Use the form to publish your first property.' : 'No listings available at the moment.' }}
+      {{ canManage ? t('manage.list.emptyManage') : t('manage.list.emptyView') }}
     </div>
 
     <div v-else class="table-wrapper">
       <table>
         <thead>
           <tr>
-            <th>Listing</th>
-            <th>Pricing</th>
-            <th>Area</th>
-            <th>Floor</th>
-            <th>Listed on</th>
-            <th>Status</th>
-            <th>Seller</th>
-            <th>Contact</th>
-            <th>Keywords</th>
-            <th>Actions</th>
+            <th>{{ t('manage.list.headers.listing') }}</th>
+            <th>{{ t('manage.list.headers.pricing') }}</th>
+            <th>{{ t('manage.list.headers.area') }}</th>
+            <th>{{ t('manage.list.headers.floor') }}</th>
+            <th>{{ t('manage.list.headers.date') }}</th>
+            <th>{{ t('manage.list.headers.status') }}</th>
+            <th>{{ t('manage.list.headers.seller') }}</th>
+            <th>{{ t('manage.list.headers.contact') }}</th>
+            <th>{{ t('manage.list.headers.keywords') }}</th>
+            <th>{{ t('manage.list.headers.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -36,13 +36,22 @@
                 <strong>{{ house.title }}</strong>
               </button>
               <p class="description" v-if="house.description">{{ house.description }}</p>
-              <p class="image-count" v-if="house.imageUrls?.length">{{ house.imageUrls.length }} photos</p>
+              <p class="image-count" v-if="house.imageUrls?.length">
+                {{ t('manage.list.photoCount', { count: house.imageUrls.length }) }}
+              </p>
             </td>
             <td class="price-cell">
-              <span>Full price: ￥{{ formatCurrency(house.price) }}</span>
-              <span v-if="house.downPayment">Down payment: ￥{{ formatCurrency(house.downPayment) }}</span>
+              <span>{{ t('manage.list.pricing.full', { price: formatCurrency(house.price) }) }}</span>
+              <span v-if="house.downPayment">
+                {{ t('manage.list.pricing.downPayment', { amount: formatCurrency(house.downPayment) }) }}
+              </span>
               <span v-if="house.installmentMonthlyPayment">
-                Instalments: ￥{{ formatCurrency(house.installmentMonthlyPayment) }} × {{ house.installmentMonths || '—' }} months
+                {{
+                  t('manage.list.pricing.installment', {
+                    amount: formatCurrency(house.installmentMonthlyPayment),
+                    months: house.installmentMonths || '—'
+                  })
+                }}
               </span>
             </td>
             <td>{{ formatNumber(house.area) }} ㎡</td>
@@ -59,25 +68,33 @@
             <td>{{ contactNumberDisplay(house) }}</td>
             <td>
               <span v-if="formatKeywords(house.keywords)">{{ formatKeywords(house.keywords) }}</span>
-              <span v-else class="muted">Not set</span>
+              <span v-else class="muted">{{ t('manage.list.keywordPlaceholder') }}</span>
             </td>
             <td class="actions">
               <template v-if="canManage">
-                <button class="btn" :disabled="!canEditHouse(house)" @click="handleEdit(house)">Edit</button>
-                <button class="btn danger" :disabled="!canDeleteHouse(house)" @click="handleRemove(house)">Delete</button>
+                <button class="btn" :disabled="!canEditHouse(house)" @click="handleEdit(house)">
+                  {{ t('manage.list.actions.edit') }}
+                </button>
+                <button class="btn danger" :disabled="!canDeleteHouse(house)" @click="handleRemove(house)">
+                  {{ t('manage.list.actions.delete') }}
+                </button>
               </template>
               <template v-else-if="isAdmin">
-                <button class="btn success" @click="handleReview(house, 'APPROVED')">Approve</button>
-                <button class="btn warning" @click="handleReview(house, 'REJECTED')">Reject</button>
+                <button class="btn success" @click="handleReview(house, 'APPROVED')">
+                  {{ t('manage.list.actions.approve') }}
+                </button>
+                <button class="btn warning" @click="handleReview(house, 'REJECTED')">
+                  {{ t('manage.list.actions.reject') }}
+                </button>
               </template>
               <template v-else-if="isBuyer">
                 <div class="payment-select">
                   <label>
-                    Payment method
+                    {{ t('manage.list.actions.paymentLabel') }}
                     <select v-model="selectedPayments[house.id]">
-                      <option value="FULL">Full</option>
+                      <option value="FULL">{{ t('manage.list.actions.paymentFull') }}</option>
                       <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
-                        Instalments
+                        {{ t('manage.list.actions.paymentInstallment') }}
                       </option>
                     </select>
                   </label>
@@ -90,11 +107,11 @@
                   {{
                     house.status !== 'APPROVED'
                       ? house.status === 'SOLD'
-                        ? 'Sold'
-                        : 'Pending review'
+                        ? t('manage.list.actions.sold')
+                        : t('statuses.pending')
                       : ordersLoading
-                      ? 'Processing…'
-                      : 'Purchase now'
+                      ? t('manage.list.actions.processing')
+                      : t('manage.list.actions.purchase')
                   }}
                 </button>
                 <button
@@ -102,10 +119,10 @@
                   :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
                   @click="handleContactSeller(house)"
                 >
-                  {{ house.status === 'SOLD' ? 'Sold' : 'Contact seller' }}
+                  {{ house.status === 'SOLD' ? t('manage.list.actions.sold') : t('manage.list.actions.contact') }}
                 </button>
               </template>
-              <span v-else class="muted">View only</span>
+              <span v-else class="muted">{{ t('manage.list.actions.viewOnly') }}</span>
             </td>
           </tr>
         </tbody>
@@ -122,7 +139,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, toRefs, watch } from 'vue';
+import { computed, inject, reactive, ref, toRefs, watch } from 'vue';
 import HouseDetailModal from './HouseDetailModal.vue';
 
 const props = defineProps({
@@ -156,6 +173,21 @@ const emit = defineEmits(['edit', 'remove', 'purchase', 'contact-seller', 'revie
 
 const { houses, loading, canManage } = toRefs(props);
 
+const translate = inject('translate', (key, vars) => {
+  if (typeof key !== 'string') {
+    return '';
+  }
+  if (!vars) {
+    return key;
+  }
+  return key;
+});
+
+const t = (key, vars) => translate(key, vars);
+
+const settings = inject('appSettings', { language: 'zh' });
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+
 const selectedPayments = reactive({});
 
 const sellerRoles = ['SELLER', 'LANDLORD'];
@@ -165,18 +197,18 @@ const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
 const detailHouse = ref(null);
 const detailCanViewSensitive = ref(false);
 
-const listingStatusLabels = {
-  PENDING_REVIEW: 'Pending review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  SOLD: 'Sold (unlisted)'
-};
+const listingStatusLabels = computed(() => ({
+  PENDING_REVIEW: t('statuses.pending'),
+  APPROVED: t('statuses.approved'),
+  REJECTED: t('statuses.rejected'),
+  SOLD: t('statuses.sold')
+}));
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
     return '-';
   }
-  return Number(value).toLocaleString('en-US', {
+  return Number(value).toLocaleString(locale.value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -190,7 +222,7 @@ const formatCurrency = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return num.toLocaleString('en-US', {
+  return num.toLocaleString(locale.value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -200,21 +232,23 @@ const formatDate = (value) => {
   if (!value) {
     return '-';
   }
-  return new Date(value).toLocaleDateString('en-US');
+  return new Date(value).toLocaleDateString(locale.value);
 };
 
 const formatFloor = (value) => {
   if (value == null || value === '') {
     return '—';
   }
-  return `Level ${value}`;
+  return t('manage.list.floorValue', { floor: value });
 };
 
 const formatKeywords = (keywords) => {
   if (!Array.isArray(keywords) || keywords.length === 0) {
     return '';
   }
-  return keywords.join(', ');
+  const separator = t('manage.list.keywordSeparator');
+  const joiner = typeof separator === 'string' && separator.length ? separator : '、';
+  return keywords.join(joiner);
 };
 
 const maskName = (value) => {
@@ -367,7 +401,7 @@ const handleContactSeller = (house) => {
   emit('contact-seller', { sellerUsername: house.sellerUsername, house });
 };
 
-const statusLabel = (house) => listingStatusLabels[house?.status] ?? 'Pending review';
+const statusLabel = (house) => listingStatusLabels.value[house?.status] ?? t('statuses.pending');
 
 const statusClass = (house) => {
   switch (house?.status) {

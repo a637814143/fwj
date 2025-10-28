@@ -123,14 +123,15 @@
           @review="handleReview"
         />
 
+        <UrgentTasks
+          v-else-if="activeTab === 'urgent'"
+          :tasks="urgentTasks"
+          :progress-labels="orderProgressLabels"
+          @mark-read="handleUrgentTaskRead"
+          @navigate="handleUrgentTaskNavigate"
+        />
+
         <div v-else-if="activeTab === 'orders'" class="orders-grid">
-          <UrgentTasks
-            v-if="showUrgentTasks"
-            :tasks="urgentTasks"
-            :progress-labels="orderProgressLabels"
-            @mark-read="handleUrgentTaskRead"
-            @navigate="handleUrgentTaskNavigate"
-          />
           <WalletPanel
             :wallet="wallet"
             :loading="walletLoading"
@@ -332,6 +333,7 @@ const translations = {
       verifyCompleted: '实名认证（已完成）',
       manage: '房源管理',
       feedback: '房源评价',
+      urgent: '紧急待办',
       orders: '订单与钱包',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
@@ -368,13 +370,166 @@ const translations = {
         title: '语言',
         zh: '中文',
         en: 'English',
-        notice: '首页支持中英文切换，其他页面保持中文展示。'
+        notice: '界面支持中英文切换。'
       },
       fontSize: {
         title: '字体大小',
         small: '小',
         medium: '中',
         large: '大'
+      }
+    },
+    manage: {
+      form: {
+        headingCreate: '新增房源',
+        headingEdit: '编辑房源',
+        noticeBrowseOnly: '当前账号仅可浏览房源，请切换为卖家或管理员账号以管理房源。',
+        fields: {
+          title: '房源标题',
+          address: '房源地址',
+          price: '房源总价（元）',
+          downPayment: '首付款（元）',
+          area: '建筑面积（㎡）',
+          installmentMonthly: '预估月供（元）',
+          installmentMonths: '分期期限（月）',
+          sellerUsername: '卖家账号',
+          sellerName: '卖家昵称',
+          contactNumber: '联系方式',
+          listingDate: '上架日期',
+          floor: '楼层（可选）',
+          description: '房源描述',
+          keywords: '房源关键词',
+          images: '房源图片'
+        },
+        placeholders: {
+          title: '请输入房源标题',
+          address: '请输入房源地址',
+          price: '例如 2000000',
+          downPayment: '例如 600000',
+          area: '例如 89',
+          installmentMonthly: '系统将根据价格、首付与分期自动计算',
+          installmentMonths: '例如 24',
+          sellerUsername: '请输入卖家账号',
+          sellerName: '请输入卖家昵称',
+          contactNumber: '请输入联系电话',
+          floor: '例如 10',
+          description: '补充房源亮点或其他信息',
+          keywords: '例如 市中心、近地铁、朝南'
+        },
+        hints: {
+          installmentCalculation: '系统会根据首付与分期设置自动预估月供。',
+          keywordPreview: '将提交的关键词：',
+          uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
+          noImages: '尚未上传图片。'
+        },
+        actions: {
+          upload: '上传图片',
+          uploading: '上传中…',
+          removeImage: '移除',
+          submitting: '提交中…',
+          submitCreate: '提交审核',
+          submitEdit: '保存修改',
+          cancel: '取消'
+        },
+        imageAlt: '房源图片 {index}',
+        upload: {
+          limit: '最多可上传 {count} 张图片。',
+          extraIgnored: '仅保留前 {count} 张图片，多余文件已忽略。',
+          invalidType: '仅支持上传图片文件。',
+          tooLarge: '单张图片大小需不超过5MB。',
+          failure: '图片上传失败，请稍后再试。'
+        },
+        validation: {
+          required: '请完善必填的房源信息。',
+          listingDate: '请选择上架日期。',
+          price: '请输入有效的房源总价。',
+          downPayment: '请输入有效的首付款金额。',
+          downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
+          area: '请输入有效的建筑面积。',
+          installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
+          installmentMonths: '分期期限必须大于0。'
+        }
+      },
+      list: {
+        heading: '房源概览',
+        total: '共 {count} 套房源',
+        notice: '当前账号仅可浏览房源，请切换为卖家或管理员账号以管理房源。',
+        loading: '房源数据加载中…',
+        emptyManage: '暂未添加房源，请通过左侧表单发布第一套房源。',
+        emptyView: '暂未发布房源，请稍后再来。',
+        headers: {
+          listing: '房源信息',
+          pricing: '价格',
+          area: '面积',
+          floor: '楼层',
+          date: '上架时间',
+          status: '状态',
+          seller: '卖家账号',
+          contact: '联系方式',
+          keywords: '关键词',
+          actions: '操作'
+        },
+        photoCount: '{count} 张图片',
+        pricing: {
+          full: '总价：￥{price}',
+          downPayment: '首付：￥{amount}',
+          installment: '分期：￥{amount} × {months} 期'
+        },
+        keywordPlaceholder: '未设置',
+        actions: {
+          edit: '编辑',
+          delete: '删除',
+          approve: '通过',
+          reject: '驳回',
+          paymentLabel: '支付方式',
+          paymentFull: '全款',
+          paymentInstallment: '分期',
+          sold: '已售出',
+          processing: '处理中…',
+          purchase: '立即购买',
+          contact: '联系卖家',
+          viewOnly: '仅可查看'
+        },
+        floorValue: '{floor} 层',
+        keywordSeparator: '、'
+      }
+    },
+    verify: {
+      panel: {
+        title: '实名认证',
+        status: {
+          verified: '已认证',
+          pending: '未认证'
+        },
+        hint: '实名认证通过后才能预定或购买房源，并将提升账户信誉分。',
+        summary: {
+          name: '姓名：',
+          phone: '手机号：'
+        },
+        actions: {
+          edit: '更新认证',
+          cancel: '取消'
+        },
+        form: {
+          name: '真实姓名',
+          idNumber: '身份证号码',
+          phoneNumber: '手机号',
+          placeholders: {
+            name: '请输入真实姓名',
+            idNumber: '请输入18位身份证号码',
+            phoneNumber: '请输入13位手机号'
+          },
+          actions: {
+            submit: '立即认证',
+            update: '保存更新',
+            submitting: '提交中…'
+          }
+        },
+        errors: {
+          idNumber: '身份证号码需为18位数字。',
+          phoneNumber: '手机号需为13位数字。',
+          generic: '实名认证失败，请稍后再试。'
+        }
       }
     },
     auth: {
@@ -808,6 +963,7 @@ const translations = {
       verifyCompleted: 'Real-name verification (completed)',
       manage: 'Listing management',
       feedback: 'Listing feedback',
+      urgent: 'Urgent tasks',
       orders: 'Orders & wallet',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
@@ -844,13 +1000,167 @@ const translations = {
         title: 'Language',
         zh: '中文',
         en: 'English',
-        notice: 'English is available on the home dashboard. Other pages remain in Chinese.'
+        notice: 'All panels support Chinese and English.'
       },
       fontSize: {
         title: 'Font size',
         small: 'Small',
         medium: 'Medium',
         large: 'Large'
+      }
+    },
+    manage: {
+      form: {
+        headingCreate: 'Add listing',
+        headingEdit: 'Edit listing',
+        noticeBrowseOnly:
+          'This account can only browse listings. Switch to a seller or administrator account to manage listings.',
+        fields: {
+          title: 'Listing title',
+          address: 'Listing address',
+          price: 'Total price (CNY)',
+          downPayment: 'Down payment (CNY)',
+          area: 'Floor area (㎡)',
+          installmentMonthly: 'Estimated monthly instalment (CNY)',
+          installmentMonths: 'Instalment term (months)',
+          sellerUsername: 'Seller username',
+          sellerName: 'Seller display name',
+          contactNumber: 'Contact number',
+          listingDate: 'Listing date',
+          floor: 'Floor (optional)',
+          description: 'Listing description',
+          keywords: 'Keywords',
+          images: 'Listing photos'
+        },
+        placeholders: {
+          title: 'Enter listing title',
+          address: 'Enter listing address',
+          price: 'e.g. 2000000',
+          downPayment: 'e.g. 600000',
+          area: 'e.g. 89',
+          installmentMonthly: 'Calculated automatically from price, down payment and term',
+          installmentMonths: 'e.g. 24',
+          sellerUsername: 'Enter seller username',
+          sellerName: 'Enter seller display name',
+          contactNumber: 'Enter contact number',
+          floor: 'e.g. 10',
+          description: 'Highlight selling points or additional details',
+          keywords: 'e.g. city centre, subway nearby, south-facing'
+        },
+        hints: {
+          installmentCalculation: 'The system estimates the monthly instalment based on your down payment and term.',
+          keywordPreview: 'Keywords that will be submitted:',
+          uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
+          noImages: 'No images uploaded yet.'
+        },
+        actions: {
+          upload: 'Upload images',
+          uploading: 'Uploading…',
+          removeImage: 'Remove',
+          submitting: 'Submitting…',
+          submitCreate: 'Submit for review',
+          submitEdit: 'Save changes',
+          cancel: 'Cancel'
+        },
+        imageAlt: 'Listing image {index}',
+        upload: {
+          limit: 'You can upload up to {count} images.',
+          extraIgnored: 'Only the first {count} images were kept. Extra files were ignored.',
+          invalidType: 'Only image files can be uploaded.',
+          tooLarge: 'Each image must be 5 MB or smaller.',
+          failure: 'Image upload failed. Please try again later.'
+        },
+        validation: {
+          required: 'Please complete all required listing information.',
+          listingDate: 'Choose a listing date.',
+          price: 'Enter a valid total price.',
+          downPayment: 'Enter a valid down payment amount.',
+          downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
+          area: 'Enter a valid floor area.',
+          installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
+          installmentMonths: 'The instalment term must be greater than zero.'
+        }
+      },
+      list: {
+        heading: 'Listing overview',
+        total: '{count} listings in total',
+        notice: 'Switch to a seller or administrator account to manage listings.',
+        loading: 'Loading listings…',
+        emptyManage: 'No listings yet. Use the form to publish your first property.',
+        emptyView: 'No listings available at the moment.',
+        headers: {
+          listing: 'Listing',
+          pricing: 'Pricing',
+          area: 'Area',
+          floor: 'Floor',
+          date: 'Listed on',
+          status: 'Status',
+          seller: 'Seller',
+          contact: 'Contact',
+          keywords: 'Keywords',
+          actions: 'Actions'
+        },
+        photoCount: '{count} photos',
+        pricing: {
+          full: 'Full price: ￥{price}',
+          downPayment: 'Down payment: ￥{amount}',
+          installment: 'Instalments: ￥{amount} × {months} months'
+        },
+        keywordPlaceholder: 'Not set',
+        actions: {
+          edit: 'Edit',
+          delete: 'Delete',
+          approve: 'Approve',
+          reject: 'Reject',
+          paymentLabel: 'Payment method',
+          paymentFull: 'Full',
+          paymentInstallment: 'Instalments',
+          sold: 'Sold',
+          processing: 'Processing…',
+          purchase: 'Purchase now',
+          contact: 'Contact seller',
+          viewOnly: 'View only'
+        },
+        floorValue: 'Level {floor}',
+        keywordSeparator: ', '
+      }
+    },
+    verify: {
+      panel: {
+        title: 'Real-name verification',
+        status: {
+          verified: 'Verified',
+          pending: 'Not verified'
+        },
+        hint: 'Verification is required to reserve or purchase listings and increases your reputation score.',
+        summary: {
+          name: 'Name:',
+          phone: 'Phone:'
+        },
+        actions: {
+          edit: 'Update verification',
+          cancel: 'Cancel'
+        },
+        form: {
+          name: 'Full name',
+          idNumber: 'ID number',
+          phoneNumber: 'Phone number',
+          placeholders: {
+            name: 'Enter your full name',
+            idNumber: 'Enter your 18-digit ID number',
+            phoneNumber: 'Enter your 13-digit phone number'
+          },
+          actions: {
+            submit: 'Verify now',
+            update: 'Save updates',
+            submitting: 'Submitting…'
+          }
+        },
+        errors: {
+          idNumber: 'The ID number must contain exactly 18 digits.',
+          phoneNumber: 'The phone number must contain exactly 13 digits.',
+          generic: 'Verification failed. Please try again later.'
+        }
       }
     },
     auth: {
@@ -1296,7 +1606,7 @@ const serverMessageKeyMap = Object.freeze({
 
 const containsCJK = (text) => /[\u3400-\u9FFF]/.test(text);
 
-const currentLocale = computed(() => (activeTab.value === 'home' ? settings.language || 'zh' : 'zh'));
+const currentLocale = computed(() => settings.language || 'zh');
 
 const translateServerMessage = (message, fallbackKey) => {
   if (!message) {
@@ -1636,6 +1946,9 @@ const navigationTabs = computed(() => {
     tabs.push({ value: 'manage', label: t('nav.manage') });
   }
   tabs.push({ value: 'feedback', label: t('nav.feedback') });
+  if (showUrgentTasks.value) {
+    tabs.push({ value: 'urgent', label: t('nav.urgent') });
+  }
   if (canAccessOrders.value) {
     tabs.push({ value: 'orders', label: t('nav.orders') });
   }

@@ -87,51 +87,56 @@
             </label>
           </div>
 
-          <section class="password-section">
-            <header class="password-header">
-              <div>
-                <h4>{{ t('accountCenter.passwordSection.title') }}</h4>
-                <p>{{ t('accountCenter.passwordSection.hint') }}</p>
-              </div>
-              <button
-                type="button"
-                class="password-toggle"
+        <section class="password-section">
+          <header class="password-header">
+            <div>
+              <h4>{{ t('accountCenter.passwordSection.title') }}</h4>
+              <p>{{ t('accountCenter.passwordSection.hint') }}</p>
+            </div>
+          </header>
+          <div class="password-fields">
+            <label>
+              {{ t('accountCenter.fields.currentPassword') }}
+              <input
+                v-model.trim="form.currentPassword"
+                type="password"
+                autocomplete="current-password"
+                :placeholder="t('accountCenter.placeholders.currentPassword')"
                 :disabled="saving"
-                @click="togglePasswordFields"
-              >
-                {{ passwordToggleLabel }}
-              </button>
-            </header>
-            <transition name="fade-slide">
-              <div v-if="showPasswordFields" class="password-fields">
-                <label>
-                  {{ t('accountCenter.fields.newPassword') }}
-                  <input
-                    v-model.trim="form.password"
-                    type="password"
-                    :placeholder="t('accountCenter.placeholders.password')"
-                    :disabled="saving"
-                    minlength="6"
-                    maxlength="100"
-                  />
-                </label>
+                minlength="6"
+                maxlength="100"
+              />
+            </label>
 
-                <label>
-                  {{ t('accountCenter.fields.confirmPassword') }}
-                  <input
-                    v-model.trim="form.confirm"
-                    type="password"
-                    :placeholder="t('accountCenter.placeholders.confirmPassword')"
-                    :disabled="saving"
-                    minlength="6"
-                    maxlength="100"
-                  />
-                </label>
-              </div>
-            </transition>
-          </section>
+            <label>
+              {{ t('accountCenter.fields.newPassword') }}
+              <input
+                v-model.trim="form.password"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="t('accountCenter.placeholders.password')"
+                :disabled="saving"
+                minlength="6"
+                maxlength="100"
+              />
+            </label>
 
-          <p v-if="localError" class="form-error">{{ localError }}</p>
+            <label>
+              {{ t('accountCenter.fields.confirmPassword') }}
+              <input
+                v-model.trim="form.confirm"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="t('accountCenter.placeholders.confirmPassword')"
+                :disabled="saving"
+                minlength="6"
+                maxlength="100"
+              />
+            </label>
+          </div>
+        </section>
+
+        <p v-if="localError" class="form-error">{{ localError }}</p>
           <p v-else-if="error" class="form-error">{{ error }}</p>
 
           <div class="actions">
@@ -190,17 +195,12 @@ const t = (key, vars) => translate(key, vars);
 const form = reactive({
   username: '',
   displayName: '',
+  currentPassword: '',
   password: '',
   confirm: ''
 });
 
 const localError = ref('');
-const showPasswordFields = ref(false);
-const passwordToggleLabel = computed(() =>
-  showPasswordFields.value
-    ? t('accountCenter.passwordSection.hide')
-    : t('accountCenter.passwordSection.show')
-);
 
 function formatCurrency(value) {
   if (value == null) {
@@ -229,10 +229,10 @@ const verificationStatus = computed(() =>
 const syncForm = () => {
   form.username = props.currentUser?.username ?? '';
   form.displayName = props.currentUser?.displayName ?? '';
+  form.currentPassword = '';
   form.password = '';
   form.confirm = '';
   localError.value = '';
-  showPasswordFields.value = false;
 };
 
 watch(
@@ -262,7 +262,7 @@ const hasChanges = computed(() => {
   const trimmedDisplayName = form.displayName?.trim() ?? '';
   const usernameChanged = trimmedUsername && trimmedUsername !== currentUsername;
   const displayNameChanged = trimmedDisplayName && trimmedDisplayName !== currentDisplayName;
-  const passwordChanged = showPasswordFields.value && Boolean(form.password);
+  const passwordChanged = Boolean(form.password || form.confirm || form.currentPassword);
   return usernameChanged || displayNameChanged || passwordChanged;
 });
 
@@ -278,8 +278,11 @@ const buildPayload = () => {
   if (trimmedDisplayName && trimmedDisplayName !== currentDisplayName) {
     payload.displayName = trimmedDisplayName;
   }
-  if (showPasswordFields.value && form.password) {
+  if (form.password) {
     payload.newPassword = form.password;
+    if (form.currentPassword) {
+      payload.currentPassword = form.currentPassword;
+    }
   }
   return payload;
 };
@@ -293,15 +296,30 @@ const submit = () => {
     localError.value = t('accountCenter.errors.noChanges');
     return;
   }
-  if (showPasswordFields.value && (form.password || form.confirm)) {
-    if (form.password !== form.confirm) {
+  const trimmedCurrent = form.currentPassword?.trim() ?? '';
+  const trimmedPassword = form.password?.trim() ?? '';
+  const trimmedConfirm = form.confirm?.trim() ?? '';
+  const wantsPasswordChange = Boolean(trimmedCurrent || trimmedPassword || trimmedConfirm);
+  if (wantsPasswordChange) {
+    if (!trimmedPassword || !trimmedConfirm) {
+      localError.value = t('accountCenter.errors.passwordRequired');
+      return;
+    }
+    if (trimmedPassword !== trimmedConfirm) {
       localError.value = t('accountCenter.errors.passwordMismatch');
       return;
     }
-    if ((form.password?.length ?? 0) < 6) {
+    if (trimmedPassword.length < 6) {
       localError.value = t('accountCenter.errors.passwordLength');
       return;
     }
+    if (!trimmedCurrent) {
+      localError.value = t('accountCenter.errors.currentPasswordRequired');
+      return;
+    }
+    form.password = trimmedPassword;
+    form.confirm = trimmedConfirm;
+    form.currentPassword = trimmedCurrent;
   }
   const payload = buildPayload();
   if (Object.keys(payload).length === 0) {
@@ -314,17 +332,6 @@ const submit = () => {
 const wrapperClass = computed(() =>
   props.inline ? 'account-center-inline' : 'account-center-backdrop'
 );
-
-const togglePasswordFields = () => {
-  showPasswordFields.value = !showPasswordFields.value;
-};
-
-watch(showPasswordFields, (value) => {
-  if (!value) {
-    form.password = '';
-    form.confirm = '';
-  }
-});
 
 </script>
 
@@ -484,9 +491,8 @@ watch(showPasswordFields, (value) => {
 
 .password-header {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .password-header h4 {
@@ -501,38 +507,10 @@ watch(showPasswordFields, (value) => {
   font-size: 0.92rem;
 }
 
-.password-toggle {
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-radius: var(--radius-pill);
-  padding: 0.4rem 1rem;
-  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
-  color: var(--color-text-strong);
-  font-weight: 600;
-  transition: transform var(--transition-base), box-shadow var(--transition-base),
-    background var(--transition-base);
-}
-
-.password-toggle:not(:disabled):hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  box-shadow: var(--shadow-sm);
-}
-
 .password-fields {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.24s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
 }
 
 .form-error {

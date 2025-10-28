@@ -1,11 +1,11 @@
 <template>
   <section class="order-history">
-    <h2>Property orders</h2>
-    <p v-if="!currentUser" class="hint">Please sign in to view order history and manage returns.</p>
+    <h2>{{ t('orders.history.title') }}</h2>
+    <p v-if="!currentUser" class="hint">{{ t('orders.history.hint') }}</p>
 
     <div v-else>
-      <div v-if="loading" class="loading">Loading orders…</div>
-      <div v-else-if="!orders || orders.length === 0" class="empty">No orders found.</div>
+      <div v-if="loading" class="loading">{{ t('orders.history.loading') }}</div>
+      <div v-else-if="!orders || orders.length === 0" class="empty">{{ t('orders.history.empty') }}</div>
       <ul v-else class="order-list">
         <li v-for="order in orders" :key="order.id" class="order-card">
           <header>
@@ -15,68 +15,68 @@
                 {{ stageLabel(order.progressStage) }}
               </span>
             </div>
-            <span class="status" :class="order.status.toLowerCase()">
-              {{ statusLabels[order.status] ?? order.status }}
+            <span class="status" :class="statusClass(order.status)">
+              {{ statusLabel(order.status) }}
             </span>
           </header>
           <dl>
             <div>
-              <dt>Order ID</dt>
+              <dt>{{ t('orders.history.fields.orderId') }}</dt>
               <dd>{{ order.id }}</dd>
             </div>
             <div>
-              <dt>Amount (CNY)</dt>
-              <dd>{{ formatAmount(order.amount) }}</dd>
+              <dt>{{ t('orders.history.fields.amount') }}</dt>
+              <dd>￥{{ formatAmount(order.amount) }}</dd>
             </div>
             <div>
-              <dt>Payment method</dt>
+              <dt>{{ t('orders.history.fields.paymentMethod') }}</dt>
               <dd>{{ paymentMethodLabel(order.paymentMethod) }}</dd>
             </div>
             <div>
-              <dt>Buyer</dt>
+              <dt>{{ t('orders.history.fields.buyer') }}</dt>
               <dd>{{ buyerDisplayName(order) }} ({{ buyerUsernameDisplay(order) }})</dd>
             </div>
             <div>
-              <dt>Seller</dt>
+              <dt>{{ t('orders.history.fields.seller') }}</dt>
               <dd>{{ sellerDisplayName(order) }} ({{ sellerUsernameDisplay(order) }})</dd>
             </div>
             <div>
-              <dt>Created at</dt>
+              <dt>{{ t('orders.history.fields.createdAt') }}</dt>
               <dd>{{ formatTime(order.createdAt) }}</dd>
             </div>
             <div>
-              <dt>Updated at</dt>
+              <dt>{{ t('orders.history.fields.updatedAt') }}</dt>
               <dd>{{ formatTime(order.updatedAt) }}</dd>
             </div>
             <div>
-              <dt>Escrow status</dt>
+              <dt>{{ t('orders.history.fields.escrowStatus') }}</dt>
               <dd>
                 <span :class="['escrow-tag', escrowClass(order)]">{{ escrowStatus(order) }}</span>
                 <span v-if="escrowSupplement(order)" class="escrow-supplement">{{ escrowSupplement(order) }}</span>
               </dd>
             </div>
             <div v-if="shouldShowPlatformFee(order)">
-              <dt>Platform fee</dt>
+              <dt>{{ t('orders.history.fields.platformFee') }}</dt>
               <dd>￥{{ formatAmount(order.platformFee) }}</dd>
             </div>
             <div v-if="shouldShowReleasedAmount(order)">
-              <dt>Released amount</dt>
+              <dt>{{ t('orders.history.fields.releasedAmount') }}</dt>
               <dd>￥{{ formatAmount(order.releasedAmount) }}</dd>
             </div>
             <div v-if="order.adminReviewedBy">
-              <dt>Reviewed by</dt>
+              <dt>{{ t('orders.history.fields.reviewedBy') }}</dt>
               <dd>
                 {{ order.adminReviewedBy }}
                 <span v-if="order.adminReviewedAt" class="escrow-supplement">{{ formatTime(order.adminReviewedAt) }}</span>
               </dd>
             </div>
             <div v-if="order.returnReason">
-              <dt>Return reason</dt>
+              <dt>{{ t('orders.history.fields.returnReason') }}</dt>
               <dd>{{ order.returnReason }}</dd>
             </div>
           </dl>
           <section class="progress-tracker">
-            <h4>Transaction progress</h4>
+            <h4>{{ t('orders.history.progressTitle') }}</h4>
             <ol class="progress-steps">
               <li
                 v-for="(stage, index) in progressOrderNormalized"
@@ -90,12 +90,16 @@
           </section>
           <section v-if="hasViewingSection(order)" class="viewing-section">
             <header>
-              <h4>Viewing appointment</h4>
-              <span v-if="order.viewingTime" class="viewing-time">{{ viewingTimeLabel(order) }}</span>
+              <h4>{{ t('orders.history.viewing.title') }}</h4>
+              <span v-if="order.viewingTime" class="viewing-time">
+                {{ t('orders.history.viewing.timeLabel', { time: viewingTimeLabel(order) }) }}
+              </span>
             </header>
             <p v-if="order.viewingTime" class="viewing-summary">
-              Appointment: {{ viewingTimeLabel(order) }}
-              <span v-if="order.viewingMessage">Notes: {{ order.viewingMessage }}</span>
+              {{ t('orders.history.viewing.appointment', { time: viewingTimeLabel(order) }) }}
+              <span v-if="order.viewingMessage">
+                {{ t('orders.history.viewing.notes', { message: order.viewingMessage }) }}
+              </span>
             </p>
             <div class="viewing-actions">
               <button
@@ -105,7 +109,7 @@
                 :disabled="loading"
                 @click="openScheduleDialog(order)"
               >
-                Schedule viewing
+                {{ t('orders.history.viewing.schedule') }}
               </button>
               <button
                 v-if="canAdvance(order)"
@@ -114,7 +118,7 @@
                 :disabled="loading"
                 @click="advanceProgress(order)"
               >
-                Advance to {{ nextStageLabel(order) }}
+                {{ t('orders.history.viewing.advance', { stage: nextStageLabel(order) }) }}
               </button>
               <button
                 v-if="canConfirmViewing(order)"
@@ -123,13 +127,13 @@
                 :disabled="loading"
                 @click="confirmViewing(order)"
               >
-                Confirm appointment
+                {{ t('orders.history.viewing.confirm') }}
               </button>
             </div>
           </section>
           <footer v-if="canRequestReturn(order)" class="actions">
             <button type="button" :disabled="loading" @click="requestReturn(order)">
-              Request return
+              {{ t('orders.history.actions.requestReturn') }}
             </button>
           </footer>
         </li>
@@ -138,27 +142,31 @@
         <div v-if="scheduleState.visible" class="schedule-overlay" @click.self="closeScheduleDialog">
           <div class="schedule-dialog">
             <header>
-              <h3>Schedule viewing</h3>
+              <h3>{{ t('orders.history.schedule.dialogTitle') }}</h3>
               <p>{{ scheduleState.title }}</p>
             </header>
             <form @submit.prevent="submitSchedule">
               <label>
-                <span>Viewing time</span>
+                <span>{{ t('orders.history.schedule.time') }}</span>
                 <input v-model="scheduleState.time" type="datetime-local" required />
               </label>
               <label>
-                <span>Notes (optional)</span>
+                <span>{{ t('orders.history.schedule.notes') }}</span>
                 <textarea
                   v-model="scheduleState.message"
                   rows="2"
                   maxlength="120"
-                  placeholder="Additional notes for the buyer"
+                  :placeholder="t('orders.history.schedule.notesPlaceholder')"
                 ></textarea>
               </label>
               <p v-if="scheduleError" class="form-error">{{ scheduleError }}</p>
               <div class="dialog-actions">
-                <button type="button" class="ghost" @click="closeScheduleDialog">Cancel</button>
-                <button type="submit" class="primary" :disabled="loading">Confirm</button>
+                <button type="button" class="ghost" @click="closeScheduleDialog">
+                  {{ t('orders.history.schedule.cancel') }}
+                </button>
+                <button type="submit" class="primary" :disabled="loading">
+                  {{ t('orders.history.schedule.confirm') }}
+                </button>
               </div>
             </form>
           </div>
@@ -169,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, inject, reactive, ref } from 'vue';
 
 const props = defineProps({
   orders: {
@@ -200,18 +208,30 @@ const props = defineProps({
 
 const emit = defineEmits(['request-return', 'schedule-viewing', 'advance-progress', 'confirm-viewing']);
 
-const statusLabels = {
-  PENDING: 'Pending payment',
-  RESERVED: 'Reserved',
-  PAID: 'Paid',
-  RETURNED: 'Returned',
-  CANCELLED: 'Cancelled'
-};
+const settings = inject('appSettings', { language: 'zh' });
+const translate = inject('translate', (key, vars) => key);
+const t = (key, vars) => translate(key, vars);
 
-const paymentMethodLabels = {
-  FULL: 'Full payment',
-  INSTALLMENT: 'Instalments'
-};
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+
+const historyTexts = computed(() => {
+  const value = t('orders.history');
+  return value && typeof value === 'object' ? value : {};
+});
+
+const fallbackText = computed(() => historyTexts.value.noData ?? '—');
+
+const statusLabels = computed(() => historyTexts.value.status ?? {});
+
+const paymentMethodLabels = computed(() => historyTexts.value.paymentMethods ?? {});
+
+const escrowTexts = computed(() => historyTexts.value.escrow ?? {});
+
+const scheduleTexts = computed(() => historyTexts.value.schedule ?? {});
+
+const viewingTexts = computed(() => historyTexts.value.viewing ?? {});
+
+const promptTexts = computed(() => historyTexts.value.prompts ?? {});
 
 const progressOrderDefault = [
   'DEPOSIT_PAID',
@@ -221,6 +241,45 @@ const progressOrderDefault = [
   'FUNDS_RELEASED'
 ];
 
+const normalizeKey = (value) => {
+  if (value == null) {
+    return '';
+  }
+  const text = String(value).trim();
+  return text ? text.toUpperCase() : '';
+};
+
+const statusLabel = (value) => {
+  const key = normalizeKey(value);
+  if (!key) {
+    return fallbackText.value;
+  }
+  const map = statusLabels.value ?? {};
+  return map[key] ?? map[value] ?? map[key.replace(/\s+/g, '_')] ?? fallbackText.value;
+};
+
+const statusClass = (value) => {
+  const key = String(value ?? '').trim();
+  if (!key) {
+    return 'unknown';
+  }
+  return key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+};
+
+const paymentMethodLabel = (value) => {
+  const key = normalizeKey(value);
+  if (!key) {
+    return fallbackText.value;
+  }
+  const map = paymentMethodLabels.value ?? {};
+  return map[key] ?? map[value] ?? fallbackText.value;
+};
+
+const progressLocaleLabels = computed(() => {
+  const labels = t('orders.progress');
+  return labels && typeof labels === 'object' ? labels : {};
+});
+
 const progressOrderNormalized = computed(() => {
   if (Array.isArray(props.progressOrder) && props.progressOrder.length > 0) {
     return props.progressOrder;
@@ -228,7 +287,8 @@ const progressOrderNormalized = computed(() => {
   return progressOrderDefault;
 });
 
-const stageLabel = (stage) => props.progressLabels?.[stage] ?? stage ?? '';
+const stageLabel = (stage) =>
+  props.progressLabels?.[stage] ?? progressLocaleLabels.value?.[stage] ?? stage ?? '';
 
 const stageIndex = (stage) => progressOrderNormalized.value.indexOf(stage);
 
@@ -288,7 +348,10 @@ const requestReturn = (order) => {
   if (!canRequestReturn(order) || props.loading) {
     return;
   }
-  const reason = window.prompt('Enter a return reason (optional)', order.returnReason ?? '');
+  const reason = window.prompt(
+    promptTexts.value.returnReason ?? '',
+    order.returnReason ?? ''
+  );
   if (reason === null) {
     return;
   }
@@ -303,7 +366,7 @@ const formatAmount = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return num.toLocaleString('en-US', {
+  return num.toLocaleString(locale.value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -316,18 +379,18 @@ const toNumberSafe = (value) => {
 
 const escrowStatus = (order) => {
   if (!order) {
-    return '—';
+    return fallbackText.value;
   }
   if (order.adminReviewed) {
     if (order.fundsReleasedTo === 'SELLER') {
-      return 'Funds released to seller';
+      return escrowTexts.value.releasedSeller ?? fallbackText.value;
     }
     if (order.fundsReleasedTo === 'BUYER') {
-      return 'Funds refunded to buyer';
+      return escrowTexts.value.releasedBuyer ?? fallbackText.value;
     }
-    return 'Escrow settled';
+    return escrowTexts.value.settled ?? fallbackText.value;
   }
-  return 'Awaiting administrator review';
+  return escrowTexts.value.awaiting ?? fallbackText.value;
 };
 
 const escrowClass = (order) => {
@@ -349,11 +412,13 @@ const escrowSupplement = (order) => {
     if (hold == null) {
       return '';
     }
-    return `Escrow hold: ￥${formatAmount(hold)}`;
+    return t('orders.history.escrow.hold', { amount: formatAmount(hold) });
   }
   const released = toNumberSafe(order.releasedAmount);
   if (released > 0) {
-    return `Released amount: ￥${formatAmount(order.releasedAmount)}`;
+    return t('orders.history.escrow.released', {
+      amount: formatAmount(order.releasedAmount)
+    });
   }
   return '';
 };
@@ -362,11 +427,9 @@ const shouldShowPlatformFee = (order) => toNumberSafe(order?.platformFee) > 0;
 
 const shouldShowReleasedAmount = (order) => toNumberSafe(order?.releasedAmount) > 0;
 
-const paymentMethodLabel = (value) => paymentMethodLabels[value] ?? '—';
-
 const maskName = (value) => {
   if (!value) {
-    return '—';
+    return fallbackText.value;
   }
   const text = String(value);
   if (text.length === 1) {
@@ -377,7 +440,7 @@ const maskName = (value) => {
 
 const maskUsername = (value) => {
   if (!value) {
-    return '—';
+    return fallbackText.value;
   }
   const text = String(value);
   if (text.length <= 2) {
@@ -407,22 +470,22 @@ const shouldMaskSeller = (order) => {
 };
 
 const buyerDisplayName = (order) => {
-  const name = order?.buyerDisplayName ?? '—';
+  const name = order?.buyerDisplayName ?? fallbackText.value;
   return shouldMaskBuyer(order) ? maskName(name) : name;
 };
 
 const buyerUsernameDisplay = (order) => {
-  const username = order?.buyerUsername ?? '—';
+  const username = order?.buyerUsername ?? fallbackText.value;
   return shouldMaskBuyer(order) ? maskUsername(username) : username;
 };
 
 const sellerDisplayName = (order) => {
-  const name = order?.sellerDisplayName ?? '—';
+  const name = order?.sellerDisplayName ?? fallbackText.value;
   return shouldMaskSeller(order) ? maskName(name) : name;
 };
 
 const sellerUsernameDisplay = (order) => {
-  const username = order?.sellerUsername ?? '—';
+  const username = order?.sellerUsername ?? fallbackText.value;
   return shouldMaskSeller(order) ? maskUsername(username) : username;
 };
 
@@ -430,7 +493,7 @@ const formatTime = (value) => {
   if (!value) {
     return '';
   }
-  return new Date(value).toLocaleString('en-US', { hour12: false });
+  return new Date(value).toLocaleString(locale.value, { hour12: false });
 };
 
 const toLocalInputValue = (value) => {
@@ -452,7 +515,9 @@ const openScheduleDialog = (order) => {
   }
   scheduleState.visible = true;
   scheduleState.orderId = order.id;
-  scheduleState.title = order.houseTitle ?? '';
+  scheduleState.title = t('orders.history.schedule.subtitle', {
+    title: order.houseTitle ?? ''
+  });
   scheduleState.time = toLocalInputValue(order.viewingTime);
   scheduleState.message = order.viewingMessage ?? '';
   scheduleError.value = '';
@@ -472,13 +537,13 @@ const submitSchedule = () => {
     return;
   }
   if (!scheduleState.time) {
-    scheduleError.value = 'Please choose a viewing time.';
+    scheduleError.value = scheduleTexts.value.validation ?? '';
     return;
   }
   emit('schedule-viewing', {
     orderId: scheduleState.orderId,
     viewingTime: scheduleState.time,
-    message: scheduleState.message
+    message: scheduleState.message?.trim()
   });
   closeScheduleDialog();
 };

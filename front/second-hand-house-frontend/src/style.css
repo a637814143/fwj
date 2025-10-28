@@ -64,38 +64,38 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --color-text-strong: #f4ede4;
-  --color-text-muted: #d7cdc2;
-  --color-text-soft: #b8ada2;
-  --color-background: #221d1a;
-  --color-surface: rgba(44, 39, 36, 0.94);
-  --color-surface-soft: rgba(34, 30, 27, 0.82);
-  --color-surface-tint: rgba(72, 66, 62, 0.68);
-  --color-border: rgba(128, 114, 102, 0.34);
-  --color-border-strong: rgba(128, 114, 102, 0.5);
-  --color-text-on-emphasis: #fdf9f4;
-  --color-accent: #d0b299;
-  --color-accent-soft: rgba(208, 178, 153, 0.3);
-  --gradient-primary: linear-gradient(135deg, #d0b299 0%, #9aa59d 55%, #7e8683 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(208, 178, 153, 0.25), rgba(133, 141, 149, 0.2));
-  --gradient-surface: linear-gradient(160deg, rgba(44, 39, 36, 0.95), rgba(24, 21, 19, 0.9));
-  --shadow-sm: 0 12px 28px rgba(8, 6, 5, 0.45);
-  --shadow-md: 0 22px 48px rgba(8, 6, 5, 0.52);
-  --shadow-lg: 0 32px 80px rgba(8, 6, 5, 0.58);
-  --shadow-xl: 0 48px 110px rgba(8, 6, 5, 0.62);
-  --panel-card-bg: color-mix(in srgb, var(--color-surface) 92%, transparent);
-  --panel-card-soft-bg: color-mix(in srgb, var(--color-surface-soft) 90%, transparent);
-  --panel-card-tint: color-mix(in srgb, var(--color-surface-tint) 86%, transparent);
-  --wallet-card-bg: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  --wallet-card-points-bg: color-mix(in srgb, var(--color-surface-tint) 84%, transparent);
-  --wallet-card-shadow: 0 28px 55px rgba(6, 5, 4, 0.55);
-  --wallet-points-color: #d9b08c;
-  --wallet-positive-color: #86c0a5;
-  --wallet-negative-color: #e0a899;
-  --wallet-button-shadow: 0 18px 34px rgba(8, 6, 5, 0.55);
-  --wallet-button-shadow-hover: 0 22px 40px rgba(8, 6, 5, 0.6);
-  --button-primary-shadow: 0 18px 32px rgba(8, 6, 5, 0.55);
-  --button-primary-shadow-hover: 0 22px 38px rgba(8, 6, 5, 0.6);
+  --color-text-strong: #f1efe8;
+  --color-text-muted: #c7c2bb;
+  --color-text-soft: #a7a199;
+  --color-background: #1b1f25;
+  --color-surface: rgba(36, 41, 50, 0.94);
+  --color-surface-soft: rgba(28, 32, 39, 0.86);
+  --color-surface-tint: rgba(70, 78, 90, 0.7);
+  --color-border: rgba(120, 132, 145, 0.3);
+  --color-border-strong: rgba(120, 132, 145, 0.48);
+  --color-text-on-emphasis: #f7f4ef;
+  --color-accent: #8fa2b3;
+  --color-accent-soft: rgba(143, 162, 179, 0.32);
+  --gradient-primary: linear-gradient(135deg, #8fa2b3 0%, #b28d9c 52%, #7f8fb1 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(143, 162, 179, 0.26), rgba(178, 141, 156, 0.22));
+  --gradient-surface: linear-gradient(160deg, rgba(32, 36, 44, 0.95), rgba(20, 23, 29, 0.9));
+  --shadow-sm: 0 12px 28px rgba(8, 11, 18, 0.45);
+  --shadow-md: 0 22px 48px rgba(8, 11, 18, 0.52);
+  --shadow-lg: 0 32px 80px rgba(8, 11, 18, 0.58);
+  --shadow-xl: 0 48px 110px rgba(8, 11, 18, 0.64);
+  --panel-card-bg: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  --panel-card-soft-bg: color-mix(in srgb, var(--color-surface-soft) 88%, transparent);
+  --panel-card-tint: color-mix(in srgb, var(--color-surface-tint) 84%, transparent);
+  --wallet-card-bg: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  --wallet-card-points-bg: color-mix(in srgb, var(--color-surface-tint) 82%, transparent);
+  --wallet-card-shadow: 0 28px 55px rgba(7, 9, 15, 0.55);
+  --wallet-points-color: #c7aa8d;
+  --wallet-positive-color: #7fb3a6;
+  --wallet-negative-color: #d9978f;
+  --wallet-button-shadow: 0 18px 34px rgba(9, 12, 18, 0.55);
+  --wallet-button-shadow-hover: 0 22px 40px rgba(9, 12, 18, 0.6);
+  --button-primary-shadow: 0 18px 32px rgba(9, 12, 18, 0.55);
+  --button-primary-shadow-hover: 0 22px 38px rgba(9, 12, 18, 0.6);
 }
 
 *,
@@ -147,21 +147,21 @@ body::after {
 
 body[data-theme='dark'] {
   background:
-    radial-gradient(circle at 18% 15%, rgba(120, 104, 94, 0.28), transparent 58%),
-    radial-gradient(circle at 82% 22%, rgba(104, 118, 124, 0.26), transparent 60%),
-    radial-gradient(circle at 48% 88%, rgba(112, 96, 90, 0.24), transparent 65%),
-    linear-gradient(180deg, #1f1a18 0%, #25201e 45%, #151211 100%);
+    radial-gradient(circle at 18% 15%, rgba(118, 138, 160, 0.3), transparent 58%),
+    radial-gradient(circle at 82% 22%, rgba(149, 124, 154, 0.28), transparent 60%),
+    radial-gradient(circle at 48% 88%, rgba(104, 128, 142, 0.24), transparent 65%),
+    linear-gradient(180deg, #191d24 0%, #20242c 45%, #12151a 100%);
   color: var(--color-text-strong);
 }
 
 body[data-theme='dark']::before {
-  background: radial-gradient(circle, rgba(148, 124, 108, 0.35), rgba(32, 28, 26, 0));
-  opacity: 0.4;
+  background: radial-gradient(circle, rgba(120, 144, 168, 0.32), rgba(18, 21, 28, 0));
+  opacity: 0.42;
 }
 
 body[data-theme='dark']::after {
-  background: radial-gradient(circle, rgba(108, 122, 128, 0.3), rgba(20, 18, 17, 0));
-  opacity: 0.32;
+  background: radial-gradient(circle, rgba(150, 128, 168, 0.28), rgba(16, 18, 22, 0));
+  opacity: 0.34;
 }
 
 a {

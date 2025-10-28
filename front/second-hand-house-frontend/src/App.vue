@@ -84,6 +84,14 @@
           @contact-seller="handleContactSeller"
         />
 
+        <HouseLocationViewer
+          v-else-if="activeTab === 'locations'"
+          :houses="houses"
+          :loading="loading"
+          :updated-at="housesUpdatedAt"
+          @refresh="fetchHouses({ silent: false })"
+        />
+
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
           <HouseForm
             :initial-house="selectedHouse"
@@ -234,9 +242,11 @@ import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
 import ReviewModeration from './components/ReviewModeration.vue';
 import AccountCenter from './components/AccountCenter.vue';
+import HouseLocationViewer from './components/HouseLocationViewer.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
+const housesUpdatedAt = ref('');
 const loading = ref(false);
 const selectedHouse = ref(null);
 const currentUser = ref(null);
@@ -405,6 +415,7 @@ const translations = {
     },
     nav: {
       home: '购买首页',
+      locations: '地段地图',
       verify: '实名认证',
       verifyCompleted: '实名认证（已完成）',
       manage: '房源管理',
@@ -870,6 +881,33 @@ const translations = {
         }
       }
     },
+    locationViewer: {
+      title: '房源地段地图',
+      subtitle: '接入腾讯地图实时查看房源位置，可随时刷新同步最新房源。',
+      refresh: '刷新房源数据',
+      refreshing: '刷新中…',
+      loading: '房源数据同步中…',
+      mapLoading: '腾讯地图加载中…',
+      updatedAt: '数据更新：{time}',
+      listTitle: '房源列表',
+      empty: '暂无可展示的房源位置，请先在首页检索或发布房源。',
+      noTitle: '未命名房源',
+      noAddress: '地址信息待补充',
+      priceLabel: '参考价：￥{price}',
+      item: {
+        focus: '查看位置',
+        active: '正在查看'
+      },
+      errors: {
+        mapInit: '地图加载失败，请稍后重试。',
+        geocode: '暂时无法定位房源，请检查地址信息。',
+        missingKey: '缺少腾讯地图密钥，无法加载地图。',
+        partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
+      },
+      aria: {
+        map: '腾讯地图房源分布图'
+      }
+    },
     prediction: {
       title: '房价预测助手',
       subtitle: '基于波士顿房价思路的轻量模型，结合房源特点预估成交价格区间。',
@@ -968,17 +1006,17 @@ const translations = {
       credentialHint: '可修改登录账号、展示昵称或重置密码。',
       passwordSection: {
         title: '修改密码',
-        hint: '设置新的登录密码以保障账户安全。',
-        show: '修改密码',
-        hide: '取消修改密码'
+        hint: '填写当前密码并设置新的登录密码，确保账户安全。'
       },
       fields: {
         username: '新的登录账号',
         displayName: '新的昵称',
+        currentPassword: '当前登录密码',
         newPassword: '新的登录密码',
         confirmPassword: '确认新密码'
       },
       placeholders: {
+        currentPassword: '请输入当前密码',
         password: '至少 6 位密码',
         confirmPassword: '请再次输入新密码'
       },
@@ -989,8 +1027,10 @@ const translations = {
       },
       errors: {
         noChanges: '请修改后再提交。',
+        passwordRequired: '请填写新的登录密码并确认。',
         passwordMismatch: '两次输入的新密码不一致。',
-        passwordLength: '密码长度至少 6 位。'
+        passwordLength: '密码长度至少 6 位。',
+        currentPasswordRequired: '请先输入当前密码。'
       }
     },
     serverMessages: {
@@ -1031,6 +1071,78 @@ const translations = {
         FEEDBACK_SUBMITTED: '看房反馈阶段',
         HANDOVER_COMPLETED: '交房阶段',
         FUNDS_RELEASED: '资金结算完成'
+      },
+      history: {
+        title: '订单记录',
+        hint: '请登录后查看订单历史及退换进度。',
+        loading: '订单数据加载中…',
+        empty: '暂无相关订单记录。',
+        progressTitle: '交易进度',
+        noData: '—',
+        fields: {
+          orderId: '订单编号',
+          amount: '成交金额（元）',
+          paymentMethod: '支付方式',
+          buyer: '买家',
+          seller: '卖家',
+          createdAt: '创建时间',
+          updatedAt: '更新时间',
+          escrowStatus: '托管状态',
+          platformFee: '平台服务费',
+          releasedAmount: '已结算金额',
+          reviewedBy: '审核管理员',
+          returnReason: '退换原因'
+        },
+        status: {
+          PENDING: '待支付',
+          RESERVED: '已预定',
+          PAID: '已付款',
+          RETURNED: '已退换',
+          CANCELLED: '已取消',
+          COMPLETED: '已完成',
+          IN_PROGRESS: '处理中',
+          DISPUTED: '纠纷处理',
+          PROCESSING: '处理中',
+          SUCCESS: '已完成',
+          REFUNDED: '已退款'
+        },
+        paymentMethods: {
+          FULL: '一次性付清',
+          INSTALLMENT: '分期付款'
+        },
+        viewing: {
+          title: '看房安排',
+          timeLabel: '预约时间：{time}',
+          appointment: '预约时间：{time}',
+          notes: '备注：{message}',
+          schedule: '安排看房',
+          advance: '推进至 {stage}',
+          confirm: '确认已看房'
+        },
+        actions: {
+          requestReturn: '申请退换'
+        },
+        schedule: {
+          dialogTitle: '安排看房',
+          subtitle: '当前订单：{title}',
+          time: '看房时间',
+          notes: '补充说明（选填）',
+          notesPlaceholder: '可填写给买家的补充说明',
+          cancel: '取消',
+          confirm: '确认提交',
+          validation: '请填写看房时间。'
+        },
+        prompts: {
+          returnReason: '请输入退换理由（可留空）'
+        },
+        escrow: {
+          awaiting: '待管理员审核',
+          releasedSeller: '已将资金结算至卖家',
+          releasedBuyer: '已将资金退还给买家',
+          settled: '托管资金已结算',
+          hold: '托管金额：￥{amount}',
+          released: '已结算：￥{amount}'
+        }
       },
       urgent: {
         title: '紧急待办',
@@ -1107,6 +1219,7 @@ const translations = {
     },
     nav: {
       home: 'Home',
+      locations: 'Map view',
       verify: 'Real-name verification',
       verifyCompleted: 'Real-name verification (completed)',
       manage: 'Listing management',
@@ -1569,6 +1682,33 @@ const translations = {
         }
       }
     },
+    locationViewer: {
+      title: 'Listing map overview',
+      subtitle: 'Inspect listing areas on Tencent Maps and refresh to keep coordinates up to date.',
+      refresh: 'Refresh listings',
+      refreshing: 'Refreshing…',
+      loading: 'Synchronising listing data…',
+      mapLoading: 'Loading Tencent Map…',
+      updatedAt: 'Data updated: {time}',
+      listTitle: 'Listings',
+      empty: 'No listing locations are available yet. Try searching or publishing first.',
+      noTitle: 'Untitled listing',
+      noAddress: 'Address pending',
+      priceLabel: 'Price: ￥{price}',
+      item: {
+        focus: 'Focus on map',
+        active: 'Viewing'
+      },
+      errors: {
+        mapInit: 'The map failed to load. Please try again later.',
+        geocode: 'Some listings could not be located on the map.',
+        missingKey: 'Tencent Map key is missing, so the map cannot be displayed.',
+        partial: '{count} listing(s) could not be located. Their addresses are listed below.'
+      },
+      aria: {
+        map: 'Tencent map showing listing locations'
+      }
+    },
     prediction: {
       title: 'Price prediction assistant',
       subtitle: 'A lightweight model inspired by the Boston housing dataset that estimates price ranges from your inputs.',
@@ -1667,17 +1807,17 @@ const translations = {
       credentialHint: 'Update your username, display name or reset the password.',
       passwordSection: {
         title: 'Change password',
-        hint: 'Set a new login password to keep your account secure.',
-        show: 'Change password',
-        hide: 'Cancel password change'
+        hint: 'Enter your current password and set a new one to keep the account secure.'
       },
       fields: {
         username: 'New username',
         displayName: 'New display name',
+        currentPassword: 'Current password',
         newPassword: 'New password',
         confirmPassword: 'Confirm new password'
       },
       placeholders: {
+        currentPassword: 'Enter your current password',
         password: 'Minimum 6 characters',
         confirmPassword: 'Re-enter new password'
       },
@@ -1688,8 +1828,10 @@ const translations = {
       },
       errors: {
         noChanges: 'Please modify a field before saving.',
+        passwordRequired: 'Please enter and confirm a new password.',
         passwordMismatch: 'The new passwords do not match.',
-        passwordLength: 'Password must contain at least 6 characters.'
+        passwordLength: 'Password must contain at least 6 characters.',
+        currentPasswordRequired: 'Please provide your current password first.'
       }
     },
     serverMessages: {
@@ -1730,6 +1872,78 @@ const translations = {
         FEEDBACK_SUBMITTED: 'Viewing feedback',
         HANDOVER_COMPLETED: 'Handover',
         FUNDS_RELEASED: 'Funds released'
+      },
+      history: {
+        title: 'Order history',
+        hint: 'Sign in to review your past transactions and return progress.',
+        loading: 'Loading orders…',
+        empty: 'No orders found yet.',
+        progressTitle: 'Transaction progress',
+        noData: '—',
+        fields: {
+          orderId: 'Order ID',
+          amount: 'Amount (CNY)',
+          paymentMethod: 'Payment method',
+          buyer: 'Buyer',
+          seller: 'Seller',
+          createdAt: 'Created at',
+          updatedAt: 'Updated at',
+          escrowStatus: 'Escrow status',
+          platformFee: 'Platform fee',
+          releasedAmount: 'Released amount',
+          reviewedBy: 'Reviewed by',
+          returnReason: 'Return reason'
+        },
+        status: {
+          PENDING: 'Pending payment',
+          RESERVED: 'Reserved',
+          PAID: 'Paid',
+          RETURNED: 'Returned',
+          CANCELLED: 'Cancelled',
+          COMPLETED: 'Completed',
+          IN_PROGRESS: 'In progress',
+          DISPUTED: 'Under dispute',
+          PROCESSING: 'Processing',
+          SUCCESS: 'Completed',
+          REFUNDED: 'Refunded'
+        },
+        paymentMethods: {
+          FULL: 'Full payment',
+          INSTALLMENT: 'Installment'
+        },
+        viewing: {
+          title: 'Viewing appointment',
+          timeLabel: 'Viewing time: {time}',
+          appointment: 'Viewing time: {time}',
+          notes: 'Notes: {message}',
+          schedule: 'Schedule viewing',
+          advance: 'Advance to {stage}',
+          confirm: 'Confirm viewing'
+        },
+        actions: {
+          requestReturn: 'Request a return'
+        },
+        schedule: {
+          dialogTitle: 'Schedule viewing',
+          subtitle: 'Order: {title}',
+          time: 'Viewing time',
+          notes: 'Notes (optional)',
+          notesPlaceholder: 'Share extra instructions for the buyer',
+          cancel: 'Cancel',
+          confirm: 'Confirm',
+          validation: 'Please choose a viewing time.'
+        },
+        prompts: {
+          returnReason: 'Enter a return reason (optional)'
+        },
+        escrow: {
+          awaiting: 'Awaiting administrator review',
+          releasedSeller: 'Funds released to seller',
+          releasedBuyer: 'Funds refunded to buyer',
+          settled: 'Escrow settled',
+          hold: 'Escrow hold: ￥{amount}',
+          released: 'Released amount: ￥{amount}'
+        }
       },
       urgent: {
         title: 'Urgent tasks',
@@ -2156,6 +2370,7 @@ const pendingHouseReviews = computed(() =>
 
 const navigationTabs = computed(() => {
   const tabs = [{ value: 'home', label: t('nav.home') }];
+  tabs.push({ value: 'locations', label: t('nav.locations') });
   tabs.push({
     value: 'verify',
     label: currentUser.value?.realNameVerified ? t('nav.verifyCompleted') : t('nav.verify')
@@ -2409,6 +2624,7 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     const { data } = await client.get('/houses', { params });
     houses.value = data.map(normalizeHouse);
     syncReviewHouseTitles();
+    housesUpdatedAt.value = new Date().toISOString();
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadHouses');
   } finally {

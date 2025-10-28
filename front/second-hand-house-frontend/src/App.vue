@@ -861,7 +861,12 @@ const translations = {
           topUp: '充值',
           payment: '支付',
           receive: '收款',
-          refund: '退款'
+          refund: '退款',
+          withdraw: '提现',
+          transferIn: '转入',
+          transferOut: '转出',
+          adjustment: '调账',
+          unknown: '其他交易'
         }
       }
     },
@@ -961,6 +966,12 @@ const translations = {
       },
       credentialTitle: '安全设置',
       credentialHint: '可修改登录账号、展示昵称或重置密码。',
+      passwordSection: {
+        title: '修改密码',
+        hint: '设置新的登录密码以保障账户安全。',
+        show: '修改密码',
+        hide: '取消修改密码'
+      },
       fields: {
         username: '新的登录账号',
         displayName: '新的昵称',
@@ -1549,7 +1560,12 @@ const translations = {
           topUp: 'Top-up',
           payment: 'Payment',
           receive: 'Incoming',
-          refund: 'Refund'
+          refund: 'Refund',
+          withdraw: 'Withdrawal',
+          transferIn: 'Transfer in',
+          transferOut: 'Transfer out',
+          adjustment: 'Adjustment',
+          unknown: 'Other'
         }
       }
     },
@@ -1649,6 +1665,12 @@ const translations = {
       },
       credentialTitle: 'Security settings',
       credentialHint: 'Update your username, display name or reset the password.',
+      passwordSection: {
+        title: 'Change password',
+        hint: 'Set a new login password to keep your account secure.',
+        show: 'Change password',
+        hide: 'Cancel password change'
+      },
       fields: {
         username: 'New username',
         displayName: 'New display name',

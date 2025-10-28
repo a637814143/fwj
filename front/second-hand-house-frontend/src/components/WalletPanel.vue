@@ -116,12 +116,22 @@ const containsCJK = (value) => /[\u3400-\u9FFF]/.test(value ?? '');
 const form = reactive({ amount: null, reference: '' });
 const submitting = ref(false);
 
-const typeLabels = computed(() => ({
-  TOP_UP: t('wallet.transactions.types.topUp'),
-  PAYMENT: t('wallet.transactions.types.payment'),
-  RECEIVE: t('wallet.transactions.types.receive'),
-  REFUND: t('wallet.transactions.types.refund')
-}));
+const typeLabels = computed(() => {
+  const unknown = t('wallet.transactions.types.unknown');
+  return {
+    TOP_UP: t('wallet.transactions.types.topUp'),
+    PAYMENT: t('wallet.transactions.types.payment'),
+    RECEIVE: t('wallet.transactions.types.receive'),
+    REFUND: t('wallet.transactions.types.refund'),
+    WITHDRAW: t('wallet.transactions.types.withdraw'),
+    WITHDRAWAL: t('wallet.transactions.types.withdraw'),
+    TRANSFER_IN: t('wallet.transactions.types.transferIn'),
+    TRANSFER_OUT: t('wallet.transactions.types.transferOut'),
+    ADJUSTMENT: t('wallet.transactions.types.adjustment'),
+    UNKNOWN: unknown,
+    DEFAULT: unknown
+  };
+});
 
 const transactions = computed(() => {
   if (!props.wallet || !Array.isArray(props.wallet.transactions)) {
@@ -241,7 +251,10 @@ const transactionClass = (tx) => {
   return '';
 };
 
-const transactionLabel = (type) => typeLabels.value[type] ?? type;
+const transactionLabel = (type) => {
+  const key = String(type ?? '').toUpperCase();
+  return typeLabels.value[key] ?? typeLabels.value.UNKNOWN ?? key;
+};
 
 const formatReference = (tx) => {
   if (!tx) {
@@ -256,6 +269,10 @@ const formatReference = (tx) => {
       return transactionLabel(tx.type);
     }
     return trimmed;
+  }
+  const fallback = transactionLabel(tx.type);
+  if (fallback && fallback !== String(tx.type ?? '')) {
+    return fallback;
   }
   return t('wallet.transactions.noReference');
 };
@@ -321,9 +338,9 @@ const formatTime = (value) => {
   gap: 0.6rem;
   padding: 1.1rem;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 45px rgba(140, 126, 112, 0.2);
-  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  background: var(--wallet-card-bg);
+  box-shadow: var(--wallet-card-shadow);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
 }
 
 .summary-card .label {
@@ -346,12 +363,12 @@ const formatTime = (value) => {
 
 .amount-points {
   font-size: 1.65rem;
-  color: #b78460;
+  color: var(--wallet-points-color);
   font-weight: 700;
 }
 
 .summary-card.points {
-  background: rgba(247, 242, 235, 0.9);
+  background: var(--wallet-card-points-bg);
 }
 
 .summary-card.points small {
@@ -394,7 +411,7 @@ const formatTime = (value) => {
   padding: 0.6rem 0.85rem;
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
 }
 
 .amount-preview {
@@ -404,7 +421,7 @@ const formatTime = (value) => {
 
 .points-preview {
   font-size: 0.85rem;
-  color: #b78460;
+  color: var(--wallet-points-color);
   font-weight: 600;
 }
 
@@ -417,7 +434,12 @@ const formatTime = (value) => {
   cursor: pointer;
   background: var(--gradient-primary);
   color: #fff;
-  box-shadow: 0 15px 30px rgba(150, 132, 118, 0.26);
+  box-shadow: var(--wallet-button-shadow);
+}
+
+.top-up button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--wallet-button-shadow-hover, var(--wallet-button-shadow));
 }
 
 .top-up button:disabled {
@@ -447,8 +469,8 @@ const formatTime = (value) => {
   gap: 0.65rem;
   padding: 0.85rem 1rem;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: var(--wallet-card-bg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
 }
 
 .transaction-main {
@@ -482,11 +504,11 @@ const formatTime = (value) => {
 }
 
 .transaction.positive .transaction-amount {
-  color: #047857;
+  color: var(--wallet-positive-color);
 }
 
 .transaction.negative .transaction-amount {
-  color: #dc2626;
+  color: var(--wallet-negative-color);
 }
 
 .reference {

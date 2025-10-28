@@ -39,6 +39,7 @@
               <span>{{ option.label }}</span>
             </label>
           </div>
+          <p class="language-note">{{ t('settings.language.notice') }}</p>
         </div>
         <div class="panel-section">
           <span class="section-title">{{ t('settings.fontSize.title') }}</span>
@@ -217,6 +218,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+.language-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .section-title {

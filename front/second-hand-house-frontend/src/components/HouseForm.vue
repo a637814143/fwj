@@ -134,7 +134,13 @@
 
       <label>
         {{ t('manage.form.fields.listingDate') }}
-        <input v-model="form.listingDate" type="date" required :disabled="disabled" />
+        <input
+          v-model="form.listingDate"
+          type="date"
+          required
+          :min="minListingDate"
+          :disabled="disabled"
+        />
       </label>
 
       <label>
@@ -245,9 +251,6 @@
         >
           {{ t('manage.form.actions.viewCertificate') }}
         </a>
-        <button type="button" class="btn remove" :disabled="disabled" @click="clearCertificate">
-          {{ t('manage.form.actions.removeCertificate') }}
-        </button>
       </div>
     </section>
 
@@ -290,6 +293,10 @@ const props = defineProps({
     type: Object,
     default: null
   },
+  resetKey: {
+    type: Number,
+    default: 0
+  },
   apiBaseUrl: {
     type: String,
     default: 'http://localhost:8080/api'
@@ -326,6 +333,71 @@ const sellerRoles = ['SELLER', 'LANDLORD'];
 
 const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 const certificateExtensions = [...imageExtensions, '.pdf'];
+
+const formatDate = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const minListingDate = computed(() => {
+  const tomorrow = new Date();
+  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return formatDate(tomorrow);
+});
+
+const assetOrigin = computed(() => {
+  const base = props.apiBaseUrl ?? '';
+  try {
+    return new URL(base).origin;
+  } catch (error) {
+    if (typeof window !== 'undefined') {
+      try {
+        return new URL(base, window.location.origin).origin;
+      } catch (innerError) {
+        return window.location.origin;
+      }
+    }
+    return '';
+  }
+});
+
+const resolveAssetUrl = (raw) => {
+  if (raw == null) {
+    return '';
+  }
+  const trimmed = String(raw).trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^\/\//.test(trimmed)) {
+    if (typeof window !== 'undefined') {
+      return `${window.location.protocol}${trimmed}`;
+    }
+    return `http:${trimmed}`;
+  }
+  const origin = assetOrigin.value;
+  if (!origin) {
+    return trimmed;
+  }
+  try {
+    return new URL(trimmed, origin).toString();
+  } catch (error) {
+    try {
+      return new URL(trimmed, props.apiBaseUrl).toString();
+    } catch (innerError) {
+      return trimmed;
+    }
+  }
+};
 
 const form = reactive({
   title: '',
@@ -389,9 +461,30 @@ const statusClass = computed(() => {
 const keywordsPreview = computed(() => parseKeywords(keywordInput.value));
 const sanitizedImageUrls = computed(() =>
   form.imageUrls
-    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+    .map((url) => resolveAssetUrl(typeof url === 'string' ? url : ''))
     .filter((url) => url.length > 0)
 );
+
+const formHasContent = computed(() => {
+  return Boolean(
+    form.title ||
+      form.address ||
+      form.price ||
+      form.downPayment ||
+      form.area ||
+      form.description ||
+      form.sellerUsername ||
+      form.sellerName ||
+      form.contactNumber ||
+      form.listingDate ||
+      form.floor ||
+      form.installmentMonthlyPayment ||
+      form.installmentMonths ||
+      keywordInput.value ||
+      form.propertyCertificateUrl ||
+      form.imageUrls.length
+  );
+});
 
 const certificateIsImage = computed(() => isImageUrl(form.propertyCertificateUrl));
 
@@ -411,6 +504,29 @@ const hasAllowedCertificateExtension = (filename) => {
   }
   const normalized = String(filename).trim().toLowerCase();
   return certificateExtensions.some((ext) => normalized.endsWith(ext));
+};
+
+const parseLocalDate = (value) => {
+  if (!value) {
+    return null;
+  }
+  const normalized = `${value}T00:00:00`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const isListingDateFuture = (value) => {
+  const target = parseLocalDate(value);
+  if (!target) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return target.getTime() > today.getTime();
 };
 
 const parsePositiveNumber = (value) => {
@@ -459,7 +575,7 @@ const formattedInstallment = computed(() => {
 const applyImageUrls = (images = []) => {
   const sanitized = Array.isArray(images)
     ? images
-        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .map((value) => (typeof value === 'string' ? resolveAssetUrl(value) : ''))
         .filter((value) => value.length > 0)
     : [];
   form.imageUrls.splice(0, form.imageUrls.length, ...sanitized.slice(0, maxImageCount));
@@ -504,7 +620,7 @@ const fillFromHouse = (house) => {
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
-  form.propertyCertificateUrl = house.propertyCertificateUrl ?? '';
+  form.propertyCertificateUrl = resolveAssetUrl(house.propertyCertificateUrl ?? '');
   keywordInput.value = Array.isArray(house.keywords)
     ? house.keywords.join(keywordSeparator.value)
     : '';
@@ -529,6 +645,25 @@ watch(
 
 watch(
   () => props.currentUser,
+  () => {
+    if (props.initialHouse) {
+      return;
+    }
+    if (!formHasContent.value) {
+      setFormDefaults();
+    } else if (isSeller.value) {
+      if (!form.sellerUsername) {
+        form.sellerUsername = props.currentUser?.username ?? '';
+      }
+      if (!form.sellerName) {
+        form.sellerName = props.currentUser?.displayName ?? '';
+      }
+    }
+  }
+);
+
+watch(
+  () => props.resetKey,
   () => {
     if (!props.initialHouse) {
       setFormDefaults();
@@ -626,7 +761,7 @@ const uploadImage = async (file) => {
   if (!payload || typeof payload.url !== 'string') {
     throw new Error(t('manage.form.upload.failure'));
   }
-  const normalized = payload.url.trim();
+  const normalized = resolveAssetUrl(payload.url);
   if (normalized && !form.imageUrls.includes(normalized)) {
     form.imageUrls.push(normalized);
   }
@@ -711,14 +846,7 @@ const uploadCertificate = async (file) => {
   if (!payload || typeof payload.url !== 'string') {
     throw new Error(t('manage.form.upload.failure'));
   }
-  form.propertyCertificateUrl = payload.url.trim();
-};
-
-const clearCertificate = () => {
-  if (disabled.value) {
-    return;
-  }
-  form.propertyCertificateUrl = '';
+  form.propertyCertificateUrl = resolveAssetUrl(payload.url);
   certificateError.value = '';
 };
 
@@ -729,6 +857,10 @@ const validateForm = () => {
   }
   if (!form.listingDate) {
     formError.value = t('manage.form.validation.listingDate');
+    return false;
+  }
+  if (!isListingDateFuture(form.listingDate)) {
+    formError.value = t('manage.form.validation.listingDateFuture');
     return false;
   }
   if (!ensurePositive(form.price)) {
@@ -805,9 +937,6 @@ const submitForm = () => {
         : ''
   };
   emit('submit', payload);
-  if (!isEditing.value) {
-    setFormDefaults();
-  }
 };
 
 const cancelEdit = () => {

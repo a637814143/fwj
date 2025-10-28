@@ -98,6 +98,7 @@
             :loading="loading"
             :can-manage="canManageHouses"
             :current-user="currentUser"
+            :reset-key="formResetKey"
             :api-base-url="apiBaseUrl"
             @submit="handleSubmit"
             @cancel="handleCancel"
@@ -161,6 +162,20 @@
             @confirm-viewing="handleViewingConfirmation"
           />
         </div>
+
+        <AccountCenter
+          v-else-if="activeTab === 'account'"
+          inline
+          :visible="true"
+          :current-user="currentUser"
+          :wallet="wallet"
+          :role-label="roleLabels[currentUser?.role]"
+          :saving="accountSaving"
+          :error="accountError"
+          :api-base-url="apiBaseUrl"
+          @submit="handleAccountSubmit"
+          @verified="handleVerificationUpdate"
+        />
 
         <div v-else-if="activeTab === 'admin'" class="admin-panels">
           <AdminOrderReview
@@ -241,6 +256,7 @@ const houses = ref([]);
 const housesUpdatedAt = ref('');
 const loading = ref(false);
 const selectedHouse = ref(null);
+const formResetKey = ref(0);
 const currentUser = ref(null);
 const wallet = ref(null);
 const walletLoading = ref(false);
@@ -508,7 +524,6 @@ const translations = {
           removeImage: '移除',
           uploadCertificate: '上传证件',
           viewCertificate: '查看证件',
-          removeCertificate: '移除证件',
           submitting: '提交中…',
           submitCreate: '提交审核',
           submitEdit: '保存修改',
@@ -528,6 +543,7 @@ const translations = {
         validation: {
           required: '请完善必填的房源信息。',
           listingDate: '请选择上架日期。',
+          listingDateFuture: '挂牌日期需晚于今天，请重新选择。',
           price: '请输入有效的房源总价。',
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
@@ -1322,7 +1338,6 @@ const translations = {
           removeImage: 'Remove',
           uploadCertificate: 'Upload certificate',
           viewCertificate: 'View certificate',
-          removeCertificate: 'Remove certificate',
           submitting: 'Submitting…',
           submitCreate: 'Submit for review',
           submitEdit: 'Save changes',
@@ -1342,6 +1357,7 @@ const translations = {
         validation: {
           required: 'Please complete all required listing information.',
           listingDate: 'Choose a listing date.',
+          listingDateFuture: 'Please choose a future listing date.',
           price: 'Enter a valid total price.',
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
@@ -3092,6 +3108,7 @@ const handleSubmit = async (payload) => {
           ? t('success.houseCreatedApproved', { title: data.title })
           : t('success.houseCreatedPending', { title: data.title, status: statusLabel });
     }
+    formResetKey.value += 1;
     selectedHouse.value = null;
     await fetchHouses({ silent: true });
     await loadRecommendations();
@@ -4199,17 +4216,3 @@ onMounted(() => {
   }
 }
 </style>
-        <AccountCenter
-          v-else-if="activeTab === 'account'"
-          inline
-          :visible="true"
-          :current-user="currentUser"
-          :wallet="wallet"
-          :role-label="roleLabels[currentUser?.role]"
-          :saving="accountSaving"
-          :error="accountError"
-          :api-base-url="apiBaseUrl"
-          @submit="handleAccountSubmit"
-          @verified="handleVerificationUpdate"
-        />
-

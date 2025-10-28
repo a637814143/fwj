@@ -28,7 +28,7 @@ class SecondHandHousePersistenceTest {
         house.setSellerUsername("seller01");
         house.setSellerName("张三");
         house.setContactNumber("13800138000");
-        house.setListingDate(LocalDate.now());
+        house.setListingDate(LocalDate.now().plusDays(2));
         house.setPropertyCertificateUrl("/api/houses/images/certificates/test-cert.jpg");
 
         SecondHandHouse saved = repository.saveAndFlush(house);

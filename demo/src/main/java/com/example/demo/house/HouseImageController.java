@@ -6,6 +6,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,12 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.Duration;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/houses/images")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class HouseImageController {
 
     private final ImageStorageService storageService;
@@ -30,7 +33,10 @@ public class HouseImageController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
         String filename = storageService.store(file);
-        String url = "/api/houses/images/" + filename;
+        String url = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/houses/images/")
+                .path(filename)
+                .toUriString();
         Map<String, String> body = Map.of(
                 "filename", filename,
                 "url", url
@@ -41,7 +47,10 @@ public class HouseImageController {
     @PostMapping(value = "/certificates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadCertificate(@RequestParam("file") MultipartFile file) {
         String filename = storageService.storeCertificate(file);
-        String url = "/api/houses/images/certificates/" + filename;
+        String url = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/houses/images/certificates/")
+                .path(filename)
+                .toUriString();
         Map<String, String> body = Map.of(
                 "filename", filename,
                 "url", url

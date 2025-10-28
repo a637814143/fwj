@@ -2,6 +2,7 @@ package com.example.demo.house;
 
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +20,12 @@ import java.util.stream.Collectors;
 public record SecondHandHouseRequest(
         @NotBlank(message = "标题不能为空") String title,
         @NotBlank(message = "地址不能为空") String address,
+        @DecimalMin(value = "-90.0", message = "纬度范围应在-90至90之间")
+        @DecimalMax(value = "90.0", message = "纬度范围应在-90至90之间")
+        Double latitude,
+        @DecimalMin(value = "-180.0", message = "经度范围应在-180至180之间")
+        @DecimalMax(value = "180.0", message = "经度范围应在-180至180之间")
+        Double longitude,
         @NotNull @DecimalMin(value = "0.0", inclusive = false, message = "价格必须大于0") BigDecimal price,
         @NotNull @DecimalMin(value = "0.0", inclusive = false, message = "首付金额必须大于0") BigDecimal downPayment,
         @NotNull @Min(value = 1, message = "分期月数必须大于0") Integer installmentMonths,
@@ -82,6 +89,8 @@ public record SecondHandHouseRequest(
         SecondHandHouse house = new SecondHandHouse();
         house.setTitle(title);
         house.setAddress(address);
+        house.setLatitude(sanitizeLatitude(latitude));
+        house.setLongitude(sanitizeLongitude(longitude));
         house.setPrice(price);
         house.setDownPayment(downPayment);
         house.setInstallmentMonthlyPayment(calculateMonthlyPayment(price, downPayment, installmentMonths));
@@ -97,6 +106,32 @@ public record SecondHandHouseRequest(
         house.setImageUrls(sanitizeImageUrls(imageUrls));
         house.setPropertyCertificateUrl(sanitizeCertificateUrl(propertyCertificateUrl));
         return house;
+    }
+
+    private static Double sanitizeLatitude(Double value) {
+        return sanitizeCoordinate(value, -90d, 90d);
+    }
+
+    private static Double sanitizeLongitude(Double value) {
+        return sanitizeCoordinate(value, -180d, 180d);
+    }
+
+    private static Double sanitizeCoordinate(Double value, double min, double max) {
+        if (value == null) {
+            return null;
+        }
+        double number = value;
+        if (!Double.isFinite(number)) {
+            return null;
+        }
+        if (number < min || number > max) {
+            return null;
+        }
+        double scaled = Math.round(number * 1_000_000d) / 1_000_000d;
+        if (scaled < min || scaled > max) {
+            return null;
+        }
+        return scaled;
     }
 
     private static String sanitizeCertificateUrl(String certificateUrl) {

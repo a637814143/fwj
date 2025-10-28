@@ -38,6 +38,12 @@ public class SecondHandHouse {
     @Column(nullable = false)
     private String address;
 
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
+
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
@@ -140,6 +146,22 @@ public class SecondHandHouse {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     public BigDecimal getPrice() {

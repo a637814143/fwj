@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS second_hand_houses (
     seller_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
     listing_date DATE NOT NULL,
+    property_certificate_url VARCHAR(500) NOT NULL DEFAULT '',
     floor INT,
     status ENUM('PENDING_REVIEW', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING_REVIEW',
     reviewed_by VARCHAR(50),

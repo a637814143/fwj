@@ -39,6 +39,18 @@
               <p class="image-count" v-if="house.imageUrls?.length">
                 {{ t('manage.list.photoCount', { count: house.imageUrls.length }) }}
               </p>
+              <p
+                v-if="house.propertyCertificateUrl && (canManage || isAdmin)"
+                class="certificate-indicator"
+              >
+                <a
+                  :href="house.propertyCertificateUrl"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  {{ t('manage.list.certificateAvailable') }}
+                </a>
+              </p>
             </td>
             <td class="price-cell">
               <span>{{ t('manage.list.pricing.full', { price: formatCurrency(house.price) }) }}</span>
@@ -528,6 +540,21 @@ tbody tr:hover {
   margin: 0.3rem 0 0;
   color: var(--color-text-soft);
   font-size: 0.85rem;
+}
+
+.certificate-indicator {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+}
+
+.certificate-indicator a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.certificate-indicator a:hover {
+  color: color-mix(in srgb, var(--color-primary) 80%, #1d4ed8);
 }
 
 .price-cell {

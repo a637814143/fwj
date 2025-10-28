@@ -98,6 +98,7 @@
             :loading="loading"
             :can-manage="canManageHouses"
             :current-user="currentUser"
+            :reset-key="formResetKey"
             :api-base-url="apiBaseUrl"
             @submit="handleSubmit"
             @cancel="handleCancel"
@@ -162,10 +163,17 @@
           />
         </div>
 
-        <RealNameVerification
-          v-else-if="activeTab === 'verify'"
-          :api-base-url="apiBaseUrl"
+        <AccountCenter
+          v-else-if="activeTab === 'account'"
+          inline
+          :visible="true"
           :current-user="currentUser"
+          :wallet="wallet"
+          :role-label="roleLabels[currentUser?.role]"
+          :saving="accountSaving"
+          :error="accountError"
+          :api-base-url="apiBaseUrl"
+          @submit="handleAccountSubmit"
           @verified="handleVerificationUpdate"
         />
 
@@ -237,7 +245,6 @@ import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import AdminOrderReview from './components/AdminOrderReview.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
-import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
 import ReviewModeration from './components/ReviewModeration.vue';
@@ -249,6 +256,7 @@ const houses = ref([]);
 const housesUpdatedAt = ref('');
 const loading = ref(false);
 const selectedHouse = ref(null);
+const formResetKey = ref(0);
 const currentUser = ref(null);
 const wallet = ref(null);
 const walletLoading = ref(false);
@@ -416,8 +424,6 @@ const translations = {
     nav: {
       home: '购买首页',
       locations: '地段地图',
-      verify: '实名认证',
-      verifyCompleted: '实名认证（已完成）',
       manage: '房源管理',
       feedback: '房源评价',
       urgent: '紧急待办',
@@ -487,7 +493,8 @@ const translations = {
           floor: '楼层（可选）',
           description: '房源描述',
           keywords: '房源关键词',
-          images: '房源图片'
+          images: '房源图片',
+          propertyCertificate: '房产证件凭证'
         },
         placeholders: {
           title: '请输入房源标题',
@@ -508,34 +515,42 @@ const translations = {
           installmentCalculation: '系统会根据首付与分期设置自动预估月供。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
-          noImages: '尚未上传图片。'
+          noImages: '尚未上传图片。',
+          propertyCertificate: '请上传房产证件的清晰照片或 PDF 扫描件，仅管理员审核可见。'
         },
         actions: {
           upload: '上传图片',
           uploading: '上传中…',
           removeImage: '移除',
+          uploadCertificate: '上传证件',
+          viewCertificate: '查看证件',
           submitting: '提交中…',
           submitCreate: '提交审核',
           submitEdit: '保存修改',
           cancel: '取消'
         },
         imageAlt: '房源图片 {index}',
+        certificateAlt: '房产证件凭证预览',
         upload: {
           limit: '最多可上传 {count} 张图片。',
           extraIgnored: '仅保留前 {count} 张图片，多余文件已忽略。',
           invalidType: '仅支持上传图片文件。',
           tooLarge: '单张图片大小需不超过5MB。',
-          failure: '图片上传失败，请稍后再试。'
+          failure: '图片上传失败，请稍后再试。',
+          invalidCertificateType: '仅支持上传图片或 PDF 证件文件。',
+          certificateTooLarge: '证件文件需不超过10MB。'
         },
         validation: {
           required: '请完善必填的房源信息。',
           listingDate: '请选择上架日期。',
+          listingDateFuture: '挂牌日期需晚于今天，请重新选择。',
           price: '请输入有效的房源总价。',
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
           area: '请输入有效的建筑面积。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
-          installmentMonths: '分期期限必须大于0。'
+          installmentMonths: '分期期限必须大于0。',
+          propertyCertificate: '请先上传房产证件凭证。'
         }
       },
       list: {
@@ -558,6 +573,7 @@ const translations = {
           actions: '操作'
         },
         photoCount: '{count} 张图片',
+        certificateAvailable: '查看房产证件',
         pricing: {
           full: '总价：￥{price}',
           downPayment: '首付：￥{amount}',
@@ -999,6 +1015,7 @@ const translations = {
         verification: '实名认证状态',
         realName: '实名信息',
         phone: '联系方式',
+        points: '成长积分',
         verified: '已认证',
         pending: '待认证'
       },
@@ -1220,8 +1237,6 @@ const translations = {
     nav: {
       home: 'Home',
       locations: 'Map view',
-      verify: 'Real-name verification',
-      verifyCompleted: 'Real-name verification (completed)',
       manage: 'Listing management',
       feedback: 'Listing feedback',
       urgent: 'Urgent tasks',
@@ -1292,7 +1307,8 @@ const translations = {
           floor: 'Floor (optional)',
           description: 'Listing description',
           keywords: 'Keywords',
-          images: 'Listing photos'
+          images: 'Listing photos',
+          propertyCertificate: 'Property certificate proof'
         },
         placeholders: {
           title: 'Enter listing title',
@@ -1313,34 +1329,42 @@ const translations = {
           installmentCalculation: 'The system estimates the monthly instalment based on your down payment and term.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
-          noImages: 'No images uploaded yet.'
+          noImages: 'No images uploaded yet.',
+          propertyCertificate: 'Upload a clear photo or PDF scan of the ownership certificate. Only administrators can access it during review.'
         },
         actions: {
           upload: 'Upload images',
           uploading: 'Uploading…',
           removeImage: 'Remove',
+          uploadCertificate: 'Upload certificate',
+          viewCertificate: 'View certificate',
           submitting: 'Submitting…',
           submitCreate: 'Submit for review',
           submitEdit: 'Save changes',
           cancel: 'Cancel'
         },
         imageAlt: 'Listing image {index}',
+        certificateAlt: 'Property certificate preview',
         upload: {
           limit: 'You can upload up to {count} images.',
           extraIgnored: 'Only the first {count} images were kept. Extra files were ignored.',
           invalidType: 'Only image files can be uploaded.',
           tooLarge: 'Each image must be 5 MB or smaller.',
-          failure: 'Image upload failed. Please try again later.'
+          failure: 'Image upload failed. Please try again later.',
+          invalidCertificateType: 'Only image or PDF certificate files are supported.',
+          certificateTooLarge: 'The certificate file must be 10 MB or smaller.'
         },
         validation: {
           required: 'Please complete all required listing information.',
           listingDate: 'Choose a listing date.',
+          listingDateFuture: 'Please choose a future listing date.',
           price: 'Enter a valid total price.',
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
           area: 'Enter a valid floor area.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
-          installmentMonths: 'The instalment term must be greater than zero.'
+          installmentMonths: 'The instalment term must be greater than zero.',
+          propertyCertificate: 'Please upload the property certificate before submitting.'
         }
       },
       list: {
@@ -1363,6 +1387,7 @@ const translations = {
           actions: 'Actions'
         },
         photoCount: '{count} photos',
+        certificateAvailable: 'View property certificate',
         pricing: {
           full: 'Full price: ￥{price}',
           downPayment: 'Down payment: ￥{amount}',
@@ -1800,6 +1825,7 @@ const translations = {
         verification: 'Verification status',
         realName: 'Real name',
         phone: 'Phone number',
+        points: 'Points',
         verified: 'Verified',
         pending: 'Pending'
       },
@@ -2371,10 +2397,6 @@ const pendingHouseReviews = computed(() =>
 const navigationTabs = computed(() => {
   const tabs = [{ value: 'home', label: t('nav.home') }];
   tabs.push({ value: 'locations', label: t('nav.locations') });
-  tabs.push({
-    value: 'verify',
-    label: currentUser.value?.realNameVerified ? t('nav.verifyCompleted') : t('nav.verify')
-  });
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: t('nav.manage') });
   }
@@ -2832,8 +2854,8 @@ const handleVerificationUpdate = async (response) => {
   persistUser(updated);
   messages.success = response.message ?? t('success.verificationUpdated');
   messages.error = '';
-  if (activeTab.value === 'verify' && updated.realNameVerified) {
-    activeTab.value = 'home';
+  if (updated.realNameVerified && activeTab.value !== 'account') {
+    activeTab.value = 'account';
   }
   await Promise.all([
     fetchHouses({ silent: true }),
@@ -3086,6 +3108,7 @@ const handleSubmit = async (payload) => {
           ? t('success.houseCreatedApproved', { title: data.title })
           : t('success.houseCreatedPending', { title: data.title, status: statusLabel });
     }
+    formResetKey.value += 1;
     selectedHouse.value = null;
     await fetchHouses({ silent: true });
     await loadRecommendations();
@@ -4193,15 +4216,3 @@ onMounted(() => {
   }
 }
 </style>
-        <AccountCenter
-          v-else-if="activeTab === 'account'"
-          inline
-          :visible="true"
-          :current-user="currentUser"
-          :wallet="wallet"
-          :role-label="roleLabels[currentUser?.role]"
-          :saving="accountSaving"
-          :error="accountError"
-          @submit="handleAccountSubmit"
-        />
-

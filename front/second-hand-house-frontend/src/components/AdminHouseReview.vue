@@ -78,6 +78,13 @@
             </div>
           </div>
 
+          <div v-if="house.propertyCertificateUrl" class="certificate">
+            <span class="label">Property certificate</span>
+            <a :href="house.propertyCertificateUrl" target="_blank" rel="noopener">
+              View certificate
+            </a>
+          </div>
+
           <footer class="actions">
             <button class="approve" type="button" @click="review(house, 'APPROVED')">Approve</button>
             <button class="reject" type="button" @click="review(house, 'REJECTED')">Reject</button>
@@ -364,6 +371,24 @@ const review = (house, status) => {
 .seller strong {
   display: block;
   color: var(--color-text-strong);
+}
+
+.certificate {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.certificate a {
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: underline;
+  width: fit-content;
+}
+
+.certificate a:hover {
+  color: color-mix(in srgb, var(--color-primary) 80%, #1d4ed8);
 }
 
 .actions {

@@ -80,6 +80,7 @@ public class SecondHandHouseService {
     public SecondHandHouse create(SecondHandHouse house) {
         validateSellerAccount(house.getSellerUsername());
         ensureNotDuplicate(house, null);
+        ensureCertificateProvided(house);
         house.setId(null);
         house.setStatus(ListingStatus.PENDING_REVIEW);
         house.setReviewedAt(null);
@@ -108,6 +109,8 @@ public class SecondHandHouseService {
         existing.setKeywords(updatedHouse.getKeywords());
         existing.getImageUrls().clear();
         existing.getImageUrls().addAll(updatedHouse.getImageUrls());
+        ensureCertificateProvided(updatedHouse);
+        existing.setPropertyCertificateUrl(updatedHouse.getPropertyCertificateUrl());
         existing.setStatus(ListingStatus.PENDING_REVIEW);
         existing.setReviewedAt(null);
         existing.setReviewedBy(null);
@@ -277,6 +280,21 @@ public class SecondHandHouseService {
         if (duplicate) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "检测到重复房源信息，请勿重复上架。");
         }
+    }
+
+    private void ensureCertificateProvided(SecondHandHouse house) {
+        String certificateUrl = house.getPropertyCertificateUrl();
+        if (certificateUrl == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先上传房产证件凭证");
+        }
+        String trimmed = certificateUrl.trim();
+        if (trimmed.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先上传房产证件凭证");
+        }
+        if (trimmed.length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房产证件链接长度超出限制");
+        }
+        house.setPropertyCertificateUrl(trimmed);
     }
 
     private String normalize(String value) {

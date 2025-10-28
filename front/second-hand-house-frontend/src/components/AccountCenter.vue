@@ -41,6 +41,10 @@
               <strong>{{ verificationStatus }}</strong>
             </div>
             <div class="summary-item">
+              <span class="label">{{ t('accountCenter.summary.points') }}</span>
+              <strong>{{ reputationScore }}</strong>
+            </div>
+            <div class="summary-item">
               <span class="label">{{ t('accountCenter.summary.realName') }}</span>
               <strong>{{ realName }}</strong>
             </div>
@@ -148,6 +152,15 @@
             </button>
           </div>
         </form>
+
+        <section class="verification-inline">
+          <RealNameVerification
+            :api-base-url="apiBaseUrl"
+            :current-user="currentUser"
+            inline
+            @verified="emit('verified', $event)"
+          />
+        </section>
       </div>
     </section>
   </div>
@@ -155,6 +168,7 @@
 
 <script setup>
 import { computed, inject, reactive, ref, watch } from 'vue';
+import RealNameVerification from './RealNameVerification.vue';
 
 const props = defineProps({
   visible: {
@@ -184,10 +198,14 @@ const props = defineProps({
   inline: {
     type: Boolean,
     default: false
+  },
+  apiBaseUrl: {
+    type: String,
+    required: true
   }
 });
 
-const emit = defineEmits(['close', 'submit']);
+const emit = defineEmits(['close', 'submit', 'verified']);
 
 const translate = inject('translate', (key) => key);
 const t = (key, vars) => translate(key, vars);
@@ -225,6 +243,7 @@ const phoneNumber = computed(
 const verificationStatus = computed(() =>
   props.currentUser?.realNameVerified ? t('accountCenter.summary.verified') : t('accountCenter.summary.pending')
 );
+const reputationScore = computed(() => props.currentUser?.reputationScore ?? 0);
 
 const syncForm = () => {
   form.username = props.currentUser?.username ?? '';
@@ -555,6 +574,10 @@ const wrapperClass = computed(() =>
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   color: var(--color-text-strong);
+}
+
+.verification-inline {
+  margin-top: 1.5rem;
 }
 
 @media (max-width: 768px) {

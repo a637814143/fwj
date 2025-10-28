@@ -2,25 +2,25 @@
   <section class="review-board">
     <header class="review-header">
       <div>
-        <h2>Listing review dashboard</h2>
-        <p><strong>{{ pendingCount }}</strong> listings require review before they can be shown to buyers.</p>
+        <h2>{{ t('adminReview.title') }}</h2>
+        <p>{{ subtitleText }}</p>
       </div>
       <button type="button" class="refresh" @click="$emit('refresh')">
-        Refresh list
+        {{ t('adminReview.refresh') }}
       </button>
     </header>
 
-    <div v-if="loading" class="state loading">Loading listings awaiting review…</div>
+    <div v-if="loading" class="state loading">{{ t('adminReview.loading') }}</div>
     <div v-else-if="pendingCount === 0" class="state empty">
-      <h3>No listings are waiting for review</h3>
-      <p>Listings submitted by sellers will appear here for approval.</p>
+      <h3>{{ t('adminReview.emptyTitle') }}</h3>
+      <p>{{ t('adminReview.emptyDescription') }}</p>
     </div>
     <div v-else class="card-grid">
       <article v-for="house in houses" :key="house.id" class="review-card">
         <div class="visual" :class="{ placeholder: !firstImage(house) }">
           <img v-if="firstImage(house)" :src="firstImage(house)" :alt="house.title" />
-          <span v-else>No cover image</span>
-          <span class="badge">Pending review</span>
+          <span v-else>{{ t('adminReview.noImage') }}</span>
+          <span class="badge">{{ t('adminReview.badgePending') }}</span>
         </div>
         <div class="content">
           <header class="card-header">
@@ -31,31 +31,28 @@
 
           <dl class="meta">
             <div>
-              <dt>Price</dt>
+              <dt>{{ t('adminReview.fields.price') }}</dt>
               <dd>￥{{ formatCurrency(house.price) }}</dd>
             </div>
             <div>
-              <dt>Down payment</dt>
+              <dt>{{ t('adminReview.fields.downPayment') }}</dt>
               <dd>￥{{ formatCurrency(house.downPayment) }}</dd>
             </div>
             <div>
-              <dt>Instalment plan</dt>
-              <dd>
-                ￥{{ formatCurrency(house.installmentMonthlyPayment) }} ×
-                {{ house.installmentMonths || '—' }} months
-              </dd>
+              <dt>{{ t('adminReview.fields.installment') }}</dt>
+              <dd>{{ installmentLabel(house) }}</dd>
             </div>
             <div>
-              <dt>Floor area</dt>
+              <dt>{{ t('adminReview.fields.area') }}</dt>
               <dd>{{ formatNumber(house.area) }} ㎡</dd>
             </div>
             <div>
-              <dt>Listed on</dt>
+              <dt>{{ t('adminReview.fields.listedOn') }}</dt>
               <dd>{{ formatDate(house.listingDate) }}</dd>
             </div>
             <div>
-              <dt>Floor</dt>
-              <dd>{{ house.floor != null ? `Level ${house.floor}` : '—' }}</dd>
+              <dt>{{ t('adminReview.fields.floor') }}</dt>
+              <dd>{{ formatFloor(house.floor) }}</dd>
             </div>
           </dl>
 
@@ -65,29 +62,41 @@
 
           <div class="seller">
             <div>
-              <span class="label">Seller account</span>
+              <span class="label">{{ t('adminReview.sellerAccount') }}</span>
               <strong>{{ house.sellerUsername }}</strong>
             </div>
             <div>
-              <span class="label">Contact name</span>
+              <span class="label">{{ t('adminReview.contactName') }}</span>
               <strong>{{ house.sellerName }}</strong>
             </div>
             <div>
-              <span class="label">Contact phone</span>
+              <span class="label">{{ t('adminReview.contactPhone') }}</span>
               <strong>{{ house.contactNumber }}</strong>
             </div>
           </div>
 
           <div v-if="house.propertyCertificateUrl" class="certificate">
-            <span class="label">Property certificate</span>
+            <span class="label">{{ t('adminReview.certificate') }}</span>
             <a :href="house.propertyCertificateUrl" target="_blank" rel="noopener">
-              View certificate
+              {{ t('adminReview.certificateLink') }}
             </a>
           </div>
 
           <footer class="actions">
-            <button class="approve" type="button" @click="review(house, 'APPROVED')">Approve</button>
-            <button class="reject" type="button" @click="review(house, 'REJECTED')">Reject</button>
+            <button class="approve" type="button" @click="review(house, 'APPROVED')">
+              {{ t('adminReview.actions.approve') }}
+            </button>
+            <button class="reject" type="button" @click="review(house, 'REJECTED')">
+              {{ t('adminReview.actions.reject') }}
+            </button>
+            <button
+              v-if="allowDelete"
+              class="delete"
+              type="button"
+              @click="emit('delete-house', house)"
+            >
+              {{ t('adminReview.actions.delete') }}
+            </button>
           </footer>
         </div>
       </article>
@@ -96,7 +105,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 
 const props = defineProps({
   houses: {
@@ -106,18 +115,34 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  allowDelete: {
+    type: Boolean,
+    default: false
   }
 });
 
-const emit = defineEmits(['refresh', 'review']);
+const emit = defineEmits(['refresh', 'review', 'delete-house']);
+
+const translate = inject('translate', (key, vars) => key);
+const settings = inject('appSettings', { language: 'zh' });
+const t = (key, vars) => translate(key, vars);
+
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
 
 const pendingCount = computed(() => props.houses.length);
+
+const subtitleText = computed(() => {
+  const count = pendingCount.value;
+  const key = count === 1 ? 'adminReview.subtitleSingle' : 'adminReview.subtitle';
+  return t(key, { count });
+});
 
 const formatCurrency = (value) => {
   if (value == null || Number.isNaN(Number(value))) {
     return '0.00';
   }
-  return Number(value).toLocaleString('en-US', {
+  return Number(value).toLocaleString(locale.value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -127,7 +152,7 @@ const formatNumber = (value) => {
   if (value == null || Number.isNaN(Number(value))) {
     return '—';
   }
-  return Number(value).toLocaleString('en-US', {
+  return Number(value).toLocaleString(locale.value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -137,7 +162,26 @@ const formatDate = (value) => {
   if (!value) {
     return '—';
   }
-  return new Date(value).toLocaleDateString('en-US');
+  return new Date(value).toLocaleDateString(locale.value);
+};
+
+const formatFloor = (value) => {
+  if (value == null) {
+    return '—';
+  }
+  return t('adminReview.floorValue', { floor: value });
+};
+
+const installmentLabel = (house) => {
+  if (!house?.installmentMonthlyPayment) {
+    return t('adminReview.installmentUnavailable');
+  }
+  const amount = formatCurrency(house.installmentMonthlyPayment);
+  const months =
+    house.installmentMonths && Number(house.installmentMonths) > 0
+      ? house.installmentMonths
+      : t('adminReview.installmentUnknownMonths');
+  return t('adminReview.installmentValue', { amount, months });
 };
 
 const firstImage = (house) => {
@@ -417,6 +461,12 @@ const review = (house, status) => {
   background: linear-gradient(135deg, #f97316, #ea580c);
   color: #fff;
   box-shadow: 0 22px 40px rgba(249, 115, 22, 0.32);
+}
+
+.actions .delete {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(220, 38, 38, 0.28));
+  color: #b91c1c;
+  box-shadow: 0 18px 32px rgba(239, 68, 68, 0.2);
 }
 
 .actions button:hover {

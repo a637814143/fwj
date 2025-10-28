@@ -2,25 +2,25 @@
   <section class="admin-order-review">
     <header>
       <div>
-        <h2>Escrow review</h2>
-        <p>All order funds are held in escrow and released only after an administrator approves the payout.</p>
+        <h2>{{ t('adminOrders.title') }}</h2>
+        <p>{{ t('adminOrders.subtitle') }}</p>
       </div>
-      <button type="button" @click="$emit('refresh')">Refresh list</button>
+      <button type="button" @click="$emit('refresh')">{{ t('adminOrders.refresh') }}</button>
     </header>
 
-    <div v-if="loading" class="loading">Loading escrow orders…</div>
-    <div v-else-if="!orders || orders.length === 0" class="empty">No escrow orders waiting for review.</div>
+    <div v-if="loading" class="loading">{{ t('adminOrders.loading') }}</div>
+    <div v-else-if="!orders || orders.length === 0" class="empty">{{ t('adminOrders.empty') }}</div>
     <table v-else>
       <thead>
         <tr>
-          <th>Order ID</th>
-          <th>Listing</th>
-          <th>Buyer</th>
-          <th>Seller</th>
-          <th>Escrow balance</th>
-          <th>Payment method</th>
-          <th>Created at</th>
-          <th>Actions</th>
+          <th>{{ t('adminOrders.columns.id') }}</th>
+          <th>{{ t('adminOrders.columns.listing') }}</th>
+          <th>{{ t('adminOrders.columns.buyer') }}</th>
+          <th>{{ t('adminOrders.columns.seller') }}</th>
+          <th>{{ t('adminOrders.columns.escrow') }}</th>
+          <th>{{ t('adminOrders.columns.payment') }}</th>
+          <th>{{ t('adminOrders.columns.createdAt') }}</th>
+          <th>{{ t('adminOrders.columns.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -33,14 +33,20 @@
           <td>{{ order.buyerDisplayName }} (@{{ order.buyerUsername }})</td>
           <td>{{ order.sellerDisplayName }} (@{{ order.sellerUsername }})</td>
           <td>
-            <div>Escrow: ￥{{ formatAmount(order.adminHoldAmount || order.amount) }}</div>
-            <div v-if="Number(order.platformFee) > 0" class="muted">Fee: ￥{{ formatAmount(order.platformFee) }}</div>
+            <div>{{ t('adminOrders.escrowBalance', { amount: formatAmount(order.adminHoldAmount || order.amount) }) }}</div>
+            <div v-if="Number(order.platformFee) > 0" class="muted">
+              {{ t('adminOrders.platformFee', { amount: formatAmount(order.platformFee) }) }}
+            </div>
           </td>
           <td>{{ paymentMethodLabel(order.paymentMethod) }}</td>
           <td>{{ formatTime(order.createdAt) }}</td>
           <td class="actions">
-            <button type="button" class="primary" @click="release(order, 'SELLER')">Release to seller</button>
-            <button type="button" class="secondary" @click="release(order, 'BUYER')">Refund to buyer</button>
+            <button type="button" class="primary" @click="release(order, 'SELLER')">
+              {{ t('adminOrders.actions.releaseSeller') }}
+            </button>
+            <button type="button" class="secondary" @click="release(order, 'BUYER')">
+              {{ t('adminOrders.actions.refundBuyer') }}
+            </button>
           </td>
         </tr>
       </tbody>
@@ -49,6 +55,8 @@
 </template>
 
 <script setup>
+import { computed, inject } from 'vue';
+
 const props = defineProps({
   orders: {
     type: Array,
@@ -62,6 +70,12 @@ const props = defineProps({
 
 const emit = defineEmits(['refresh', 'release']);
 
+const translate = inject('translate', (key, vars) => key);
+const settings = inject('appSettings', { language: 'zh' });
+const t = (key, vars) => translate(key, vars);
+
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+
 const formatAmount = (value) => {
   if (value == null) {
     return '0.00';
@@ -70,7 +84,7 @@ const formatAmount = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return num.toLocaleString('en-US', {
+  return num.toLocaleString(locale.value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -80,16 +94,16 @@ const formatTime = (value) => {
   if (!value) {
     return '-';
   }
-  return new Date(value).toLocaleString('en-US');
+  return new Date(value).toLocaleString(locale.value, { hour12: false });
 };
 
 const paymentMethodLabel = (value) => {
   switch (value) {
     case 'INSTALLMENT':
-      return 'Instalments';
+      return t('adminOrders.payment.installment');
     case 'FULL':
     default:
-      return 'Full payment';
+      return t('adminOrders.payment.full');
   }
 };
 

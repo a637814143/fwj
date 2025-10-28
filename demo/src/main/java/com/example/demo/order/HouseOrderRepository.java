@@ -16,4 +16,6 @@ public interface HouseOrderRepository extends JpaRepository<HouseOrder, Long> {
     List<HouseOrder> findByHouse_IdAndStatus(Long houseId, OrderStatus status);
 
     List<HouseOrder> findByStatusAndAdminReviewedFalseOrderByCreatedAtAsc(OrderStatus status);
+
+    List<HouseOrder> findByStatusInAndAdminReviewedFalseOrderByCreatedAtAsc(List<OrderStatus> statuses);
 }

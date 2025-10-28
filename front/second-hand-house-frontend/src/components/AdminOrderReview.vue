@@ -2,25 +2,25 @@
   <section class="admin-order-review">
     <header>
       <div>
-        <h2>交易审核</h2>
-        <p>所有订单款项均由系统托管，完成交付后由管理员确认发放。</p>
+        <h2>Escrow review</h2>
+        <p>All order funds are held in escrow and released only after an administrator approves the payout.</p>
       </div>
-      <button type="button" @click="$emit('refresh')">刷新列表</button>
+      <button type="button" @click="$emit('refresh')">Refresh list</button>
     </header>
 
-    <div v-if="loading" class="loading">待审核订单加载中...</div>
-    <div v-else-if="!orders || orders.length === 0" class="empty">暂无待审核的托管订单。</div>
+    <div v-if="loading" class="loading">Loading escrow orders…</div>
+    <div v-else-if="!orders || orders.length === 0" class="empty">No escrow orders waiting for review.</div>
     <table v-else>
       <thead>
         <tr>
-          <th>订单编号</th>
-          <th>房源</th>
-          <th>买家</th>
-          <th>卖家</th>
-          <th>托管金额</th>
-          <th>支付方式</th>
-          <th>创建时间</th>
-          <th>操作</th>
+          <th>Order ID</th>
+          <th>Listing</th>
+          <th>Buyer</th>
+          <th>Seller</th>
+          <th>Escrow balance</th>
+          <th>Payment method</th>
+          <th>Created at</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -30,17 +30,17 @@
             <strong>{{ order.houseTitle }}</strong>
             <span class="muted">￥{{ formatAmount(order.amount) }}</span>
           </td>
-          <td>{{ order.buyerDisplayName }}（@{{ order.buyerUsername }}）</td>
-          <td>{{ order.sellerDisplayName }}（@{{ order.sellerUsername }}）</td>
+          <td>{{ order.buyerDisplayName }} (@{{ order.buyerUsername }})</td>
+          <td>{{ order.sellerDisplayName }} (@{{ order.sellerUsername }})</td>
           <td>
-            <div>托管：￥{{ formatAmount(order.adminHoldAmount || order.amount) }}</div>
-            <div v-if="Number(order.platformFee) > 0" class="muted">抽成：￥{{ formatAmount(order.platformFee) }}</div>
+            <div>Escrow: ￥{{ formatAmount(order.adminHoldAmount || order.amount) }}</div>
+            <div v-if="Number(order.platformFee) > 0" class="muted">Fee: ￥{{ formatAmount(order.platformFee) }}</div>
           </td>
           <td>{{ paymentMethodLabel(order.paymentMethod) }}</td>
           <td>{{ formatTime(order.createdAt) }}</td>
           <td class="actions">
-            <button type="button" class="primary" @click="release(order, 'SELLER')">发放给卖家</button>
-            <button type="button" class="secondary" @click="release(order, 'BUYER')">退回买家</button>
+            <button type="button" class="primary" @click="release(order, 'SELLER')">Release to seller</button>
+            <button type="button" class="secondary" @click="release(order, 'BUYER')">Refund to buyer</button>
           </td>
         </tr>
       </tbody>
@@ -70,7 +70,7 @@ const formatAmount = (value) => {
   if (!Number.isFinite(num)) {
     return '0.00';
   }
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -80,16 +80,16 @@ const formatTime = (value) => {
   if (!value) {
     return '-';
   }
-  return new Date(value).toLocaleString('zh-CN');
+  return new Date(value).toLocaleString('en-US');
 };
 
 const paymentMethodLabel = (value) => {
   switch (value) {
     case 'INSTALLMENT':
-      return '分期付款';
+      return 'Instalments';
     case 'FULL':
     default:
-      return '全款支付';
+      return 'Full payment';
   }
 };
 

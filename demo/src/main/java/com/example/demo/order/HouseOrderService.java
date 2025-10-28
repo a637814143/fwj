@@ -258,7 +258,7 @@ public class HouseOrderService {
     public HouseOrderResponse requestReturn(Long orderId, OrderReturnRequest request) {
         HouseOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
-        if (order.getStatus() != OrderStatus.PAID) {
+        if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.RETURN_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前订单状态不支持退换");
         }
         if (!order.getBuyer().getUsername().equals(request.requesterUsername())) {
@@ -269,25 +269,13 @@ public class HouseOrderService {
         if (holdAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "该订单款项已结算或无需退款");
         }
-        BigDecimal platformFee = calculatePlatformFee(holdAmount);
-        BigDecimal releaseAmount = holdAmount.subtract(platformFee);
-        if (releaseAmount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "退款金额计算异常");
-        }
-        UserAccount adminAccount = requireAdminAccount();
-        String reference = "ORDER-" + order.getId();
-        String reason = request.reason() == null || request.reason().isBlank() ? "买家申请退换" : request.reason();
-        walletService.releaseEscrow(order, reference, reason, adminAccount, order.getBuyer(), releaseAmount, platformFee, WalletTransactionType.REFUND);
-        order.markReturned(reason);
-        order.markAdminReviewCompleted(adminAccount.getUsername(), releaseAmount, platformFee, PayoutRecipient.BUYER);
-        restoreHouseAvailability(order.getHouse(), "退换完成：房源已重新开放预定");
+        String reason = request.reason() == null || request.reason().isBlank()
+                ? "Buyer requested a return"
+                : request.reason();
+        order.markReturnRequested(reason);
+        order.setAdminHoldAmount(holdAmount);
+        order.setReleasedAmount(BigDecimal.ZERO);
         order = orderRepository.save(order);
-
-        UserAccount buyer = order.getBuyer();
-        buyer.recordReturn();
-        int penalty = Math.min(20, buyer.getReturnCount() * 5);
-        buyer.decreaseReputation(penalty);
-        userAccountRepository.save(buyer);
         return HouseOrderResponse.fromEntity(order);
     }
 
@@ -320,7 +308,8 @@ public class HouseOrderService {
 
     public List<HouseOrderResponse> listPendingAdminReviews(String requesterUsername) {
         UserAccount admin = requireAdmin(requesterUsername);
-        return orderRepository.findByStatusAndAdminReviewedFalseOrderByCreatedAtAsc(OrderStatus.PAID).stream()
+        List<OrderStatus> statuses = List.of(OrderStatus.PAID, OrderStatus.RETURN_REQUESTED);
+        return orderRepository.findByStatusInAndAdminReviewedFalseOrderByCreatedAtAsc(statuses).stream()
                 .filter(order -> order.getAdminHoldAmount().compareTo(BigDecimal.ZERO) > 0)
                 .map(HouseOrderResponse::fromEntity)
                 .toList();
@@ -330,7 +319,7 @@ public class HouseOrderService {
         UserAccount admin = requireAdmin(reviewerUsername);
         HouseOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
-        if (order.getStatus() != OrderStatus.PAID) {
+        if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.RETURN_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "仅已支付订单可执行资金审核");
         }
         BigDecimal holdAmount = resolveHoldAmount(order);
@@ -348,14 +337,27 @@ public class HouseOrderService {
                 : WalletTransactionType.REFUND;
         String reference = "ORDER-" + order.getId();
         String description = recipient == PayoutRecipient.SELLER
-                ? String.format("订单结算，发放给卖家%s", order.getSeller().getDisplayName())
-                : "管理员审核后将款项退回买家";
+                ? String.format("Order settled. Funds released to seller %s", order.getSeller().getDisplayName())
+                : "Administrator approved refund to the buyer";
         walletService.releaseEscrow(order, reference, description, admin, payoutTarget, releaseAmount, platformFee, transactionType);
         if (recipient == PayoutRecipient.BUYER) {
-            order.markReturned("管理员退回款项给买家");
-            restoreHouseAvailability(order.getHouse(), "订单审核退款：房源已重新上架");
+            order.markReturned("Administrator released funds to the buyer");
+            restoreHouseAvailability(order.getHouse(), "Admin review: listing reopened after refund");
+            UserAccount buyer = order.getBuyer();
+            buyer.recordReturn();
+            int penalty = Math.min(20, buyer.getReturnCount() * 5);
+            buyer.decreaseReputation(penalty);
+            userAccountRepository.save(buyer);
         } else {
-            markHouseAsSold(order.getHouse(), "管理员审核完成，房源保持下架");
+            if (order.getStatus() == OrderStatus.RETURN_REQUESTED) {
+                order.setStatus(OrderStatus.PAID);
+                String existingReason = order.getReturnReason();
+                String note = "Admin released funds to the seller";
+                order.setReturnReason(existingReason == null || existingReason.isBlank()
+                        ? note
+                        : appendSystemNote(existingReason, note));
+            }
+            markHouseAsSold(order.getHouse(), "Admin review completed, listing remains unavailable");
         }
         order.markAdminReviewCompleted(admin.getUsername(), releaseAmount, platformFee, recipient);
         HouseOrder saved = orderRepository.save(order);
@@ -404,7 +406,7 @@ public class HouseOrderService {
         if (existing.contains(normalizedNote)) {
             return existing;
         }
-        return existing + " ｜" + normalizedNote;
+        return existing + " | " + normalizedNote;
     }
 
     private void ensureNotBlacklisted(UserAccount account, String message) {

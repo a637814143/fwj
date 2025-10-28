@@ -4,24 +4,24 @@
       <div class="conversation-panel">
         <header class="panel-header">
           <div>
-            <h2>消息中心</h2>
-            <p>和卖家实时沟通，确认细节与交易安排。</p>
+            <h2>Message center</h2>
+            <p>Chat with sellers in real time to confirm details and schedule transactions.</p>
           </div>
           <div class="header-actions">
             <button type="button" class="secondary" @click.stop="emit('refresh-conversations')" :disabled="loadingConversations">
-              {{ loadingConversations ? '刷新中...' : '刷新列表' }}
+              {{ loadingConversations ? 'Refreshing…' : 'Refresh list' }}
             </button>
-            <button type="button" class="ghost" @click.stop="emit('close')">关闭</button>
+            <button type="button" class="ghost" @click.stop="emit('close')">Close</button>
           </div>
         </header>
         <div class="panel-body">
           <aside class="conversation-list">
             <div class="list-header">
-              <h3>对话</h3>
+              <h3>Conversations</h3>
               <span class="count">{{ conversations.length }}</span>
             </div>
-            <div v-if="loadingConversations" class="list-loading">正在加载对话...</div>
-            <div v-else-if="conversations.length === 0" class="list-empty">尚未开启任何对话。</div>
+            <div v-if="loadingConversations" class="list-loading">Loading conversations…</div>
+            <div v-else-if="conversations.length === 0" class="list-empty">No conversations yet.</div>
             <ul v-else>
               <li
                 v-for="conversation in conversations"
@@ -31,24 +31,24 @@
               >
                 <strong>{{ otherParticipantName(conversation) }}</strong>
                 <p class="preview" v-if="conversation.lastMessage">
-                  <span class="sender">{{ conversation.lastMessage.senderUsername === currentUser?.username ? '我' : conversation.lastMessage.senderDisplayName }}：</span>
+                  <span class="sender">{{ conversation.lastMessage.senderUsername === currentUser?.username ? 'You' : conversation.lastMessage.senderDisplayName }}:</span>
                   <span>{{ conversation.lastMessage.content }}</span>
                 </p>
-                <p class="preview muted" v-else>暂无消息</p>
+                <p class="preview muted" v-else>No messages yet</p>
               </li>
             </ul>
           </aside>
           <section class="message-area">
             <div v-if="error" class="alert">{{ error }}</div>
             <div v-if="!activeConversation" class="empty-state">
-              <h3>选择一个对话开始沟通</h3>
-              <p>在左侧点击卖家即可查看历史消息并发送新的内容。</p>
+              <h3>Select a conversation to begin</h3>
+              <p>Choose a seller on the left to browse history and send a new message.</p>
             </div>
             <template v-else>
               <header class="chat-header">
                 <div>
                   <h3>{{ activeConversationTitle }}</h3>
-                  <p>与卖家实时交流，确认看房、付款等细节。</p>
+                  <p>Coordinate viewing, payments, and other details with the seller.</p>
                 </div>
                 <button
                   type="button"
@@ -56,11 +56,11 @@
                   @click="emit('select-conversation', null)"
                   v-if="messages.length === 0"
                 >
-                  返回列表
+                  Back to list
                 </button>
               </header>
               <div class="messages" ref="messageListRef">
-                <div v-if="loadingMessages" class="messages-loading">消息加载中...</div>
+                <div v-if="loadingMessages" class="messages-loading">Loading messages…</div>
                 <template v-else-if="messages.length > 0">
                   <article
                     v-for="message in messages"
@@ -68,23 +68,23 @@
                     :class="['message', message.senderUsername === currentUser?.username ? 'outgoing' : 'incoming']"
                   >
                     <header>
-                      <span class="sender">{{ message.senderUsername === currentUser?.username ? '我' : message.senderDisplayName }}</span>
+                      <span class="sender">{{ message.senderUsername === currentUser?.username ? 'You' : message.senderDisplayName }}</span>
                       <time>{{ formatDateTime(message.createdAt) }}</time>
                     </header>
                     <p>{{ message.content }}</p>
                   </article>
                 </template>
-                <div v-else class="messages-empty">暂未发送任何消息，快来跟卖家聊一聊吧。</div>
+                <div v-else class="messages-empty">No messages yet. Start the conversation with the seller.</div>
               </div>
               <form class="composer" @submit.prevent="submitMessage">
                 <textarea
                   v-model="draft"
-                  placeholder="输入消息内容，最多 2000 字"
+                  placeholder="Type a message (max 2000 characters)"
                   :maxlength="2000"
                   rows="3"
                 ></textarea>
                 <button type="submit" :disabled="!canSend" class="primary">
-                  {{ sendingMessage ? '发送中...' : '发送' }}
+                  {{ sendingMessage ? 'Sending…' : 'Send' }}
                 </button>
               </form>
             </template>
@@ -129,7 +129,7 @@ const activeConversation = computed(() =>
 
 const activeConversationTitle = computed(() => {
   if (!activeConversation.value) {
-    return '对话详情';
+    return 'Conversation details';
   }
   return otherParticipantName(activeConversation.value);
 });
@@ -209,9 +209,9 @@ const otherParticipantName = (conversation) => {
     return '';
   }
   if (conversation.buyer?.username === props.currentUser?.username) {
-    return conversation.seller?.displayName ?? conversation.seller?.username ?? '卖家';
+    return conversation.seller?.displayName ?? conversation.seller?.username ?? 'Seller';
   }
-  return conversation.buyer?.displayName ?? conversation.buyer?.username ?? '买家';
+  return conversation.buyer?.displayName ?? conversation.buyer?.username ?? 'Buyer';
 };
 
 const formatDateTime = (value) => {
@@ -222,7 +222,7 @@ const formatDateTime = (value) => {
   if (Number.isNaN(date.getTime())) {
     return '';
   }
-  return date.toLocaleString('zh-CN', { hour12: false });
+  return date.toLocaleString('en-US', { hour12: false });
 };
 </script>
 

@@ -2,38 +2,38 @@
   <section class="admin-board">
     <header>
       <div>
-        <h2>信誉评分面板</h2>
-        <p>系统根据交易行为自动评估买家与卖家信誉，支持管理员拉黑或解除黑名单。</p>
+        <h2>Reputation dashboard</h2>
+        <p>The platform evaluates buyer and seller reputation scores based on activity. Administrators can blacklist or restore accounts.</p>
       </div>
-      <button type="button" @click="$emit('refresh')">刷新数据</button>
+      <button type="button" @click="$emit('refresh')">Refresh data</button>
     </header>
 
-    <div v-if="loading" class="loading">信誉数据加载中...</div>
+    <div v-if="loading" class="loading">Loading reputation data…</div>
     <div v-else class="content">
       <section class="summary" v-if="overview">
         <div>
-          <span class="label">黑名单账号</span>
+          <span class="label">Blacklisted accounts</span>
           <strong>{{ overview.blacklistedCount }}</strong>
         </div>
         <div>
-          <span class="label">卖家数量</span>
+          <span class="label">Active sellers</span>
           <strong>{{ overview.sellers.length }}</strong>
         </div>
         <div>
-          <span class="label">买家数量</span>
+          <span class="label">Active buyers</span>
           <strong>{{ overview.buyers.length }}</strong>
         </div>
       </section>
 
       <section class="leaderboard">
         <div>
-          <h3>卖家信誉榜</h3>
+          <h3>Top sellers</h3>
           <table>
             <thead>
               <tr>
-                <th>卖家</th>
-                <th>信誉分</th>
-                <th>违约次数</th>
+                <th>Seller</th>
+                <th>Reputation</th>
+                <th>Reservation breaches</th>
               </tr>
             </thead>
             <tbody>
@@ -46,19 +46,19 @@
                 <td>{{ seller.reservationBreaches }}</td>
               </tr>
               <tr v-if="!overview || overview.sellers.length === 0">
-                <td colspan="3" class="empty">暂无卖家数据</td>
+                <td colspan="3" class="empty">No seller data available.</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div>
-          <h3>买家信誉榜</h3>
+          <h3>Top buyers</h3>
           <table>
             <thead>
               <tr>
-                <th>买家</th>
-                <th>信誉分</th>
-                <th>退回次数</th>
+                <th>Buyer</th>
+                <th>Reputation</th>
+                <th>Returns</th>
               </tr>
             </thead>
             <tbody>
@@ -71,7 +71,7 @@
                 <td>{{ buyer.returnCount }}</td>
               </tr>
               <tr v-if="!overview || overview.buyers.length === 0">
-                <td colspan="3" class="empty">暂无买家数据</td>
+                <td colspan="3" class="empty">No buyer data available.</td>
               </tr>
             </tbody>
           </table>
@@ -79,16 +79,16 @@
       </section>
 
       <section class="user-table">
-        <h3>账号黑名单管理</h3>
+        <h3>Account blacklist management</h3>
         <table>
           <thead>
             <tr>
-              <th>账号</th>
-              <th>角色</th>
-              <th>信誉分</th>
-              <th>违约/退回</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>Account</th>
+              <th>Role</th>
+              <th>Reputation</th>
+              <th>Breaches / returns</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -100,12 +100,12 @@
               <td>{{ roleLabels[user.role] ?? user.role }}</td>
               <td>{{ user.reputationScore }}</td>
               <td>
-                <span v-if="isSellerRole(user.role)">违约 {{ user.reservationBreaches }}</span>
-                <span v-else>退回 {{ user.returnCount }}</span>
+                <span v-if="isSellerRole(user.role)">Breaches {{ user.reservationBreaches }}</span>
+                <span v-else>Returns {{ user.returnCount }}</span>
               </td>
               <td>
                 <span class="status" :class="user.blacklisted ? 'bad' : 'good'">
-                  {{ user.blacklisted ? '已拉黑' : '正常' }}
+                  {{ user.blacklisted ? 'Blacklisted' : 'Active' }}
                 </span>
               </td>
               <td>
@@ -115,7 +115,7 @@
                     :disabled="user.username === currentUser?.username"
                     @click="toggle(user)"
                   >
-                    {{ user.blacklisted ? '解除黑名单' : '加入黑名单' }}
+                    {{ user.blacklisted ? 'Remove from blacklist' : 'Add to blacklist' }}
                   </button>
                   <button
                     type="button"
@@ -123,13 +123,13 @@
                     :disabled="user.role === 'ADMIN' || user.username === currentUser?.username"
                     @click="remove(user)"
                   >
-                    删除账号
+                    Delete account
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="!users || users.length === 0">
-              <td colspan="6" class="empty">暂无账号数据。</td>
+              <td colspan="6" class="empty">No account data available.</td>
             </tr>
           </tbody>
         </table>
@@ -163,10 +163,10 @@ const emit = defineEmits(['toggle-blacklist', 'refresh', 'delete-user']);
 const sellerRoles = ['SELLER', 'LANDLORD'];
 
 const roleLabels = {
-  SELLER: '卖家',
-  LANDLORD: '卖家',
-  BUYER: '买家',
-  ADMIN: '管理员'
+  SELLER: 'Seller',
+  LANDLORD: 'Landlord',
+  BUYER: 'Buyer',
+  ADMIN: 'Administrator'
 };
 
 const isSellerRole = (role) => sellerRoles.includes(role);

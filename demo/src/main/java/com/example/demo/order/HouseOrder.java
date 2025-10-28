@@ -252,6 +252,16 @@ public class HouseOrder {
         this.updatedAt = OffsetDateTime.now();
     }
 
+    public void markReturnRequested(String reason) {
+        this.status = OrderStatus.RETURN_REQUESTED;
+        this.returnReason = reason;
+        this.adminReviewed = false;
+        this.adminReviewedBy = null;
+        this.adminReviewedAt = null;
+        this.fundsReleasedTo = null;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
     public void markReturned(String reason) {
         this.status = OrderStatus.RETURNED;
         this.returnReason = reason;

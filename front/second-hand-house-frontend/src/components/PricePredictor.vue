@@ -98,16 +98,16 @@
         <div class="result-summary">
           <div class="main-value">
             <span class="label">{{ t('prediction.result.estimate') }}</span>
-            <strong>￥{{ formatNumber(result.predictedPrice) }}<small>万</small></strong>
+            <strong>¥{{ formatNumber(result.predictedPrice) }}<small>×10k</small></strong>
           </div>
           <ul class="range">
             <li>
               <span>{{ t('prediction.result.lower') }}</span>
-              <strong>￥{{ formatNumber(result.lowerBound) }} 万</strong>
+              <strong>¥{{ formatNumber(result.lowerBound) }} ×10k</strong>
             </li>
             <li>
               <span>{{ t('prediction.result.upper') }}</span>
-              <strong>￥{{ formatNumber(result.upperBound) }} 万</strong>
+              <strong>¥{{ formatNumber(result.upperBound) }} ×10k</strong>
             </li>
             <li>
               <span>{{ t('prediction.result.confidence') }}</span>
@@ -124,7 +124,7 @@
               :class="['contribution', item.sign]"
             >
               <span class="feature">{{ item.label }}</span>
-              <span class="impact">{{ item.sign === 'positive' ? '+' : '−' }}￥{{ item.value }} 万</span>
+              <span class="impact">{{ item.sign === 'positive' ? '+' : '−' }}¥{{ item.value }} ×10k</span>
             </li>
           </ul>
         </div>

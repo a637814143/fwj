@@ -107,6 +107,14 @@
           />
         </div>
 
+        <HouseReviews
+          v-else-if="activeTab === 'feedback'"
+          :houses="houses"
+          :reviews="houseReviews"
+          :current-user="currentUser"
+          @submit="handleSubmitHouseReview"
+        />
+
         <AdminHouseReview
           v-else-if="activeTab === 'review'"
           :houses="pendingReviewHouses"
@@ -121,6 +129,7 @@
             :tasks="urgentTasks"
             :progress-labels="orderProgressLabels"
             @mark-read="handleUrgentTaskRead"
+            @navigate="handleUrgentTaskNavigate"
           />
           <WalletPanel
             :wallet="wallet"
@@ -155,6 +164,11 @@
             :loading="adminOrdersLoading"
             @refresh="loadAdminOrders"
             @release="handleAdminOrderRelease"
+          />
+          <ReviewModeration
+            :reviews="pendingHouseReviews"
+            :moderating="reviewLoading"
+            @moderate="handleModerateHouseReview"
           />
         </div>
 
@@ -207,6 +221,7 @@ import RoleLogin from './components/RoleLogin.vue';
 import WalletPanel from './components/WalletPanel.vue';
 import OrderHistory from './components/OrderHistory.vue';
 import HouseExplorer from './components/HouseExplorer.vue';
+import HouseReviews from './components/HouseReviews.vue';
 import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import AdminOrderReview from './components/AdminOrderReview.vue';
@@ -214,6 +229,7 @@ import ConversationPanel from './components/ConversationPanel.vue';
 import RealNameVerification from './components/RealNameVerification.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
+import ReviewModeration from './components/ReviewModeration.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
@@ -228,6 +244,7 @@ const reservationLoading = ref(false);
 const reservationTarget = ref(null);
 const dismissedUrgentTaskKeys = ref([]);
 const messages = reactive({ error: '', success: '' });
+const houseReviews = ref([]);
 const recommendations = reactive({ sellers: [], buyers: [] });
 const adminUsers = ref([]);
 const adminReputation = ref(null);
@@ -253,6 +270,7 @@ const houseFilters = reactive({
 });
 const storageKey = 'secondhand-house-current-user';
 const urgentDismissedStoragePrefix = 'shh-urgent-dismissed-';
+const reviewStorageKey = 'shh-house-reviews-v1';
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -262,7 +280,7 @@ const client = axios.create({
 const settingsStorageKey = 'shh-interface-settings';
 const defaultSettings = Object.freeze({
   fontSize: 'medium',
-  language: 'en',
+  language: 'zh',
   theme: 'dark'
 });
 
@@ -313,6 +331,7 @@ const translations = {
       verify: '实名认证',
       verifyCompleted: '实名认证（已完成）',
       manage: '房源管理',
+      feedback: '房源评价',
       orders: '订单与钱包',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
@@ -348,7 +367,8 @@ const translations = {
       language: {
         title: '语言',
         zh: '中文',
-        en: 'English'
+        en: 'English',
+        notice: '首页支持中英文切换，其他页面保持中文展示。'
       },
       fontSize: {
         title: '字体大小',
@@ -422,6 +442,9 @@ const translations = {
       accountDeleted: '账号 {username} 已被删除。',
       reviewApproved: '已审核通过房源《{title}》。',
       reviewRejected: '已驳回房源《{title}》，状态：{status}，原因：{reason}。',
+      reviewSubmitted: '评价已提交，待管理员审核后发布。',
+      reviewModeratedApproved: '评价已通过审核并公开展示。',
+      reviewModeratedRejected: '已驳回该评价。',
       login: '登录成功。',
       loginReputationSuffix: ' 当前信誉分：{score}。',
       restoredSession: '已恢复上次的登录状态。'
@@ -472,6 +495,11 @@ const translations = {
       persistSettings: '界面设置保存失败。',
       persistUser: '无法持久化登录状态。',
       restoreSession: '恢复登录状态失败。',
+      reviewLoginRequired: '请先登录后再提交评价。',
+      reviewHouseMissing: '未找到要评价的房源，请刷新后重试。',
+      reviewModerationDenied: '只有管理员可以执行评价审核。',
+      reviewNotFound: '未找到指定的评价，请刷新后重试。',
+      reviewContentTooShort: '评价内容不少于8个字。',
       genericServerError: '发生未知错误，请稍后再试。'
     },
     prompts: {
@@ -711,11 +739,54 @@ const translations = {
         scheduledReminderSeller: '已预约 {time} 看房，请准时到场并提前准备房屋。',
         scheduledReminderBuyer: '已预约 {time} 看房，请及时确认并按时到场。',
         upcomingViewing: '预约时间：{time}',
-        markRead: '已读'
+        markRead: '已读',
+        openTarget: '前往处理'
       },
       quickMessages: {
         confirmViewing: '我已确认 {time} 的看房安排，届时见。',
         confirmViewingNoTime: '我已收到看房安排，请您确认。'
+      }
+    },
+    reviews: {
+      title: '房源评价',
+      subtitle: '为已浏览或交易的房源撰写评价，提交后将进入管理员审核队列。',
+      form: {
+        heading: '提交新的评价',
+        houseLabel: '选择房源',
+        ratingLabel: '评分',
+        ratingHint: '请选择 1 至 5 星。',
+        contentLabel: '评价内容',
+        contentPlaceholder: '请填写至少8个字的真实体验，帮助其他用户了解房源情况。',
+        charCount: '当前字数：{count}',
+        submit: '提交评价',
+        submitDisabled: '请先选择房源并填写评价内容'
+      },
+      validation: {
+        houseRequired: '请选择要评价的房源。',
+        contentLength: '评价内容不少于8个字。',
+        ratingRequired: '请选择评分。'
+      },
+      list: {
+        publicTitle: '已发布的评价',
+        empty: '暂时还没有公开评价。',
+        myTitle: '我的评价记录',
+        pending: '待审核',
+        approved: '已发布',
+        rejected: '已驳回',
+        moderationNote: '审核说明：{note}',
+        ratingLabel: '{rating} 分 · {author}',
+        timeLabel: '提交时间：{time}'
+      },
+      moderation: {
+        title: '评价审核',
+        subtitle: '审核买家与卖家的评价内容，保障平台信息真实可信。',
+        empty: '暂无待审核的评价。',
+        approve: '通过',
+        reject: '驳回',
+        notePlaceholder: '可选说明，至少8个字更容易让作者理解原因。',
+        ratingLabel: '{rating} 分',
+        authorLabel: '来自：{author}',
+        createdLabel: '提交时间：{time}'
       }
     }
   },
@@ -736,6 +807,7 @@ const translations = {
       verify: 'Real-name verification',
       verifyCompleted: 'Real-name verification (completed)',
       manage: 'Listing management',
+      feedback: 'Listing feedback',
       orders: 'Orders & wallet',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
@@ -771,7 +843,8 @@ const translations = {
       language: {
         title: 'Language',
         zh: '中文',
-        en: 'English'
+        en: 'English',
+        notice: 'English is available on the home dashboard. Other pages remain in Chinese.'
       },
       fontSize: {
         title: 'Font size',
@@ -845,6 +918,9 @@ const translations = {
       accountDeleted: 'Account {username} has been deleted.',
       reviewApproved: 'Listing “{title}” approved.',
       reviewRejected: 'Rejected listing “{title}”, status: {status}, reason: {reason}.',
+      reviewSubmitted: 'Your review has been submitted for moderator approval.',
+      reviewModeratedApproved: 'The review has been approved and published.',
+      reviewModeratedRejected: 'The review has been rejected.',
       login: 'Signed in successfully.',
       loginReputationSuffix: ' Current reputation score: {score}.',
       restoredSession: 'Previous session restored.'
@@ -895,6 +971,11 @@ const translations = {
       persistSettings: 'Failed to save interface settings.',
       persistUser: 'Unable to persist login state.',
       restoreSession: 'Failed to restore previous session.',
+      reviewLoginRequired: 'Please sign in before submitting a review.',
+      reviewHouseMissing: 'The selected listing could not be found. Please refresh and try again.',
+      reviewModerationDenied: 'Only administrators can moderate reviews.',
+      reviewNotFound: 'The specified review no longer exists.',
+      reviewContentTooShort: 'Reviews must contain at least 8 characters.',
       genericServerError: 'An unexpected error occurred. Please try again later.'
     },
     prompts: {
@@ -1133,11 +1214,54 @@ const translations = {
         scheduledReminderSeller: 'Viewing scheduled at {time}. Please prepare the property in advance.',
         scheduledReminderBuyer: 'Viewing scheduled at {time}. Remember to confirm and arrive on time.',
         upcomingViewing: 'Appointment: {time}',
-        markRead: 'Mark as read'
+        markRead: 'Mark as read',
+        openTarget: 'Go to task'
       },
       quickMessages: {
         confirmViewing: 'I confirm the viewing at {time}. See you then!',
         confirmViewingNoTime: 'I have received the viewing arrangement. Please confirm.'
+      }
+    },
+    reviews: {
+      title: 'Listing feedback',
+      subtitle: 'Share your experience with a property. Submitted reviews require administrator approval before publication.',
+      form: {
+        heading: 'Submit a new review',
+        houseLabel: 'Select listing',
+        ratingLabel: 'Rating',
+        ratingHint: 'Choose between 1 and 5 stars.',
+        contentLabel: 'Review details',
+        contentPlaceholder: 'Enter at least 8 characters describing your experience to help other users.',
+        charCount: 'Characters: {count}',
+        submit: 'Submit review',
+        submitDisabled: 'Select a listing and complete the review first'
+      },
+      validation: {
+        houseRequired: 'Please choose a listing to review.',
+        contentLength: 'Reviews must contain at least 8 characters.',
+        ratingRequired: 'Please choose a rating.'
+      },
+      list: {
+        publicTitle: 'Published reviews',
+        empty: 'No public reviews yet.',
+        myTitle: 'My submissions',
+        pending: 'Pending',
+        approved: 'Published',
+        rejected: 'Rejected',
+        moderationNote: 'Moderator note: {note}',
+        ratingLabel: '{rating} pts · {author}',
+        timeLabel: 'Submitted at: {time}'
+      },
+      moderation: {
+        title: 'Review moderation',
+        subtitle: 'Moderate buyer and seller feedback to keep the marketplace trustworthy.',
+        empty: 'No reviews are awaiting moderation.',
+        approve: 'Approve',
+        reject: 'Reject',
+        notePlaceholder: 'Optional note for the author (8+ characters recommended).',
+        ratingLabel: '{rating} pts',
+        authorLabel: 'Submitted by: {author}',
+        createdLabel: 'Submitted at: {time}'
       }
     }
   }
@@ -1172,7 +1296,7 @@ const serverMessageKeyMap = Object.freeze({
 
 const containsCJK = (text) => /[\u3400-\u9FFF]/.test(text);
 
-const currentLocale = computed(() => settings.language || 'zh');
+const currentLocale = computed(() => (activeTab.value === 'home' ? settings.language || 'zh' : 'zh'));
 
 const translateServerMessage = (message, fallbackKey) => {
   if (!message) {
@@ -1259,6 +1383,10 @@ const applyLanguage = (language) => {
   document.documentElement.setAttribute('lang', langCode);
 };
 
+const updateDocumentLanguage = () => {
+  applyLanguage(currentLocale.value);
+};
+
 watch(
   () => settings.theme,
   (theme) => {
@@ -1279,15 +1407,22 @@ watch(
 
 watch(
   () => settings.language,
-  (lang) => {
-    applyLanguage(lang);
+  () => {
     persistSettings();
+    updateDocumentLanguage();
   },
   { immediate: true }
 );
 
+watch(
+  () => activeTab.value,
+  () => {
+    updateDocumentLanguage();
+  }
+);
+
 const parentheses = computed(() =>
-  settings.language === 'en'
+  currentLocale.value === 'en'
     ? { left: '(', right: ')' }
     : { left: '（', right: '）' }
 );
@@ -1487,6 +1622,10 @@ const pendingReviewHouses = computed(() =>
 
 const reviewLoading = computed(() => loading.value || adminLoading.value);
 
+const pendingHouseReviews = computed(() =>
+  houseReviews.value.filter((review) => review.status === 'PENDING')
+);
+
 const navigationTabs = computed(() => {
   const tabs = [{ value: 'home', label: t('nav.home') }];
   tabs.push({
@@ -1496,6 +1635,7 @@ const navigationTabs = computed(() => {
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: t('nav.manage') });
   }
+  tabs.push({ value: 'feedback', label: t('nav.feedback') });
   if (canAccessOrders.value) {
     tabs.push({ value: 'orders', label: t('nav.orders') });
   }
@@ -1542,6 +1682,14 @@ watch(
     dismissedUrgentTaskKeys.value = restoreDismissedUrgentTasks(username);
   },
   { immediate: true }
+);
+
+watch(
+  houseReviews,
+  (reviews) => {
+    persistHouseReviews(reviews);
+  },
+  { deep: true }
 );
 
 const switchTab = (tab) => {
@@ -1595,6 +1743,71 @@ const persistDismissedUrgentTasks = (username, keys) => {
   } catch (error) {
     console.warn('Failed to persist urgent task preferences:', error);
   }
+};
+
+const loadStoredReviews = () => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(reviewStorageKey);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => ({
+          ...item,
+          status: item.status === 'APPROVED' || item.status === 'REJECTED' ? item.status : 'PENDING'
+        }))
+        .filter((item) => item && item.id && item.houseId && item.content);
+    }
+  } catch (error) {
+    console.warn('Failed to restore stored reviews:', error);
+  }
+  return [];
+};
+
+const persistHouseReviews = (reviews) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(reviewStorageKey, JSON.stringify(reviews));
+  } catch (error) {
+    console.warn('Failed to persist review data:', error);
+  }
+};
+
+houseReviews.value = loadStoredReviews();
+
+const syncReviewHouseTitles = () => {
+  if (!Array.isArray(houses.value) || houses.value.length === 0) {
+    return;
+  }
+  const map = new Map(
+    houses.value.filter((house) => house?.id != null).map((house) => [String(house.id), house])
+  );
+  let updated = false;
+  houseReviews.value = houseReviews.value.map((review) => {
+    const house = map.get(String(review.houseId));
+    if (house && house.title && review.houseTitle !== house.title) {
+      updated = true;
+      return { ...review, houseTitle: house.title };
+    }
+    return review;
+  });
+  if (updated) {
+    persistHouseReviews(houseReviews.value);
+  }
+};
+
+const generateReviewId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
 const normalizeHouse = (house) => ({
@@ -1651,6 +1864,7 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     }
     const { data } = await client.get('/houses', { params });
     houses.value = data.map(normalizeHouse);
+    syncReviewHouseTitles();
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadHouses');
   } finally {
@@ -2215,6 +2429,13 @@ const handleUrgentTaskRead = (taskKey) => {
   persistDismissedUrgentTasks(username, updated);
 };
 
+const handleUrgentTaskNavigate = (task) => {
+  if (!task) {
+    return;
+  }
+  activeTab.value = 'orders';
+};
+
 const handleReserve = async (house) => {
   if (!isBuyer.value) {
     messages.error = t('errors.reserveBuyerOnly');
@@ -2424,6 +2645,87 @@ const handleReview = async ({ houseId, status }) => {
   }
 };
 
+const handleSubmitHouseReview = (payload) => {
+  if (!currentUser.value) {
+    messages.error = t('errors.reviewLoginRequired');
+    messages.success = '';
+    return;
+  }
+  const houseId = payload?.houseId;
+  const rating = Number(payload?.rating ?? 0);
+  const content = typeof payload?.content === 'string' ? payload.content.trim() : '';
+  if (!houseId) {
+    messages.error = t('errors.reviewHouseMissing');
+    messages.success = '';
+    return;
+  }
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    messages.error = t('reviews.validation.ratingRequired');
+    messages.success = '';
+    return;
+  }
+  if (content.length < 8) {
+    messages.error = t('errors.reviewContentTooShort');
+    messages.success = '';
+    return;
+  }
+  const normalizedHouseId = String(houseId);
+  const targetHouse = houses.value.find((item) => String(item.id) === normalizedHouseId);
+  if (!targetHouse) {
+    messages.error = t('errors.reviewHouseMissing');
+    messages.success = '';
+    return;
+  }
+  const review = {
+    id: generateReviewId(),
+    houseId: normalizedHouseId,
+    houseTitle: targetHouse.title ?? '',
+    rating: Math.round(rating),
+    content,
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+    authorUsername: currentUser.value.username,
+    authorDisplayName: currentUser.value.displayName ?? currentUser.value.username,
+    moderatedAt: null,
+    moderatedBy: '',
+    moderationNote: ''
+  };
+  houseReviews.value = [review, ...houseReviews.value];
+  messages.error = '';
+  messages.success = t('success.reviewSubmitted');
+};
+
+const handleModerateHouseReview = ({ reviewId, status, note }) => {
+  if (!isAdmin.value || !currentUser.value) {
+    messages.error = t('errors.reviewModerationDenied');
+    messages.success = '';
+    return;
+  }
+  const targetIndex = houseReviews.value.findIndex((item) => item.id === reviewId);
+  if (targetIndex === -1) {
+    messages.error = t('errors.reviewNotFound');
+    messages.success = '';
+    return;
+  }
+  const normalizedStatus = status === 'APPROVED' ? 'APPROVED' : 'REJECTED';
+  const moderationNote = typeof note === 'string' ? note.trim() : '';
+  const updatedReview = {
+    ...houseReviews.value[targetIndex],
+    status: normalizedStatus,
+    moderatedAt: new Date().toISOString(),
+    moderatedBy: currentUser.value.username,
+    moderationNote
+  };
+  const updated = [...houseReviews.value];
+  updated.splice(targetIndex, 1, updatedReview);
+  houseReviews.value = updated;
+  messages.error = '';
+  messages.success =
+    normalizedStatus === 'APPROVED'
+      ? t('success.reviewModeratedApproved')
+      : t('success.reviewModeratedRejected');
+};
+
 const loadAdminOrders = async ({ silent = false } = {}) => {
   if (!isAdmin.value || !currentUser.value) {
     adminPendingOrders.value = [];
@@ -2593,14 +2895,15 @@ onMounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  margin: 2.75rem auto;
-  max-width: 1260px;
-  padding: 2.25rem;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  padding: clamp(2rem, 4vw, 3.5rem);
   gap: 2rem;
   background: var(--gradient-surface);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-lg);
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
   backdrop-filter: blur(var(--glass-blur));
   position: relative;
   overflow: hidden;
@@ -2858,7 +3161,13 @@ onMounted(() => {
 .orders-grid {
   display: grid;
   gap: 1.6rem;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  align-items: stretch;
+}
+
+.manage-grid > *,
+.orders-grid > * {
+  height: 100%;
 }
 
 .admin-panels {
@@ -2930,9 +3239,16 @@ onMounted(() => {
   border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
+@media (min-width: 1280px) {
+  .manage-grid,
+  .orders-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1024px) {
   .app {
-    margin: 2rem;
+    margin: 0;
     padding: 1.75rem;
   }
 
@@ -2975,8 +3291,8 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .app {
-    margin: 1.35rem;
-    padding: 1.4rem;
+    margin: 0;
+    padding: 1.25rem;
   }
 
   .header {

@@ -23,6 +23,9 @@
           {{ t('orders.urgent.upcomingViewing', { time: task.timeLabel }) }}
         </p>
         <div class="task-actions">
+          <button type="button" class="open" @click="openTask(task)">
+            {{ t('orders.urgent.openTarget') }}
+          </button>
           <button type="button" class="mark-read" @click="markRead(task)">
             {{ t('orders.urgent.markRead') }}
           </button>
@@ -35,7 +38,7 @@
 <script setup>
 import { computed, inject } from 'vue';
 
-const emit = defineEmits(['mark-read']);
+const emit = defineEmits(['mark-read', 'navigate']);
 
 const props = defineProps({
   tasks: {
@@ -75,6 +78,13 @@ const markRead = (task) => {
     return;
   }
   emit('mark-read', String(key));
+};
+
+const openTask = (task) => {
+  if (!task) {
+    return;
+  }
+  emit('navigate', task);
 };
 </script>
 
@@ -186,6 +196,26 @@ const markRead = (task) => {
 .task-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.open {
+  border: none;
+  background: var(--gradient-primary);
+  color: var(--color-text-on-emphasis);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  transition: transform var(--transition-base), box-shadow var(--transition-base),
+    opacity var(--transition-base);
+}
+
+.open:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.28);
 }
 
 .mark-read {

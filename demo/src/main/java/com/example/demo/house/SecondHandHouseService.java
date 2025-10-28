@@ -101,14 +101,15 @@ public class SecondHandHouseService {
         existing.setInstallmentMonths(updatedHouse.getInstallmentMonths());
         existing.setArea(updatedHouse.getArea());
         existing.setDescription(updatedHouse.getDescription());
+        existing.setLatitude(updatedHouse.getLatitude());
+        existing.setLongitude(updatedHouse.getLongitude());
         existing.setSellerUsername(updatedHouse.getSellerUsername());
         existing.setSellerName(updatedHouse.getSellerName());
         existing.setContactNumber(updatedHouse.getContactNumber());
         existing.setListingDate(updatedHouse.getListingDate());
         existing.setFloor(updatedHouse.getFloor());
         existing.setKeywords(updatedHouse.getKeywords());
-        existing.getImageUrls().clear();
-        existing.getImageUrls().addAll(updatedHouse.getImageUrls());
+        existing.setImageUrls(updatedHouse.getImageUrls());
         ensureCertificateProvided(updatedHouse);
         existing.setPropertyCertificateUrl(updatedHouse.getPropertyCertificateUrl());
         existing.setStatus(ListingStatus.PENDING_REVIEW);
@@ -116,6 +117,25 @@ public class SecondHandHouseService {
         existing.setReviewedBy(null);
         existing.setReviewMessage(null);
         return repository.save(existing);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HouseLocationView> listLocations(Double centerLat,
+                                                 Double centerLng,
+                                                 Double radiusKm,
+                                                 String requesterUsername) {
+        UserAccount requester = resolveRequester(requesterUsername);
+        Double sanitizedLat = sanitizeCoordinate(centerLat, -90d, 90d);
+        Double sanitizedLng = sanitizeCoordinate(centerLng, -180d, 180d);
+        Double sanitizedRadius = radiusKm != null && Double.isFinite(radiusKm) && radiusKm > 0
+                ? radiusKm
+                : null;
+        return repository.findAll().stream()
+                .filter(this::hasCoordinates)
+                .filter(house -> isVisibleToRequester(house, requester))
+                .filter(house -> isWithinRadius(house, sanitizedLat, sanitizedLng, sanitizedRadius))
+                .map(HouseLocationView::fromEntity)
+                .toList();
     }
 
     public void delete(Long id, String requesterUsername) {
@@ -163,9 +183,10 @@ public class SecondHandHouseService {
 
     @Scheduled(cron = "0 0 3 * * ?")
     public void removeStaleListings() {
-        int removed = cleanupStaleListings();
-        if (removed > 0) {
-            log.info("自动清理 {} 套超过一个月无人购买的房源", removed);
+        int staleRemoved = cleanupStaleListings();
+        int delistedRemoved = cleanupDelistedListings();
+        if (staleRemoved > 0 || delistedRemoved > 0) {
+            log.info("自动清理 {} 套超过一个月无人购买的房源，移除 {} 套已下架房源", staleRemoved, delistedRemoved);
         }
     }
 
@@ -180,6 +201,15 @@ public class SecondHandHouseService {
             repository.deleteAll(toRemove);
         }
         return toRemove.size();
+    }
+
+    public int cleanupDelistedListings() {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(7);
+        List<SecondHandHouse> soldListings = repository.findByStatusAndUpdatedAtBefore(ListingStatus.SOLD, cutoff);
+        if (!soldListings.isEmpty()) {
+            repository.deleteAll(soldListings);
+        }
+        return soldListings.size();
     }
 
     private SecondHandHouseView buildViewForRequester(SecondHandHouse house, UserAccount requester) {
@@ -246,6 +276,54 @@ public class SecondHandHouseService {
         boolean greaterThanMin = min == null || value.compareTo(min) >= 0;
         boolean lessThanMax = max == null || value.compareTo(max) <= 0;
         return greaterThanMin && lessThanMax;
+    }
+
+    private boolean hasCoordinates(SecondHandHouse house) {
+        return house != null
+                && house.getLatitude() != null
+                && house.getLongitude() != null
+                && Double.isFinite(house.getLatitude())
+                && Double.isFinite(house.getLongitude());
+    }
+
+    private boolean isWithinRadius(SecondHandHouse house,
+                                   Double centerLat,
+                                   Double centerLng,
+                                   Double radiusKm) {
+        if (radiusKm == null || centerLat == null || centerLng == null) {
+            return true;
+        }
+        if (!hasCoordinates(house)) {
+            return false;
+        }
+        double distance = haversineDistanceKm(centerLat, centerLng, house.getLatitude(), house.getLongitude());
+        return distance <= radiusKm;
+    }
+
+    private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
+        final double earthRadiusKm = 6371.0088d;
+        double latRad1 = Math.toRadians(lat1);
+        double latRad2 = Math.toRadians(lat2);
+        double deltaLat = Math.toRadians(lat2 - lat1);
+        double deltaLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+    }
+
+    private Double sanitizeCoordinate(Double value, double min, double max) {
+        if (value == null) {
+            return null;
+        }
+        double number = value;
+        if (!Double.isFinite(number)) {
+            return null;
+        }
+        if (number < min || number > max) {
+            return null;
+        }
+        return number;
     }
 
     private void validateSellerAccount(String sellerUsername) {

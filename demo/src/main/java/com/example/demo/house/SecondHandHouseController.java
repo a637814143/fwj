@@ -39,6 +39,14 @@ public class SecondHandHouseController {
         return service.search(keyword, minPrice, maxPrice, minArea, maxArea, requesterUsername);
     }
 
+    @GetMapping("/locations")
+    public List<HouseLocationView> locations(@RequestParam(value = "centerLat", required = false) Double centerLat,
+                                             @RequestParam(value = "centerLng", required = false) Double centerLng,
+                                             @RequestParam(value = "radiusKm", required = false) Double radiusKm,
+                                             @RequestParam(value = "requester", required = false) String requesterUsername) {
+        return service.listLocations(centerLat, centerLng, radiusKm, requesterUsername);
+    }
+
     @GetMapping("/{id}")
     public SecondHandHouseView get(@PathVariable Long id,
                                    @RequestParam(value = "requester", required = false) String requesterUsername) {

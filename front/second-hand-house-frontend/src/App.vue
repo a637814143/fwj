@@ -597,6 +597,8 @@ const translations = {
         fields: {
           title: '房源标题',
           address: '房源地址',
+          latitude: '纬度（可选）',
+          longitude: '经度（可选）',
           price: '房源总价（元）',
           downPayment: '首付款（元）',
           area: '建筑面积（㎡）',
@@ -615,6 +617,8 @@ const translations = {
         placeholders: {
           title: '请输入房源标题',
           address: '请输入房源地址',
+          latitude: '例如 31.2304',
+          longitude: '例如 121.4737',
           price: '例如 2000000',
           downPayment: '例如 600000',
           area: '例如 89',
@@ -632,7 +636,8 @@ const translations = {
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
           noImages: '尚未上传图片。',
-          propertyCertificate: '请上传房产证件的清晰照片或 PDF 扫描件，仅管理员审核可见。'
+          propertyCertificate: '请上传房产证件的清晰照片或 PDF 扫描件，仅管理员审核可见。',
+          locationHint: '填写经纬度后地图功能可立即定位房源。'
         },
         actions: {
           upload: '上传图片',
@@ -666,7 +671,10 @@ const translations = {
           area: '请输入有效的建筑面积。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
           installmentMonths: '分期期限必须大于0。',
-          propertyCertificate: '请先上传房产证件凭证。'
+          propertyCertificate: '请先上传房产证件凭证。',
+          coordinatePair: '经纬度需同时填写或同时留空。',
+          latitudeRange: '请输入 -90 至 90 之间的纬度。',
+          longitudeRange: '请输入 -180 至 180 之间的经度。'
         }
       },
       list: {
@@ -1525,6 +1533,8 @@ const translations = {
         fields: {
           title: 'Listing title',
           address: 'Listing address',
+          latitude: 'Latitude (optional)',
+          longitude: 'Longitude (optional)',
           price: 'Total price (CNY)',
           downPayment: 'Down payment (CNY)',
           area: 'Floor area (㎡)',
@@ -1543,6 +1553,8 @@ const translations = {
         placeholders: {
           title: 'Enter listing title',
           address: 'Enter listing address',
+          latitude: 'e.g. 31.2304',
+          longitude: 'e.g. 121.4737',
           price: 'e.g. 2000000',
           downPayment: 'e.g. 600000',
           area: 'e.g. 89',
@@ -1560,7 +1572,8 @@ const translations = {
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
           noImages: 'No images uploaded yet.',
-          propertyCertificate: 'Upload a clear photo or PDF scan of the ownership certificate. Only administrators can access it during review.'
+          propertyCertificate: 'Upload a clear photo or PDF scan of the ownership certificate. Only administrators can access it during review.',
+          locationHint: 'Provide coordinates so the location map can highlight this listing precisely.'
         },
         actions: {
           upload: 'Upload images',
@@ -1594,7 +1607,10 @@ const translations = {
           area: 'Enter a valid floor area.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
           installmentMonths: 'The instalment term must be greater than zero.',
-          propertyCertificate: 'Please upload the property certificate before submitting.'
+          propertyCertificate: 'Please upload the property certificate before submitting.',
+          coordinatePair: 'Latitude and longitude must both be provided or both left blank.',
+          latitudeRange: 'Latitude must stay between -90 and 90 degrees.',
+          longitudeRange: 'Longitude must stay between -180 and 180 degrees.'
         }
       },
       list: {
@@ -2825,6 +2841,8 @@ const normalizeHouse = (house) => ({
   installmentMonthlyPayment:
     house?.installmentMonthlyPayment != null ? Number(house.installmentMonthlyPayment) : null,
   installmentMonths: house?.installmentMonths != null ? Number(house.installmentMonths) : null,
+  latitude: house?.latitude != null ? Number(house.latitude) : null,
+  longitude: house?.longitude != null ? Number(house.longitude) : null,
   listingDate: house?.listingDate ?? '',
   imageUrls: Array.isArray(house?.imageUrls) ? house.imageUrls : [],
   keywords: Array.isArray(house?.keywords) ? house.keywords : [],

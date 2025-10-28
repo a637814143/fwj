@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS second_hand_houses (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
     address VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10,6),
+    longitude DECIMAL(10,6),
     price DECIMAL(15,2) NOT NULL,
     down_payment DECIMAL(15,2) NOT NULL,
     installment_monthly_payment DECIMAL(15,2) NOT NULL,

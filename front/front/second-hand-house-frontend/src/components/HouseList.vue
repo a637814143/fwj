@@ -2,7 +2,10 @@
   <div class="house-list">
     <div class="list-header">
       <h2>房源列表</h2>
-      <p>共 {{ houses.length }} 套房源</p>
+      <div class="list-meta">
+        <span class="stat-chip">共 {{ houses.length }} 套房源</span>
+        <span class="stat-chip muted">每页展示 {{ pageSize }} 套</span>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">数据加载中...</div>
@@ -29,7 +32,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="house in houses" :key="house.id">
+          <tr v-for="house in paginatedHouses" :key="house.id">
             <td>
               <button class="title-button" type="button" @click="openDetail(house)">
                 <strong>{{ house.title }}</strong>
@@ -74,11 +77,20 @@
     </div>
 
     <HouseDetailModal v-if="detailHouse" :house="detailHouse" @close="closeDetail" />
+
+    <div v-if="houses.length > pageSize" class="pagination">
+      <button type="button" class="page-btn" :disabled="!canGoPrev" @click="goPrev">上一页</button>
+      <div class="page-info">
+        <span>第 {{ currentPage }} / {{ totalPages }} 页</span>
+        <span>共 {{ houses.length }} 套</span>
+      </div>
+      <button type="button" class="page-btn" :disabled="!canGoNext" @click="goNext">下一页</button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, toRefs } from 'vue';
+import { computed, ref, toRefs, watch } from 'vue';
 import HouseDetailModal from './HouseDetailModal.vue';
 
 const props = defineProps({
@@ -108,10 +120,28 @@ const emit = defineEmits(['edit', 'remove', 'purchase', 'view']);
 
 const { houses, loading, canManage } = toRefs(props);
 
+const pageSize = ref(6);
+const currentPage = ref(1);
+
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
 const buyerVerified = computed(() => props.currentUser?.realNameVerified === true);
 const purchaseDisabled = computed(() => props.ordersLoading || loading.value);
 const detailHouse = ref(null);
+
+const totalPages = computed(() => {
+  if (!houses.value.length) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(houses.value.length / pageSize.value));
+});
+
+const paginatedHouses = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return houses.value.slice(start, start + pageSize.value);
+});
+
+const canGoPrev = computed(() => currentPage.value > 1);
+const canGoNext = computed(() => currentPage.value < totalPages.value);
 
 const formatNumber = (value) => {
   if (value == null || value === '') {
@@ -186,77 +216,129 @@ const closeDetail = () => {
 defineExpose({
   openDetail
 });
+
+const goToPage = (page) => {
+  const normalized = Math.min(Math.max(page, 1), totalPages.value);
+  currentPage.value = normalized;
+};
+
+const goPrev = () => {
+  if (canGoPrev.value) {
+    goToPage(currentPage.value - 1);
+  }
+};
+
+const goNext = () => {
+  if (canGoNext.value) {
+    goToPage(currentPage.value + 1);
+  }
+};
+
+watch(
+  () => houses.value.length,
+  () => {
+    goToPage(1);
+  }
+);
+
+watch(totalPages, (value) => {
+  if (currentPage.value > value) {
+    currentPage.value = value;
+  }
+});
 </script>
 
 <style scoped>
 .house-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .list-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.list-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stat-chip {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.18);
+  color: #4338ca;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.stat-chip.muted {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
 }
 
 .loading,
 .empty {
-  padding: 2rem;
+  padding: 2.25rem;
   text-align: center;
   color: #475569;
-  background: #f8fafc;
-  border-radius: 1rem;
+  background: rgba(241, 245, 249, 0.8);
+  border-radius: 1.25rem;
+  border: 1px solid rgba(226, 232, 240, 0.7);
 }
 
 .table-wrapper {
   overflow-x: auto;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  border-radius: 1rem;
-  overflow: hidden;
-  background: #fff;
+  min-width: 860px;
 }
 
 thead {
-  background: #1d4ed8;
-  color: #fff;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(59, 130, 246, 0.2));
+  color: #0f172a;
 }
 
 th,
 td {
-  padding: 0.85rem 1rem;
+  padding: 0.95rem 1.1rem;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.7);
 }
 
 tbody tr:hover {
-  background: #f1f5f9;
+  background: rgba(191, 219, 254, 0.18);
 }
 
 .title-button {
   display: inline-flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
   align-items: center;
   background: none;
   border: none;
   padding: 0;
   margin: 0;
   font: inherit;
-  color: #1d4ed8;
+  color: #4338ca;
   cursor: pointer;
-}
-
-.title-button strong {
-  font-size: 1rem;
+  transition: transform 0.2s ease;
 }
 
 .title-button:hover,
 .title-button:focus {
+  transform: translateX(2px);
   text-decoration: underline;
 }
 
@@ -269,16 +351,17 @@ tbody tr:hover {
 .image-count {
   margin: 0.25rem 0 0;
   color: #0f172a;
-  font-size: 0.8rem;
-  background: #e0f2fe;
+  font-size: 0.78rem;
+  background: rgba(191, 219, 254, 0.6);
   display: inline-flex;
-  padding: 0.2rem 0.6rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
 }
 
 .actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .actions.muted {
@@ -287,22 +370,85 @@ tbody tr:hover {
 }
 
 .btn.small {
-  padding: 0.4rem 0.8rem;
-  border-radius: 0.65rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.75rem;
   border: none;
-  background: #2563eb;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.9), rgba(59, 130, 246, 0.75));
   color: #fff;
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn.small:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(79, 70, 229, 0.25);
 }
 
 .btn.small.danger {
-  background: #ef4444;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.95), rgba(239, 68, 68, 0.9));
 }
 
 .btn.small:disabled,
 .btn.small.danger:disabled {
-  background: #cbd5f5;
-  color: #475569;
+  background: rgba(148, 163, 184, 0.45);
+  color: rgba(15, 23, 42, 0.6);
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.page-btn {
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(14, 165, 233, 0.7));
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.page-btn:disabled {
+  background: rgba(148, 163, 184, 0.4);
+  color: rgba(15, 23, 42, 0.6);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.page-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 15px rgba(59, 130, 246, 0.25);
+}
+
+.page-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+@media (max-width: 960px) {
+  table {
+    min-width: 100%;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-info {
+    flex-direction: row;
+    justify-content: space-between;
+  }
 }
 </style>

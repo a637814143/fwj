@@ -38,10 +38,31 @@ public class HouseImageController {
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
+    @PostMapping(value = "/certificates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadCertificate(@RequestParam("file") MultipartFile file) {
+        String filename = storageService.storeCertificate(file);
+        String url = "/api/houses/images/certificates/" + filename;
+        Map<String, String> body = Map.of(
+                "filename", filename,
+                "url", url
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
+    }
+
     @GetMapping("/{filename:.+}")
     public ResponseEntity<Resource> serve(@PathVariable String filename) {
         Resource resource = storageService.loadAsResource(filename);
         MediaType mediaType = storageService.detectMediaType(filename);
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+                .body(resource);
+    }
+
+    @GetMapping("/certificates/{filename:.+}")
+    public ResponseEntity<Resource> serveCertificate(@PathVariable String filename) {
+        Resource resource = storageService.loadCertificateAsResource(filename);
+        MediaType mediaType = storageService.detectCertificateMediaType(filename);
         return ResponseEntity.ok()
                 .contentType(mediaType)
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())

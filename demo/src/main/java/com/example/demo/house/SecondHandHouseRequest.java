@@ -30,7 +30,8 @@ public record SecondHandHouseRequest(
         @NotNull @PastOrPresent(message = "挂牌日期不能是未来日期") LocalDate listingDate,
         @PositiveOrZero(message = "楼层不能为负数") Integer floor,
         List<String> keywords,
-        List<String> imageUrls
+        List<String> imageUrls,
+        @NotBlank(message = "请上传房产证件照片或扫描件") @Size(max = 500, message = "证件链接长度不能超过500个字符") String propertyCertificateUrl
 ) {
     private static final BigDecimal PREMIUM_RATE = BigDecimal.valueOf(1.2);
 
@@ -94,6 +95,15 @@ public record SecondHandHouseRequest(
         house.setFloor(floor);
         house.setKeywords(sanitizeKeywords(keywords));
         house.setImageUrls(sanitizeImageUrls(imageUrls));
+        house.setPropertyCertificateUrl(sanitizeCertificateUrl(propertyCertificateUrl));
         return house;
+    }
+
+    private static String sanitizeCertificateUrl(String certificateUrl) {
+        if (certificateUrl == null) {
+            return null;
+        }
+        String trimmed = certificateUrl.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

@@ -1,5 +1,5 @@
 <template>
-  <section class="verification" v-if="currentUser">
+  <section v-if="currentUser" :class="['verification', { inline }]">
     <header>
       <h2>{{ t('verify.panel.title') }}</h2>
       <span :class="['status', currentUser.realNameVerified ? 'verified' : 'pending']">
@@ -77,6 +77,10 @@ const props = defineProps({
   currentUser: {
     type: Object,
     default: null
+  },
+  inline: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -175,6 +179,14 @@ const submit = async () => {
   gap: 1.2rem;
   border: 1px solid var(--color-border);
   backdrop-filter: blur(var(--glass-blur));
+}
+
+.verification.inline {
+  background: rgba(248, 250, 252, 0.92);
+}
+
+:global(body[data-theme='dark']) .verification.inline {
+  background: rgba(30, 41, 59, 0.45);
 }
 
 header {

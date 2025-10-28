@@ -69,6 +69,20 @@
         </div>
       </section>
 
+      <section v-if="showCertificate" class="certificate-block">
+        <h4>Property certificate</h4>
+        <div class="certificate-block__content">
+          <img
+            v-if="certificateIsImage"
+            :src="certificateUrl"
+            alt="Property certificate"
+          />
+          <a v-else :href="certificateUrl" target="_blank" rel="noopener">
+            View certificate document
+          </a>
+        </div>
+      </section>
+
       <footer class="modal__footer">
         <div class="contact">
           <span>Seller: {{ sellerName }}</span>
@@ -143,6 +157,14 @@ const statusClass = computed(() => {
 
 const keywordList = computed(() => (Array.isArray(props.house?.keywords) ? props.house.keywords : []));
 
+const certificateUrl = computed(() => {
+  const url = props.house?.propertyCertificateUrl;
+  return typeof url === 'string' ? url.trim() : '';
+});
+
+const certificateIsImage = computed(() => isImageUrl(certificateUrl.value));
+const showCertificate = computed(() => props.canViewSensitiveInfo && certificateUrl.value);
+
 const sellerName = computed(() => {
   if (props.canViewSensitiveInfo) {
     return props.house?.sellerName ?? '—';
@@ -166,6 +188,14 @@ function formatNumber(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
+}
+
+function isImageUrl(value) {
+  if (!value) {
+    return false;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp'].some((ext) => normalized.endsWith(ext));
 }
 
 function formatCurrency(value) {
@@ -351,6 +381,38 @@ function maskName(value) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.9rem;
+}
+
+.certificate-block {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.85rem;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  background: rgba(248, 250, 252, 0.75);
+}
+
+.certificate-block__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.certificate-block__content img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: var(--shadow-sm);
+}
+
+.certificate-block__content a {
+  align-self: flex-start;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.certificate-block__content a:hover {
+  color: color-mix(in srgb, var(--color-primary) 80%, #1d4ed8);
 }
 
 .gallery__item {

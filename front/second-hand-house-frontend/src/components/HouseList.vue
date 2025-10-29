@@ -39,18 +39,6 @@
               <p class="image-count" v-if="house.imageUrls?.length">
                 {{ t('manage.list.photoCount', { count: house.imageUrls.length }) }}
               </p>
-              <p
-                v-if="house.propertyCertificateUrl && (canManage || isAdmin)"
-                class="certificate-indicator"
-              >
-                <a
-                  :href="house.propertyCertificateUrl"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  {{ t('manage.list.certificateAvailable') }}
-                </a>
-              </p>
             </td>
             <td class="price-cell">
               <span>{{ t('manage.list.pricing.full', { price: formatCurrency(house.price) }) }}</span>
@@ -210,6 +198,7 @@ const detailHouse = ref(null);
 const detailCanViewSensitive = ref(false);
 
 const listingStatusLabels = computed(() => ({
+  DRAFT: t('statuses.draft'),
   PENDING_REVIEW: t('statuses.pending'),
   APPROVED: t('statuses.approved'),
   REJECTED: t('statuses.rejected'),
@@ -417,6 +406,8 @@ const statusLabel = (house) => listingStatusLabels.value[house?.status] ?? t('st
 
 const statusClass = (house) => {
   switch (house?.status) {
+    case 'DRAFT':
+      return 'draft';
     case 'APPROVED':
       return 'approved';
     case 'REJECTED':
@@ -542,21 +533,6 @@ tbody tr:hover {
   font-size: 0.85rem;
 }
 
-.certificate-indicator {
-  margin: 0.3rem 0 0;
-  font-size: 0.85rem;
-}
-
-.certificate-indicator a {
-  color: var(--color-primary);
-  text-decoration: underline;
-  font-weight: 600;
-}
-
-.certificate-indicator a:hover {
-  color: color-mix(in srgb, var(--color-primary) 80%, #1d4ed8);
-}
-
 .price-cell {
   display: flex;
   flex-direction: column;
@@ -579,6 +555,11 @@ tbody tr:hover {
   color: #92400e;
 }
 
+.status.draft {
+  background: rgba(219, 234, 254, 0.6);
+  color: #1d4ed8;
+}
+
 .status.approved {
   background: rgba(34, 197, 94, 0.18);
   color: #166534;
@@ -598,6 +579,11 @@ tbody tr:hover {
 :global(body[data-theme='dark']) :deep(.house-list .status.pending) {
   background: rgba(253, 224, 71, 0.16);
   color: #facc15;
+}
+
+:global(body[data-theme='dark']) :deep(.house-list .status.draft) {
+  background: rgba(37, 99, 235, 0.16);
+  color: #93c5fd;
 }
 
 :global(body[data-theme='dark']) :deep(.house-list .status.approved) {

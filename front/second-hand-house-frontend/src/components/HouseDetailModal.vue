@@ -69,20 +69,6 @@
         </div>
       </section>
 
-      <section v-if="showCertificate" class="certificate-block">
-        <h4>Property certificate</h4>
-        <div class="certificate-block__content">
-          <img
-            v-if="certificateIsImage"
-            :src="certificateUrl"
-            alt="Property certificate"
-          />
-          <a v-else :href="certificateUrl" target="_blank" rel="noopener">
-            View certificate document
-          </a>
-        </div>
-      </section>
-
       <footer class="modal__footer">
         <div class="contact">
           <span>Seller: {{ sellerName }}</span>
@@ -135,6 +121,7 @@ const formattedFloor = computed(() => {
 });
 
 const listingStatusLabels = {
+  DRAFT: 'Draft',
   PENDING_REVIEW: 'Pending review',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
@@ -144,6 +131,8 @@ const listingStatusLabels = {
 const statusLabel = computed(() => listingStatusLabels[props.house?.status] ?? 'Pending review');
 const statusClass = computed(() => {
   switch (props.house?.status) {
+    case 'DRAFT':
+      return 'draft';
     case 'APPROVED':
       return 'approved';
     case 'REJECTED':
@@ -156,14 +145,6 @@ const statusClass = computed(() => {
 });
 
 const keywordList = computed(() => (Array.isArray(props.house?.keywords) ? props.house.keywords : []));
-
-const certificateUrl = computed(() => {
-  const url = props.house?.propertyCertificateUrl;
-  return typeof url === 'string' ? url.trim() : '';
-});
-
-const certificateIsImage = computed(() => isImageUrl(certificateUrl.value));
-const showCertificate = computed(() => props.canViewSensitiveInfo && certificateUrl.value);
 
 const sellerName = computed(() => {
   if (props.canViewSensitiveInfo) {
@@ -188,14 +169,6 @@ function formatNumber(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
-}
-
-function isImageUrl(value) {
-  if (!value) {
-    return false;
-  }
-  const normalized = String(value).trim().toLowerCase();
-  return ['.png', '.jpg', '.jpeg', '.gif', '.webp'].some((ext) => normalized.endsWith(ext));
 }
 
 function formatCurrency(value) {
@@ -383,38 +356,6 @@ function maskName(value) {
   gap: 0.9rem;
 }
 
-.certificate-block {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border-radius: 0.85rem;
-  border: 1px dashed rgba(148, 163, 184, 0.45);
-  background: rgba(248, 250, 252, 0.75);
-}
-
-.certificate-block__content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.certificate-block__content img {
-  max-width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: var(--shadow-sm);
-}
-
-.certificate-block__content a {
-  align-self: flex-start;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-
-.certificate-block__content a:hover {
-  color: color-mix(in srgb, var(--color-primary) 80%, #1d4ed8);
-}
-
 .gallery__item {
   display: flex;
   flex-direction: column;
@@ -473,6 +414,11 @@ function maskName(value) {
   color: #92400e;
 }
 
+.status-chip.draft {
+  background: rgba(219, 234, 254, 0.6);
+  color: #1d4ed8;
+}
+
 .status-chip.approved {
   background: rgba(34, 197, 94, 0.18);
   color: #166534;
@@ -491,6 +437,11 @@ function maskName(value) {
 :global(body[data-theme='dark']) :deep(.status-chip.pending) {
   background: rgba(253, 224, 71, 0.18);
   color: #facc15;
+}
+
+:global(body[data-theme='dark']) :deep(.status-chip.draft) {
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
 }
 
 :global(body[data-theme='dark']) :deep(.status-chip.approved) {

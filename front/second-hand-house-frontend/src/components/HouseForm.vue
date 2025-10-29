@@ -153,6 +153,23 @@
           :disabled="disabled"
         />
       </label>
+
+      <label class="certificate-field">
+        {{ t('manage.form.fields.propertyCertificate') }}
+        <input
+          v-model.trim="form.propertyCertificateUrl"
+          type="url"
+          required
+          :placeholder="t('manage.form.placeholders.propertyCertificate')"
+          :disabled="disabled"
+        />
+        <small class="hint">{{ t('manage.form.hints.propertyCertificate') }}</small>
+        <p v-if="certificateLink" class="certificate-actions">
+          <a :href="certificateLink" target="_blank" rel="noopener">
+            {{ t('manage.form.actions.openCertificate') }}
+          </a>
+        </p>
+      </label>
     </div>
 
     <label class="block">
@@ -371,7 +388,8 @@ const form = reactive({
   floor: '',
   installmentMonthlyPayment: '',
   installmentMonths: '',
-  imageUrls: []
+  imageUrls: [],
+  propertyCertificateUrl: ''
 });
 
 const keywordInput = ref('');
@@ -414,6 +432,8 @@ const sanitizedImageUrls = computed(() =>
     .filter((url) => url.length > 0)
 );
 
+const certificateLink = computed(() => resolveAssetUrl(form.propertyCertificateUrl));
+
 const formHasContent = computed(() => {
   return Boolean(
     form.title ||
@@ -429,6 +449,7 @@ const formHasContent = computed(() => {
       form.floor ||
       form.installmentMonthlyPayment ||
       form.installmentMonths ||
+      form.propertyCertificateUrl ||
       keywordInput.value ||
       form.imageUrls.length
   );
@@ -534,6 +555,7 @@ const setFormDefaults = () => {
   form.installmentMonthlyPayment = '';
   form.installmentMonths = '';
   applyImageUrls();
+  form.propertyCertificateUrl = '';
   keywordInput.value = '';
   formError.value = '';
   uploadError.value = '';
@@ -555,6 +577,7 @@ const fillFromHouse = (house) => {
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
+  form.propertyCertificateUrl = house.propertyCertificateUrl ?? '';
   keywordInput.value = Array.isArray(house.keywords)
     ? house.keywords.join(keywordSeparator.value)
     : '';
@@ -753,6 +776,10 @@ const validateForm = () => {
     formError.value = t('manage.form.validation.area');
     return false;
   }
+  if (!form.propertyCertificateUrl || !form.propertyCertificateUrl.trim()) {
+    formError.value = t('manage.form.validation.certificate');
+    return false;
+  }
   if (!ensurePositive(form.installmentMonthlyPayment)) {
     formError.value = t('manage.form.validation.installmentMonthly');
     return false;
@@ -795,7 +822,8 @@ const submitForm = () => {
     keywords: [...keywordsPreview.value],
     imageUrls: sanitizedImageUrls.value,
     installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
-    installmentMonths: normalizeNumber(form.installmentMonths)
+    installmentMonths: normalizeNumber(form.installmentMonths),
+    propertyCertificateUrl: certificateLink.value
   };
   emit('submit', payload);
 };
@@ -952,6 +980,24 @@ textarea:focus {
   background: rgba(59, 130, 246, 0.12);
   color: #1d4ed8;
   font-size: 0.9rem;
+}
+
+.certificate-field .hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.certificate-actions {
+  font-size: 0.85rem;
+}
+
+.certificate-actions a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.certificate-actions a:hover {
+  text-decoration: underline;
 }
 
 .images-section {

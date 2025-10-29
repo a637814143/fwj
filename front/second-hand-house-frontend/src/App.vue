@@ -694,7 +694,8 @@ const translations = {
           floor: '楼层（可选）',
           description: '房源描述',
           keywords: '房源关键词',
-          images: '房源图片'
+          images: '房源图片',
+          propertyCertificate: '房产证件链接'
         },
         placeholders: {
           title: '请输入房源标题',
@@ -709,13 +710,15 @@ const translations = {
           contactNumber: '请输入联系电话',
           floor: '例如 10',
           description: '补充房源亮点或其他信息',
-          keywords: '例如 市中心、近地铁、朝南'
+          keywords: '例如 市中心、近地铁、朝南',
+          propertyCertificate: '请输入房产证件链接（支持外部链接或相对路径）'
         },
         hints: {
           installmentCalculation: '系统会根据首付与分期设置自动预估月供。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
-          noImages: '尚未上传图片。'
+          noImages: '尚未上传图片。',
+          propertyCertificate: '请确保链接可访问，便于审核与买家核验房源。'
         },
         actions: {
           upload: '上传图片',
@@ -724,7 +727,8 @@ const translations = {
           submitting: '提交中…',
           submitCreate: '提交审核',
           submitEdit: '保存修改',
-          cancel: '取消'
+          cancel: '取消',
+          openCertificate: '打开证件链接'
         },
         imageAlt: '房源图片 {index}',
         upload: {
@@ -742,6 +746,7 @@ const translations = {
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
           area: '请输入有效的建筑面积。',
+          certificate: '请填写房产证件链接，确保可访问。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
           installmentMonths: '分期期限必须大于0。'
         }
@@ -1710,7 +1715,8 @@ const translations = {
           floor: 'Floor (optional)',
           description: 'Listing description',
           keywords: 'Keywords',
-          images: 'Listing photos'
+          images: 'Listing photos',
+          propertyCertificate: 'Ownership certificate link'
         },
         placeholders: {
           title: 'Enter listing title',
@@ -1725,13 +1731,15 @@ const translations = {
           contactNumber: 'Enter contact number',
           floor: 'e.g. 10',
           description: 'Highlight selling points or additional details',
-          keywords: 'e.g. city centre, subway nearby, south-facing'
+          keywords: 'e.g. city centre, subway nearby, south-facing',
+          propertyCertificate: 'Provide a link to the ownership certificate (URL or relative path)'
         },
         hints: {
           installmentCalculation: 'The system estimates the monthly instalment based on your down payment and term.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
-          noImages: 'No images uploaded yet.'
+          noImages: 'No images uploaded yet.',
+          propertyCertificate: 'Ensure the link is accessible so reviewers and buyers can verify the listing.'
         },
         actions: {
           upload: 'Upload images',
@@ -1740,7 +1748,8 @@ const translations = {
           submitting: 'Submitting…',
           submitCreate: 'Submit for review',
           submitEdit: 'Save changes',
-          cancel: 'Cancel'
+          cancel: 'Cancel',
+          openCertificate: 'Open certificate link'
         },
         imageAlt: 'Listing image {index}',
         upload: {
@@ -1758,6 +1767,7 @@ const translations = {
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
           area: 'Enter a valid floor area.',
+          certificate: 'Please provide an accessible ownership certificate link.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
           installmentMonths: 'The instalment term must be greater than zero.'
         }

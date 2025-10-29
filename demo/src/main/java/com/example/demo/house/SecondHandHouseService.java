@@ -369,6 +369,10 @@ public class SecondHandHouseService {
         String cityHint = resolveCityHint(address);
         Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, cityHint);
         if (coordinate.isEmpty()) {
+            coordinate = geocodingClient.searchPlace(address, cityHint)
+                    .map(place -> new GaodeGeocodingClient.Coordinate(place.latitude(), place.longitude()));
+        }
+        if (coordinate.isEmpty()) {
             if (requireFreshLookup) {
                 house.setLatitude(null);
                 house.setLongitude(null);
@@ -426,6 +430,28 @@ public class SecondHandHouseService {
     public Optional<GaodeGeocodingClient.PlaceSuggestion> searchMapLocation(String query, String cityHint) {
         if (query == null || query.isBlank()) {
             return Optional.empty();
+        }
+        String normalizedQuery = normalize(query);
+        Optional<GaodeGeocodingClient.PlaceSuggestion> storedCoordinate = repository.findAll().stream()
+                .filter(house -> normalize(house.getAddress()).equals(normalizedQuery))
+                .map(house -> {
+                    Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+                    Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+                    if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+                        return null;
+                    }
+                    String name = house.getTitle() == null || house.getTitle().isBlank()
+                            ? query
+                            : house.getTitle();
+                    String address = house.getAddress() == null || house.getAddress().isBlank()
+                            ? query
+                            : house.getAddress();
+                    return new GaodeGeocodingClient.PlaceSuggestion(name, address, latitude, longitude);
+                })
+                .filter(Objects::nonNull)
+                .findFirst();
+        if (storedCoordinate.isPresent()) {
+            return storedCoordinate;
         }
         String candidate = (cityHint == null || cityHint.isBlank()) ? resolveCityHint(query) : cityHint.trim();
         String effectiveCity = candidate == null ? null : sanitizeAdministrativeName(candidate);
@@ -573,15 +599,10 @@ public class SecondHandHouseService {
 
     private void ensureCertificateProvided(SecondHandHouse house) {
         String certificateUrl = house.getPropertyCertificateUrl();
-        if (certificateUrl == null) {
-            house.setPropertyCertificateUrl(null);
-            return;
+        if (certificateUrl == null || certificateUrl.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房产证件链接不能为空");
         }
         String trimmed = certificateUrl.trim();
-        if (trimmed.isEmpty()) {
-            house.setPropertyCertificateUrl(null);
-            return;
-        }
         if (trimmed.length() > 500) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房产证件链接长度超出限制");
         }

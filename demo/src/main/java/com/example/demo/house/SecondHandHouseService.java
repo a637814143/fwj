@@ -17,9 +17,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @Transactional
@@ -27,16 +31,23 @@ public class SecondHandHouseService {
 
     private static final Logger log = LoggerFactory.getLogger(SecondHandHouseService.class);
 
+    private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
+    private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
+    private static final Pattern COUNTY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}(?:县|区|旗))");
+
     private final SecondHandHouseRepository repository;
     private final UserAccountRepository userAccountRepository;
     private final HouseOrderRepository houseOrderRepository;
+    private final GaodeGeocodingClient geocodingClient;
 
     public SecondHandHouseService(SecondHandHouseRepository repository,
                                   UserAccountRepository userAccountRepository,
-                                  HouseOrderRepository houseOrderRepository) {
+                                  HouseOrderRepository houseOrderRepository,
+                                  GaodeGeocodingClient geocodingClient) {
         this.repository = repository;
         this.userAccountRepository = userAccountRepository;
         this.houseOrderRepository = houseOrderRepository;
+        this.geocodingClient = geocodingClient;
     }
 
     @Transactional(readOnly = true)
@@ -130,12 +141,19 @@ public class SecondHandHouseService {
         Double sanitizedRadius = radiusKm != null && Double.isFinite(radiusKm) && radiusKm > 0
                 ? radiusKm
                 : null;
-        return repository.findAll().stream()
-                .filter(this::hasCoordinates)
+        List<HouseLocationView> locations = repository.findAll().stream()
+                .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
-                .filter(house -> isWithinRadius(house, sanitizedLat, sanitizedLng, sanitizedRadius))
                 .map(HouseLocationView::fromEntity)
+                .filter(Objects::nonNull)
                 .toList();
+        if (sanitizedLat != null && sanitizedLng != null) {
+            return locations.stream()
+                    .filter(view -> isWithinRadius(view, sanitizedLat, sanitizedLng, sanitizedRadius))
+                    .sorted(Comparator.comparingDouble(view -> distanceToView(view, sanitizedLat, sanitizedLng)))
+                    .toList();
+        }
+        return locations;
     }
 
     public void delete(Long id, String requesterUsername) {
@@ -143,16 +161,31 @@ public class SecondHandHouseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "删除房源时必须提供操作用户。");
         }
         SecondHandHouse house = findById(id);
-        UserAccount requester = userAccountRepository.findByUsername(requesterUsername)
+        UserAccount requester = userAccountRepository.findByUsernameIgnoreCase(requesterUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "操作用户不存在"));
 
+        List<HouseOrder> relatedOrders = house.getId() == null
+                ? List.of()
+                : houseOrderRepository.findByHouse_Id(house.getId());
+
+        if (!relatedOrders.isEmpty() && requester.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "房源存在正在处理的订单，请联系管理员删除或完成相关流程。");
+        }
+
         if (requester.getRole() == UserRole.ADMIN) {
+            if (!relatedOrders.isEmpty()) {
+                houseOrderRepository.deleteAll(relatedOrders);
+                log.info("管理员 {} 删除房源 {} 时移除了 {} 条关联订单", requester.getUsername(), house.getId(), relatedOrders.size());
+            }
             repository.delete(house);
             return;
         }
 
         if (requester.getRole() != null && requester.getRole().isSellerRole()
                 && requester.getUsername().equalsIgnoreCase(house.getSellerUsername())) {
+            if (!relatedOrders.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "房源存在正在处理的订单，无法删除。");
+            }
             repository.delete(house);
             return;
         }
@@ -253,7 +286,7 @@ public class SecondHandHouseService {
         if (username == null || username.isBlank()) {
             return null;
         }
-        return userAccountRepository.findByUsername(username).orElse(null);
+        return userAccountRepository.findByUsernameIgnoreCase(username).orElse(null);
     }
 
     private boolean shouldMaskSensitive(SecondHandHouse house, UserAccount requester) {
@@ -286,18 +319,80 @@ public class SecondHandHouseService {
                 && Double.isFinite(house.getLongitude());
     }
 
-    private boolean isWithinRadius(SecondHandHouse house,
+    private boolean hasMappableAddress(SecondHandHouse house) {
+        if (house == null) {
+            return false;
+        }
+        String address = house.getAddress();
+        return address != null && !address.trim().isEmpty();
+    }
+
+    public Optional<GaodeGeocodingClient.PlaceSuggestion> searchMapLocation(String query, String cityHint) {
+        if (query == null || query.isBlank()) {
+            return Optional.empty();
+        }
+        String candidate = (cityHint == null || cityHint.isBlank()) ? resolveCityHint(query) : cityHint.trim();
+        String effectiveCity = candidate == null ? null : sanitizeAdministrativeName(candidate);
+        return geocodingClient.searchPlace(query, effectiveCity);
+    }
+
+    private boolean hasCoordinates(HouseLocationView view) {
+        return view != null
+                && view.latitude() != null
+                && view.longitude() != null
+                && Double.isFinite(view.latitude())
+                && Double.isFinite(view.longitude());
+    }
+
+    private boolean isWithinRadius(HouseLocationView view,
                                    Double centerLat,
                                    Double centerLng,
                                    Double radiusKm) {
         if (radiusKm == null || centerLat == null || centerLng == null) {
             return true;
         }
-        if (!hasCoordinates(house)) {
+        if (!hasCoordinates(view)) {
             return false;
         }
-        double distance = haversineDistanceKm(centerLat, centerLng, house.getLatitude(), house.getLongitude());
+        double distance = haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
         return distance <= radiusKm;
+    }
+
+    private String resolveCityHint(String address) {
+        if (address == null || address.isBlank()) {
+            return null;
+        }
+        String trimmed = address.replaceAll("\\s+", "").trim();
+        String municipality = findLastMatch(MUNICIPALITY_PATTERN, trimmed);
+        if (municipality != null) {
+            return municipality + "市";
+        }
+        String city = findLastMatch(CITY_PATTERN, trimmed);
+        if (city != null) {
+            return sanitizeAdministrativeName(city);
+        }
+        String county = findLastMatch(COUNTY_PATTERN, trimmed);
+        if (county != null) {
+            return sanitizeAdministrativeName(county);
+        }
+        return null;
+    }
+
+    private String findLastMatch(Pattern pattern, String input) {
+        Matcher matcher = pattern.matcher(input);
+        String candidate = null;
+        while (matcher.find()) {
+            candidate = matcher.group(1);
+        }
+        return candidate;
+    }
+
+    private String sanitizeAdministrativeName(String value) {
+        if (value == null) {
+            return null;
+        }
+        String sanitized = value.replaceAll("(自治州|地区|盟)", "").trim();
+        return sanitized.isEmpty() ? null : sanitized;
     }
 
     private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
@@ -310,6 +405,13 @@ public class SecondHandHouseService {
                 + Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return earthRadiusKm * c;
+    }
+
+    private double distanceToView(HouseLocationView view, double centerLat, double centerLng) {
+        if (!hasCoordinates(view)) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
     }
 
     private Double sanitizeCoordinate(Double value, double min, double max) {
@@ -330,7 +432,7 @@ public class SecondHandHouseService {
         if (sellerUsername == null || sellerUsername.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家账号不能为空");
         }
-        UserAccount seller = userAccountRepository.findByUsername(sellerUsername)
+        UserAccount seller = userAccountRepository.findByUsernameIgnoreCase(sellerUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
         if (!seller.getRole().isSellerRole() && seller.getRole() != UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是合法的卖家角色");
@@ -363,11 +465,13 @@ public class SecondHandHouseService {
     private void ensureCertificateProvided(SecondHandHouse house) {
         String certificateUrl = house.getPropertyCertificateUrl();
         if (certificateUrl == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先上传房产证件凭证");
+            house.setPropertyCertificateUrl(null);
+            return;
         }
         String trimmed = certificateUrl.trim();
         if (trimmed.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先上传房产证件凭证");
+            house.setPropertyCertificateUrl(null);
+            return;
         }
         if (trimmed.length() > 500) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房产证件链接长度超出限制");

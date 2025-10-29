@@ -1,0 +1,186 @@
+package com.example.demo.house;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Component
+public class GaodeGeocodingClient {
+
+    private static final Logger log = LoggerFactory.getLogger(GaodeGeocodingClient.class);
+
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper;
+    private final GaodeMapSettings settings;
+    private final Map<String, Optional<Coordinate>> cache = new ConcurrentHashMap<>();
+    private final Map<String, Optional<PlaceSuggestion>> searchCache = new ConcurrentHashMap<>();
+
+    public GaodeGeocodingClient(RestClient.Builder restClientBuilder,
+                                ObjectMapper objectMapper,
+                                GaodeMapSettings settings) {
+        this.restClient = restClientBuilder.baseUrl("https://restapi.amap.com/v3").build();
+        this.objectMapper = objectMapper;
+        this.settings = settings;
+    }
+
+    public boolean isEnabled() {
+        return settings != null && settings.hasApiKey();
+    }
+
+    public Optional<Coordinate> geocode(String address, String cityHint) {
+        if (!isEnabled()) {
+            return Optional.empty();
+        }
+        if (address == null || address.isBlank()) {
+            return Optional.empty();
+        }
+        String normalizedAddress = address.trim();
+        String cacheKey = normalizedAddress + "::" + (cityHint == null ? "" : cityHint.trim());
+        return cache.computeIfAbsent(cacheKey, key -> fetchCoordinate(normalizedAddress, cityHint));
+    }
+
+    private Optional<Coordinate> fetchCoordinate(String address, String cityHint) {
+        try {
+            RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
+                uriBuilder.path("/geocode/geo")
+                        .queryParam("key", settings.apiKey())
+                        .queryParam("address", address)
+                        .queryParam("output", "JSON")
+                        .queryParam("extensions", "base");
+                if (cityHint != null && !cityHint.isBlank()) {
+                    uriBuilder.queryParam("city", normalizeCityQuery(cityHint));
+                }
+                return uriBuilder.build();
+            });
+
+            String body = request.retrieve().body(String.class);
+            if (body == null || body.isBlank()) {
+                return Optional.empty();
+            }
+            JsonNode root = objectMapper.readTree(body);
+            if (!"1".equals(root.path("status").asText())) {
+                log.debug("Gaode geocode rejected address {} with status {} info {}", address,
+                        root.path("status").asText(), root.path("info").asText());
+                return Optional.empty();
+            }
+            JsonNode geocodes = root.path("geocodes");
+            if (!geocodes.isArray() || geocodes.isEmpty()) {
+                return Optional.empty();
+            }
+            String location = geocodes.get(0).path("location").asText();
+            if (location == null || location.isBlank() || !location.contains(",")) {
+                return Optional.empty();
+            }
+            String[] parts = location.split(",");
+            if (parts.length != 2) {
+                return Optional.empty();
+            }
+            double lng = Double.parseDouble(parts[0]);
+            double lat = Double.parseDouble(parts[1]);
+            if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
+                return Optional.empty();
+            }
+            return Optional.of(new Coordinate(lat, lng));
+        } catch (Exception ex) {
+            log.warn("Gaode geocode request failed for address {}: {}", address, ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public Optional<PlaceSuggestion> searchPlace(String keyword, String cityHint) {
+        if (!isEnabled()) {
+            return Optional.empty();
+        }
+        if (keyword == null || keyword.isBlank()) {
+            return Optional.empty();
+        }
+        String normalizedKeyword = keyword.trim();
+        String cacheKey = normalizedKeyword + "::" + (cityHint == null ? "" : cityHint.trim());
+        return searchCache.computeIfAbsent(cacheKey, key -> fetchPlace(normalizedKeyword, cityHint));
+    }
+
+    private Optional<PlaceSuggestion> fetchPlace(String keyword, String cityHint) {
+        try {
+            RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
+                uriBuilder.path("/place/text")
+                        .queryParam("key", settings.apiKey())
+                        .queryParam("keywords", keyword)
+                        .queryParam("page", 1)
+                        .queryParam("offset", 20)
+                        .queryParam("output", "JSON");
+                if (cityHint != null && !cityHint.isBlank()) {
+                    uriBuilder.queryParam("city", normalizeCityQuery(cityHint));
+                    uriBuilder.queryParam("citylimit", true);
+                }
+                return uriBuilder.build();
+            });
+
+            String body = request.retrieve().body(String.class);
+            if (body == null || body.isBlank()) {
+                return Optional.empty();
+            }
+            JsonNode root = objectMapper.readTree(body);
+            if (!"1".equals(root.path("status").asText())) {
+                log.debug("Gaode place search rejected keyword {} with status {} info {}", keyword,
+                        root.path("status").asText(), root.path("info").asText());
+                return Optional.empty();
+            }
+            JsonNode pois = root.path("pois");
+            if (!pois.isArray() || pois.isEmpty()) {
+                return Optional.empty();
+            }
+            JsonNode first = pois.get(0);
+            String location = first.path("location").asText();
+            if (location == null || location.isBlank() || !location.contains(",")) {
+                return Optional.empty();
+            }
+            String[] parts = location.split(",");
+            if (parts.length != 2) {
+                return Optional.empty();
+            }
+            double lng = Double.parseDouble(parts[0]);
+            double lat = Double.parseDouble(parts[1]);
+            if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
+                return Optional.empty();
+            }
+            String name = first.path("name").asText(null);
+            String address = first.path("address").asText(null);
+            if (address == null || address.isBlank()) {
+                String province = first.path("pname").asText("");
+                String city = first.path("cityname").asText("");
+                String adName = first.path("adname").asText("");
+                address = String.join("",
+                        province == null ? "" : province,
+                        city == null ? "" : city,
+                        adName == null ? "" : adName,
+                        first.path("address").asText(""));
+            }
+            return Optional.of(new PlaceSuggestion(name, address, lat, lng));
+        } catch (Exception ex) {
+            log.warn("Gaode place search failed for keyword {}: {}", keyword, ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private String normalizeCityQuery(String cityHint) {
+        String sanitized = cityHint.trim();
+        sanitized = sanitized.replaceAll("(自治州|地区|盟)", "");
+        if (sanitized.endsWith("市") || sanitized.endsWith("县") || sanitized.endsWith("区") || sanitized.endsWith("旗")) {
+            sanitized = sanitized.substring(0, sanitized.length() - 1);
+        }
+        return sanitized;
+    }
+
+    public record Coordinate(double latitude, double longitude) {
+    }
+
+    public record PlaceSuggestion(String name, String address, double latitude, double longitude) {
+    }
+}

@@ -82,14 +82,20 @@
           @reserve="handleReserve"
           @purchase="handlePurchase"
           @contact-seller="handleContactSeller"
+          @show-on-map="handleShowOnMap"
         />
 
         <HouseLocationViewer
           v-else-if="activeTab === 'locations'"
-          :houses="houses"
-          :loading="loading"
-          :updated-at="housesUpdatedAt"
+          :houses="houseLocations.length ? houseLocations : houses"
+          :loading="loading || locationLoading"
+          :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
+          :focus-key="locationFocusId"
+          :map-config="mapConfig"
+          :api-base-url="apiBaseUrl"
+          :search-query="locationSearchQuery"
           @refresh="fetchHouses({ silent: false })"
+          @viewport-change="handleLocationViewportChange"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -134,6 +140,16 @@
           @refresh="fetchHouses({ silent: false })"
           @review="handleReview"
           @delete-house="handleAdminDeleteRequest"
+        />
+
+        <AdminHouseManager
+          v-else-if="activeTab === 'admin-houses'"
+          :houses="houses"
+          :loading="loading || adminLoading"
+          :status-labels="listingStatusLabels"
+          @refresh="fetchHouses({ silent: false })"
+          @unlist="handleAdminUnlist"
+          @delete="handleAdminDeleteRequest"
         />
 
         <UrgentTasks
@@ -234,7 +250,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, provide, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
@@ -246,6 +262,7 @@ import HouseReviews from './components/HouseReviews.vue';
 import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import AdminOrderReview from './components/AdminOrderReview.vue';
+import AdminHouseManager from './components/AdminHouseManager.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
@@ -255,8 +272,32 @@ import HouseLocationViewer from './components/HouseLocationViewer.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
+const houseLocations = ref([]);
 const housesUpdatedAt = ref('');
+const houseLocationsUpdatedAt = ref('');
+const locationFocusId = ref('');
+const locationSearchQuery = ref('');
+const locationViewport = reactive({
+  centerLat: null,
+  centerLng: null,
+  radiusKm: null
+});
+let locationViewportTimer = null;
+const normalizeMapEnv = (value) => (typeof value === 'string' ? value.trim() : '');
+const defaultMapKey =
+  normalizeMapEnv(import.meta.env.VITE_GAODE_MAP_KEY) ||
+  normalizeMapEnv(import.meta.env.VITE_AMAP_KEY) ||
+  '46dff0d2a8f9204d4642f8dd91e10daf';
+const defaultMapSecurityCode =
+  normalizeMapEnv(import.meta.env.VITE_GAODE_SECURITY_CODE) ||
+  normalizeMapEnv(import.meta.env.VITE_AMAP_SECURITY_CODE) ||
+  '';
+const mapConfig = reactive({
+  apiKey: defaultMapKey,
+  jsSecurityCode: defaultMapSecurityCode
+});
 const loading = ref(false);
+const locationLoading = ref(false);
 const selectedHouse = ref(null);
 const formResetKey = ref(0);
 const currentUser = ref(null);
@@ -312,6 +353,16 @@ const coerceNumber = (value, fallback = 0) => {
     return Number.isFinite(fallbackNum) ? fallbackNum : 0;
   }
   return num;
+};
+
+const approxEqual = (a, b, epsilon = 0.0001) => {
+  if (a === null || a === undefined) {
+    return b === null || b === undefined;
+  }
+  if (b === null || b === undefined) {
+    return false;
+  }
+  return Math.abs(a - b) <= epsilon;
 };
 
 const normalizeWallet = (next, previous = null) => {
@@ -433,6 +484,7 @@ const translations = {
       account: '个人中心',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
+      adminHouses: '管理员房源',
       admin: '管理员面板',
       reputation: '信誉面板'
     },
@@ -441,6 +493,44 @@ const translations = {
     },
     alerts: {
       errorPrefix: '提示：'
+    },
+    conversation: {
+      title: '消息中心',
+      subtitle: '实时与卖家沟通，确认房源细节与交易安排。',
+      actions: {
+        refresh: '刷新列表',
+        refreshing: '刷新中…',
+        close: '关闭',
+        back: '返回列表',
+        send: '发送',
+        sending: '发送中…'
+      },
+      list: {
+        title: '对话列表',
+        count: '{count}',
+        loading: '正在加载对话…',
+        empty: '暂无对话。'
+      },
+      preview: {
+        you: '我',
+        partner: '对方',
+        empty: '暂无消息'
+      },
+      empty: {
+        title: '请选择一个对话',
+        description: '在左侧选择卖家以查看历史消息并发送新消息。'
+      },
+      chat: {
+        subtitle: '与卖家协调看房、付款等具体事项。',
+        loading: '正在加载消息…',
+        none: '暂无消息，向卖家发起第一条交流吧。',
+        placeholder: '请输入消息（最多2000字）',
+        headerFallback: '对话详情'
+      },
+      participant: {
+        seller: '卖家',
+        buyer: '买家'
+      }
     },
     roles: {
       buyer: '买家',
@@ -485,6 +575,37 @@ const translations = {
         reject: '驳回',
         delete: '删除房源'
       }
+    },
+    adminManage: {
+      title: '房源管理工作台',
+      subtitle: '当前共 {count} 套房源，可按状态筛选、下架或删除。',
+      refresh: '同步房源',
+      refreshing: '同步中…',
+      loading: '正在加载房源列表…',
+      empty: '暂未找到匹配的房源。',
+      filters: {
+        query: '关键字筛选',
+        queryPlaceholder: '输入标题、地址或卖家信息',
+        status: '状态筛选',
+        statusAll: '全部状态'
+      },
+      table: {
+        listing: '房源',
+        status: '状态',
+        seller: '卖家/联系方式',
+        updated: '最近更新',
+        actions: '操作'
+      },
+      actions: {
+        view: '详情',
+        unlist: '下架',
+        unlistDisabled: '不可下架',
+        delete: '删除'
+      },
+      unknownTitle: '未命名房源',
+      unknownAddress: '地址待补充',
+      unknownSeller: '未知卖家',
+      unknownStatus: '未知状态'
     },
     adminOrders: {
       title: '资金托管审核',
@@ -611,8 +732,7 @@ const translations = {
           floor: '楼层（可选）',
           description: '房源描述',
           keywords: '房源关键词',
-          images: '房源图片',
-          propertyCertificate: '房产证件凭证'
+          images: '房源图片'
         },
         placeholders: {
           title: '请输入房源标题',
@@ -636,30 +756,24 @@ const translations = {
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
           noImages: '尚未上传图片。',
-          propertyCertificate: '请上传房产证件的清晰照片或 PDF 扫描件，仅管理员审核可见。',
           locationHint: '填写经纬度后地图功能可立即定位房源。'
         },
         actions: {
           upload: '上传图片',
           uploading: '上传中…',
           removeImage: '移除',
-          uploadCertificate: '上传证件',
-          viewCertificate: '查看证件',
           submitting: '提交中…',
           submitCreate: '提交审核',
           submitEdit: '保存修改',
           cancel: '取消'
         },
         imageAlt: '房源图片 {index}',
-        certificateAlt: '房产证件凭证预览',
         upload: {
           limit: '最多可上传 {count} 张图片。',
           extraIgnored: '仅保留前 {count} 张图片，多余文件已忽略。',
           invalidType: '仅支持上传图片文件。',
           tooLarge: '单张图片大小需不超过5MB。',
-          failure: '图片上传失败，请稍后再试。',
-          invalidCertificateType: '仅支持上传图片或 PDF 证件文件。',
-          certificateTooLarge: '证件文件需不超过10MB。'
+          failure: '图片上传失败，请稍后再试。'
         },
         validation: {
           required: '请完善必填的房源信息。',
@@ -671,7 +785,6 @@ const translations = {
           area: '请输入有效的建筑面积。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
           installmentMonths: '分期期限必须大于0。',
-          propertyCertificate: '请先上传房产证件凭证。',
           coordinatePair: '经纬度需同时填写或同时留空。',
           latitudeRange: '请输入 -90 至 90 之间的纬度。',
           longitudeRange: '请输入 -180 至 180 之间的经度。'
@@ -808,6 +921,7 @@ const translations = {
     success: {
       verificationUpdated: '实名认证信息已更新。',
       deleteHouse: '已删除房源《{title}》。',
+      unlistHouse: '已手动下架房源《{title}》，当前状态：{status}，备注：{reason}。',
       houseUpdatedApproved: '房源《{title}》已更新并重新上架。',
       houseUpdatedPending: '房源《{title}》已更新，当前状态：{status}。',
       houseCreatedApproved: '已新增房源《{title}》，已通过审核并上架。',
@@ -831,10 +945,12 @@ const translations = {
       reviewModeratedRejected: '已驳回该评价。',
       login: '登录成功。',
       loginReputationSuffix: ' 当前信誉分：{score}。',
-      restoredSession: '已恢复上次的登录状态。'
+      restoredSession: '已恢复上次的登录状态。',
+      mapAddressCopied: '已复制房源地址，可在地图中搜索。'
     },
     errors: {
       loadHouses: '加载房源数据失败，请检查后端服务。',
+      loadLocations: '加载房源坐标失败。',
       loadRecommendations: '加载推荐用户失败。',
       loadWallet: '加载钱包信息失败。',
       loadOrders: '加载订单信息失败。',
@@ -855,6 +971,7 @@ const translations = {
       editOwnHouse: '卖家只能编辑自己发布的房源。',
       deleteOwnHouse: '卖家只能删除自己发布的房源。',
       deleteHouse: '删除房源失败。',
+      unlistHouse: '下架房源失败。',
       purchaseBuyerOnly: '只有买家角色可以发起购买。',
       purchaseVerifyFirst: '购买前请先完成实名认证。',
       purchaseNotApproved: '房源尚未通过审核，暂不可购买。',
@@ -865,6 +982,7 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
+      mapAddressMissing: '该房源尚未提供地址，暂无法在地图中搜索。',
       installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
@@ -895,7 +1013,9 @@ const translations = {
       reviewDefaultRemark: '审核通过',
       reviewFallbackReason: '未填写',
       deleteHouseConfirm: '确定要删除房源《{title}》吗？',
-      deleteAccountConfirm: '确定要删除账号 {username} 吗？该操作不可撤销。'
+      deleteAccountConfirm: '确定要删除账号 {username} 吗？该操作不可撤销。',
+      unlistReason: '请输入下架原因（房源：{title}）',
+      unlistDefaultReason: '管理员手动下架'
     },
     payments: {
       installment: '分期',
@@ -920,6 +1040,7 @@ const translations = {
         search: '搜索房源',
         applyFilters: '应用筛选',
         reset: '重置',
+        viewMap: '查看地图',
         contactSeller: '联系卖家',
         reserve: '预定（定金 ￥{deposit}）',
         reserving: '预定中…',
@@ -1023,11 +1144,11 @@ const translations = {
     },
     locationViewer: {
       title: '房源地段地图',
-      subtitle: '接入腾讯地图实时查看房源位置，可随时刷新同步最新房源。',
+      subtitle: '接入高德地图实时地段视图，可切换标准与卫星影像。',
       refresh: '刷新房源数据',
       refreshing: '刷新中…',
       loading: '房源数据同步中…',
-      mapLoading: '腾讯地图加载中…',
+      mapLoading: '地图加载中…',
       updatedAt: '数据更新：{time}',
       listTitle: '房源列表',
       empty: '暂无可展示的房源位置，请先在首页检索或发布房源。',
@@ -1038,14 +1159,36 @@ const translations = {
         focus: '查看位置',
         active: '正在查看'
       },
+      styles: {
+        label: '地图图层',
+        street: '标准地图',
+        satellite: '卫星影像'
+      },
+      fallback: '已连接至高德地图服务。',
+      focusSummary: '已定位至「{title}」附近',
+      viewportSummary: '当前视图范围内共有 {count} 套房源',
       errors: {
         mapInit: '地图加载失败，请稍后重试。',
         geocode: '暂时无法定位房源，请检查地址信息。',
-        missingKey: '缺少腾讯地图密钥，无法加载地图。',
+        missingKey: '缺少高德地图密钥，无法加载地图。',
         partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
       },
+      search: {
+        searching: '正在搜索「{query}」的地图位置…',
+        success: '已根据搜索结果定位至「{name}」。',
+        empty: '未找到与「{query}」匹配的位置，请尝试调整关键词。',
+        error: '地图搜索失败，请稍后重试。'
+      },
+      pois: {
+        title: '周边实况',
+        loading: '正在获取周边环境…',
+        empty: '未检索到周边实况点，可尝试放大地图或调整位置。',
+        error: '周边实况暂时不可用，请稍后重试。',
+        distanceM: '{value} 米',
+        distanceKm: '{value} 公里'
+      },
       aria: {
-        map: '腾讯地图房源分布图'
+        map: '房源位置分布地图'
       }
     },
     prediction: {
@@ -1126,6 +1269,20 @@ const translations = {
         pointsUnsupported: '当前暂不支持扣减积分。',
         consumeFailed: '扣减积分失败，请稍后再试。',
         pointsInsufficient: '积分不足，请先充值获取更多积分。'
+      },
+      trend: {
+        title: '近两年房价走势',
+        subtitle: '综合相似房源的历史均价与预测结果，展示最近两年的变化趋势。',
+        loading: '正在加载房价走势…',
+        unavailable: '暂时无法获取历史房价，已根据预测结果生成参考走势。',
+        generated: '已根据当前预测生成参考走势。',
+        change: '两年涨幅',
+        ariaLabel: '近两年房价走势折线图',
+        source: {
+          payload: '已使用模型返回的相似房价数据。',
+          api: '已使用后端提供的历史均价数据。',
+          synthetic: '已根据本次预测生成模拟走势。'
+        }
       }
     },
     accountCenter: {
@@ -1368,6 +1525,7 @@ const translations = {
       account: 'Personal hub',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
+      adminHouses: 'Listings admin',
       admin: 'Admin dashboard',
       reputation: 'Reputation board'
     },
@@ -1376,6 +1534,44 @@ const translations = {
     },
     alerts: {
       errorPrefix: 'Notice:'
+    },
+    conversation: {
+      title: 'Message center',
+      subtitle: 'Chat with sellers in real time to confirm listing details and schedule transactions.',
+      actions: {
+        refresh: 'Refresh list',
+        refreshing: 'Refreshing…',
+        close: 'Close',
+        back: 'Back to list',
+        send: 'Send',
+        sending: 'Sending…'
+      },
+      list: {
+        title: 'Conversations',
+        count: '{count}',
+        loading: 'Loading conversations…',
+        empty: 'No conversations yet.'
+      },
+      preview: {
+        you: 'You',
+        partner: 'Partner',
+        empty: 'No messages yet'
+      },
+      empty: {
+        title: 'Select a conversation to begin',
+        description: 'Choose a seller on the left to browse history and send a new message.'
+      },
+      chat: {
+        subtitle: 'Coordinate viewings, payments, and other details with the seller.',
+        loading: 'Loading messages…',
+        none: 'No messages yet. Start the conversation with the seller.',
+        placeholder: 'Type a message (max 2000 characters)',
+        headerFallback: 'Conversation details'
+      },
+      participant: {
+        seller: 'Seller',
+        buyer: 'Buyer'
+      }
     },
     roles: {
       buyer: 'Buyer',
@@ -1420,6 +1616,37 @@ const translations = {
         reject: 'Reject',
         delete: 'Delete listing'
       }
+    },
+    adminManage: {
+      title: 'Listing maintenance',
+      subtitle: '{count} listings available for filtering, unlisting, or removal.',
+      refresh: 'Sync listings',
+      refreshing: 'Syncing…',
+      loading: 'Loading listing overview…',
+      empty: 'No listings matched your filters.',
+      filters: {
+        query: 'Search keywords',
+        queryPlaceholder: 'Filter by title, address, or seller',
+        status: 'Status filter',
+        statusAll: 'All statuses'
+      },
+      table: {
+        listing: 'Listing',
+        status: 'Status',
+        seller: 'Seller / contact',
+        updated: 'Last updated',
+        actions: 'Actions'
+      },
+      actions: {
+        view: 'View',
+        unlist: 'Unlist',
+        unlistDisabled: 'Cannot unlist',
+        delete: 'Delete'
+      },
+      unknownTitle: 'Untitled listing',
+      unknownAddress: 'Address pending',
+      unknownSeller: 'Unknown seller',
+      unknownStatus: 'Unknown status'
     },
     adminOrders: {
       title: 'Escrow review',
@@ -1547,8 +1774,7 @@ const translations = {
           floor: 'Floor (optional)',
           description: 'Listing description',
           keywords: 'Keywords',
-          images: 'Listing photos',
-          propertyCertificate: 'Property certificate proof'
+          images: 'Listing photos'
         },
         placeholders: {
           title: 'Enter listing title',
@@ -1572,30 +1798,24 @@ const translations = {
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
           noImages: 'No images uploaded yet.',
-          propertyCertificate: 'Upload a clear photo or PDF scan of the ownership certificate. Only administrators can access it during review.',
           locationHint: 'Provide coordinates so the location map can highlight this listing precisely.'
         },
         actions: {
           upload: 'Upload images',
           uploading: 'Uploading…',
           removeImage: 'Remove',
-          uploadCertificate: 'Upload certificate',
-          viewCertificate: 'View certificate',
           submitting: 'Submitting…',
           submitCreate: 'Submit for review',
           submitEdit: 'Save changes',
           cancel: 'Cancel'
         },
         imageAlt: 'Listing image {index}',
-        certificateAlt: 'Property certificate preview',
         upload: {
           limit: 'You can upload up to {count} images.',
           extraIgnored: 'Only the first {count} images were kept. Extra files were ignored.',
           invalidType: 'Only image files can be uploaded.',
           tooLarge: 'Each image must be 5 MB or smaller.',
-          failure: 'Image upload failed. Please try again later.',
-          invalidCertificateType: 'Only image or PDF certificate files are supported.',
-          certificateTooLarge: 'The certificate file must be 10 MB or smaller.'
+          failure: 'Image upload failed. Please try again later.'
         },
         validation: {
           required: 'Please complete all required listing information.',
@@ -1607,7 +1827,6 @@ const translations = {
           area: 'Enter a valid floor area.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
           installmentMonths: 'The instalment term must be greater than zero.',
-          propertyCertificate: 'Please upload the property certificate before submitting.',
           coordinatePair: 'Latitude and longitude must both be provided or both left blank.',
           latitudeRange: 'Latitude must stay between -90 and 90 degrees.',
           longitudeRange: 'Longitude must stay between -180 and 180 degrees.'
@@ -1744,6 +1963,7 @@ const translations = {
     success: {
       verificationUpdated: 'Real-name verification updated successfully.',
       deleteHouse: 'Listing “{title}” has been removed.',
+      unlistHouse: 'Listing “{title}” has been manually unlisted. Current status: {status}. Note: {reason}.',
       houseUpdatedApproved: 'Listing “{title}” has been updated and republished.',
       houseUpdatedPending: 'Listing “{title}” has been updated. Current status: {status}.',
       houseCreatedApproved: 'Listing “{title}” has been created and approved.',
@@ -1767,10 +1987,12 @@ const translations = {
       reviewModeratedRejected: 'The review has been rejected.',
       login: 'Signed in successfully.',
       loginReputationSuffix: ' Current reputation score: {score}.',
-      restoredSession: 'Previous session restored.'
+      restoredSession: 'Previous session restored.',
+      mapAddressCopied: 'Listing address copied. Opening the map…'
     },
     errors: {
       loadHouses: 'Failed to load listings. Please check the backend service.',
+      loadLocations: 'Failed to load listing locations.',
       loadRecommendations: 'Failed to load recommended users.',
       loadWallet: 'Failed to load wallet information.',
       loadOrders: 'Failed to load orders.',
@@ -1791,6 +2013,7 @@ const translations = {
       editOwnHouse: 'Sellers can only edit their own listings.',
       deleteOwnHouse: 'Sellers can only delete their own listings.',
       deleteHouse: 'Failed to delete listing.',
+      unlistHouse: 'Failed to unlist the listing.',
       purchaseBuyerOnly: 'Only buyers can make purchases.',
       purchaseVerifyFirst: 'Please complete real-name verification before purchasing.',
       purchaseNotApproved: 'The listing has not been approved yet.',
@@ -1801,6 +2024,7 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
+      mapAddressMissing: 'This listing is missing an address, so the map search cannot run yet.',
       installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
@@ -1831,7 +2055,9 @@ const translations = {
       reviewDefaultRemark: 'Approved',
       reviewFallbackReason: 'Not provided',
       deleteHouseConfirm: 'Are you sure you want to delete listing “{title}”?',
-      deleteAccountConfirm: 'Delete account {username}? This action cannot be undone.'
+      deleteAccountConfirm: 'Delete account {username}? This action cannot be undone.',
+      unlistReason: 'Enter a note for unlisting (listing: “{title}”)',
+      unlistDefaultReason: 'Admin manual unlisting'
     },
     payments: {
       installment: 'instalments',
@@ -1856,6 +2082,7 @@ const translations = {
         search: 'Search listings',
         applyFilters: 'Apply filters',
         reset: 'Reset',
+        viewMap: 'View on map',
         contactSeller: 'Contact seller',
         reserve: 'Reserve (deposit ¥{deposit})',
         reserving: 'Reserving…',
@@ -1955,11 +2182,11 @@ const translations = {
     },
     locationViewer: {
       title: 'Listing map overview',
-      subtitle: 'Inspect listing areas on Tencent Maps and refresh to keep coordinates up to date.',
+      subtitle: 'Powered by Gaode Maps with live coverage and optional satellite tiles.',
       refresh: 'Refresh listings',
       refreshing: 'Refreshing…',
       loading: 'Synchronising listing data…',
-      mapLoading: 'Loading Tencent Map…',
+      mapLoading: 'Loading map view…',
       updatedAt: 'Data updated: {time}',
       listTitle: 'Listings',
       empty: 'No listing locations are available yet. Try searching or publishing first.',
@@ -1970,14 +2197,36 @@ const translations = {
         focus: 'Focus on map',
         active: 'Viewing'
       },
+      styles: {
+        label: 'Base map',
+        street: 'Street',
+        satellite: 'Satellite'
+      },
+      fallback: 'Connected to the Gaode map service.',
+      focusSummary: 'Focusing on “{title}” and nearby listings',
+      viewportSummary: '{count} listing(s) visible within the current view',
       errors: {
         mapInit: 'The map failed to load. Please try again later.',
         geocode: 'Some listings could not be located on the map.',
-        missingKey: 'Tencent Map key is missing, so the map cannot be displayed.',
+        missingKey: 'The Gaode Maps key is missing, so the map cannot be displayed.',
         partial: '{count} listing(s) could not be located. Their addresses are listed below.'
       },
+      search: {
+        searching: 'Searching the map for “{query}”…',
+        success: 'Centered the map on “{name}” from the search results.',
+        empty: 'No results found for “{query}”. Try adjusting the keywords.',
+        error: 'Map search failed. Please try again later.'
+      },
+      pois: {
+        title: 'Live surroundings',
+        loading: 'Fetching nearby points of interest…',
+        empty: 'No surroundings found yet. Try zooming out or moving the map.',
+        error: 'Nearby surroundings are temporarily unavailable. Please try again soon.',
+        distanceM: '{value} m',
+        distanceKm: '{value} km'
+      },
       aria: {
-        map: 'Tencent map showing listing locations'
+        map: 'Map showing listing locations'
       }
     },
     prediction: {
@@ -2058,6 +2307,20 @@ const translations = {
         pointsUnsupported: 'Point deduction is currently unavailable.',
         consumeFailed: 'Failed to deduct points. Please try again later.',
         pointsInsufficient: 'Insufficient points. Please top up to continue.'
+      },
+      trend: {
+        title: 'Two-year price trend',
+        subtitle: 'Combines similar listing history with the predicted outcome to show the latest two-year movement.',
+        loading: 'Loading price trend…',
+        unavailable: 'Historic prices are unavailable. A synthetic trend has been generated from the prediction.',
+        generated: 'A synthetic trend has been generated from the current prediction.',
+        change: 'Two-year change',
+        ariaLabel: 'Line chart showing the two-year price trend',
+        source: {
+          payload: 'Using trend data returned by the prediction service.',
+          api: 'Using historical averages provided by the backend.',
+          synthetic: 'A synthetic trend has been generated from this prediction.'
+        }
       }
     },
     accountCenter: {
@@ -2430,8 +2693,11 @@ watch(
 
 watch(
   () => activeTab.value,
-  () => {
+  (tab) => {
     updateDocumentLanguage();
+    if (tab === 'locations' && !houseLocations.value.length && !locationLoading.value) {
+      fetchHouseLocations({ silent: false });
+    }
   }
 );
 
@@ -2659,6 +2925,7 @@ const navigationTabs = computed(() => {
       ? t('nav.reviewWithCount', { count: pendingReviewHouses.value.length })
       : t('nav.review');
     tabs.push({ value: 'review', label: pendingLabel });
+    tabs.push({ value: 'admin-houses', label: t('nav.adminHouses') });
     tabs.push({ value: 'admin', label: t('nav.admin') });
     tabs.push({ value: 'reputation', label: t('nav.reputation') });
   }
@@ -2878,6 +3145,93 @@ const assignFilters = (filters = {}) => {
   });
 };
 
+const fetchHouseLocations = async ({ silent = false } = {}) => {
+  if (!silent) {
+    locationLoading.value = true;
+  }
+  try {
+    const params = {};
+    if (currentUser.value?.username) {
+      params.requester = currentUser.value.username;
+    }
+    if (Number.isFinite(locationViewport.centerLat) && Number.isFinite(locationViewport.centerLng)) {
+      params.centerLat = Number(locationViewport.centerLat.toFixed(6));
+      params.centerLng = Number(locationViewport.centerLng.toFixed(6));
+      if (Number.isFinite(locationViewport.radiusKm) && locationViewport.radiusKm > 0) {
+        const radius = Math.min(Math.max(locationViewport.radiusKm, 0.2), 50);
+        params.radiusKm = Number(radius.toFixed(3));
+      }
+    }
+    const { data } = await client.get('/houses/locations', { params });
+    const list = Array.isArray(data) ? data : [];
+    houseLocations.value = list
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+        const lat = Number(item.latitude);
+        const lng = Number(item.longitude);
+        const price = Number(item.price);
+        return {
+          ...item,
+          latitude: Number.isFinite(lat) ? lat : null,
+          longitude: Number.isFinite(lng) ? lng : null,
+          price: Number.isFinite(price) ? price : null
+        };
+      })
+      .filter((item) => item && (item.title || item.address));
+    if (
+      locationFocusId.value &&
+      !houseLocations.value.some((item) => String(item?.id ?? '') === locationFocusId.value)
+    ) {
+      const fallback = houses.value.find((house) => String(house?.id ?? '') === locationFocusId.value);
+      if (fallback) {
+        const fallbackLat = normalizeViewportValue(fallback.latitude, 6);
+        const fallbackLng = normalizeViewportValue(fallback.longitude, 6);
+        houseLocations.value = [
+          ...houseLocations.value,
+          {
+            ...fallback,
+            latitude: fallbackLat,
+            longitude: fallbackLng,
+            price: Number.isFinite(Number(fallback.price)) ? Number(fallback.price) : null
+          }
+        ];
+      }
+    }
+    houseLocationsUpdatedAt.value = new Date().toISOString();
+  } catch (error) {
+    if (!silent) {
+      messages.error = resolveError(error, 'errors.loadLocations');
+    } else {
+      console.warn('Failed to load house locations', error);
+    }
+  } finally {
+    if (!silent) {
+      locationLoading.value = false;
+    }
+  }
+};
+
+const loadMapConfig = async () => {
+  try {
+    const { data } = await client.get('/houses/map-config');
+    if (data && typeof data === 'object') {
+      const nextKey = normalizeMapEnv(data.apiKey ?? data.key);
+      if (nextKey) {
+        mapConfig.apiKey = nextKey;
+      }
+      if ('jsSecurityCode' in data || 'securityCode' in data) {
+        mapConfig.jsSecurityCode = normalizeMapEnv(
+          data.jsSecurityCode ?? data.securityCode ?? ''
+        );
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load map configuration', error);
+  }
+};
+
 const fetchHouses = async ({ filters, silent = false } = {}) => {
   if (filters) {
     assignFilters(filters);
@@ -2895,6 +3249,13 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     houses.value = data.map(normalizeHouse);
     syncReviewHouseTitles();
     housesUpdatedAt.value = new Date().toISOString();
+    if (silent) {
+      fetchHouseLocations({ silent: true }).catch((error) => {
+        console.warn('Failed to refresh house locations silently', error);
+      });
+    } else {
+      await fetchHouseLocations({ silent: false });
+    }
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadHouses');
   } finally {
@@ -3421,6 +3782,77 @@ const handleAdminDeleteRequest = (house) => {
   handleRemove(house);
 };
 
+const handleAdminUnlist = async (house) => {
+  if (!isAdmin.value || !house?.id || !currentUser.value) {
+    return;
+  }
+  const defaultReason = t('prompts.unlistDefaultReason');
+  const promptLabel = t('prompts.unlistReason', { title: house.title ?? '' });
+  const input = window.prompt(promptLabel, defaultReason);
+  if (input === null) {
+    return;
+  }
+  const reason = (input.trim() || defaultReason).slice(0, 200);
+
+  adminLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+
+  const attempts = [
+    () =>
+      client.patch(`/houses/${house.id}/status`, {
+        status: 'SOLD',
+        operator: currentUser.value.username,
+        reason
+      }),
+    () =>
+      client.patch(`/houses/${house.id}/review`, {
+        reviewerUsername: currentUser.value.username,
+        status: 'REJECTED',
+        message: reason
+      })
+  ];
+
+  try {
+    let response = null;
+    for (const attempt of attempts) {
+      try {
+        response = await attempt();
+        if (response?.data) {
+          break;
+        }
+      } catch (error) {
+        if (attempt === attempts[attempts.length - 1]) {
+          throw error;
+        }
+        console.warn('Primary unlist request failed, retrying with fallback endpoint', error);
+      }
+    }
+
+    if (!response?.data) {
+      throw new Error('empty-response');
+    }
+
+    const data = response.data;
+    const statusLabel = listingStatusLabels.value[data.status] ?? data.status ?? '';
+    messages.success = t('success.unlistHouse', {
+      title: data.title ?? house.title ?? '',
+      status: statusLabel,
+      reason
+    });
+
+    await Promise.all([
+      fetchHouses({ silent: true }),
+      loadRecommendations(),
+      loadAdminData()
+    ]);
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.unlistHouse');
+  } finally {
+    adminLoading.value = false;
+  }
+};
+
 const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {
   if (!isBuyer.value) {
     messages.error = t('errors.purchaseBuyerOnly');
@@ -3690,6 +4122,122 @@ const handleRequestReturn = async ({ orderId, reason }) => {
 
 const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
+};
+
+const normalizeViewportValue = (value, precision = null) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (precision != null) {
+    const factor = 10 ** precision;
+    return Math.round(numeric * factor) / factor;
+  }
+  return numeric;
+};
+
+const scheduleViewportFetch = ({ silent, immediate }) => {
+  if (locationViewportTimer) {
+    clearTimeout(locationViewportTimer);
+    locationViewportTimer = null;
+  }
+  const trigger = () => {
+    fetchHouseLocations({ silent }).catch((error) => {
+      console.warn('Failed to refresh house locations for viewport change', error);
+    });
+  };
+  if (immediate) {
+    trigger();
+  } else {
+    locationViewportTimer = setTimeout(() => {
+      trigger();
+      locationViewportTimer = null;
+    }, 600);
+  }
+};
+
+const handleLocationViewportChange = (payload = {}) => {
+  if (!payload || typeof payload !== 'object') {
+    return;
+  }
+  const source = payload.source ?? 'auto';
+  const focusKey = typeof payload.focusKey === 'string' ? payload.focusKey : '';
+  const lat = normalizeViewportValue(payload.centerLat, 6);
+  const lng = normalizeViewportValue(payload.centerLng, 6);
+  const radius = normalizeViewportValue(payload.radiusKm, 3);
+
+  const latChanged = !approxEqual(lat, locationViewport.centerLat, 0.0005);
+  const lngChanged = !approxEqual(lng, locationViewport.centerLng, 0.0005);
+  const radiusChanged = !approxEqual(radius, locationViewport.radiusKm, 0.2);
+
+  if (!latChanged && !lngChanged && !radiusChanged) {
+    if (source !== 'focus' || !focusKey || focusKey === locationFocusId.value) {
+      return;
+    }
+  }
+
+  locationViewport.centerLat = lat;
+  locationViewport.centerLng = lng;
+  locationViewport.radiusKm = radius;
+
+  const immediate = source === 'focus' || source === 'init';
+  const silent = source !== 'focus';
+  scheduleViewportFetch({ silent, immediate });
+};
+
+const handleShowOnMap = async (house) => {
+  if (!house) {
+    return;
+  }
+  const key = house.id != null ? String(house.id) : '';
+  const address = typeof house.address === 'string' ? house.address.trim() : '';
+  messages.error = '';
+  if (!address) {
+    messages.error = t('errors.mapAddressMissing');
+    return;
+  }
+
+  const syncSearchQuery = async () => {
+    if (locationSearchQuery.value === address) {
+      locationSearchQuery.value = '';
+      await nextTick();
+    }
+    locationSearchQuery.value = address;
+  };
+
+  const navigateToMap = async () => {
+    locationFocusId.value = key;
+    await syncSearchQuery();
+    activeTab.value = 'locations';
+    const hasListing = key
+      ? houseLocations.value.some((item) => String(item?.id ?? '') === key)
+      : false;
+    if (!hasListing) {
+      fetchHouseLocations({ silent: false });
+    }
+  };
+
+  if (address && typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(address);
+      messages.success = t('success.mapAddressCopied');
+    } catch (error) {
+      console.warn('Failed to copy address to clipboard', error);
+    }
+  }
+
+  if (!key || locationFocusId.value !== key) {
+    await navigateToMap();
+    return;
+  }
+
+  locationFocusId.value = '';
+  nextTick(async () => {
+    await navigateToMap();
+  });
 };
 
 const handleToggleBlacklist = async ({ username, blacklisted }) => {
@@ -3964,6 +4512,7 @@ const handleLoginSuccess = (user) => {
   messages.error = '';
   persistUser(user);
   activeTab.value = 'home';
+  locationSearchQuery.value = '';
   fetchHouses();
   fetchWallet();
   fetchOrders();
@@ -3980,6 +4529,7 @@ const handleLoginSuccess = (user) => {
 const handleLogout = () => {
   currentUser.value = null;
   houses.value = [];
+  houseLocations.value = [];
   selectedHouse.value = null;
   wallet.value = null;
   orders.value = [];
@@ -3991,10 +4541,16 @@ const handleLogout = () => {
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
+  locationLoading.value = false;
+  housesUpdatedAt.value = '';
+  houseLocationsUpdatedAt.value = '';
   messages.error = '';
   messages.success = '';
   activeTab.value = 'home';
   localStorage.removeItem(storageKey);
+  mapConfig.apiKey = defaultMapKey;
+  mapConfig.jsSecurityCode = defaultMapSecurityCode;
+  locationSearchQuery.value = '';
   resetConversationState();
   fetchHouses();
   loadRecommendations();
@@ -4020,6 +4576,7 @@ watch(
 );
 
 onMounted(() => {
+  loadMapConfig();
   try {
     const cached = localStorage.getItem(storageKey);
     if (cached) {

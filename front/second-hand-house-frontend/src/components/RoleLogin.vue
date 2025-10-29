@@ -1,7 +1,6 @@
 <template>
   <div class="auth-layout">
     <aside class="brand-showcase">
-      <h2>和光空间不动产</h2>
       <p>科技赋能的二手房交易平台，为家庭量身打造舒心的安居旅程。</p>
       <ul>
         <li>• AI 房价洞察，精准掌握社区走势</li>

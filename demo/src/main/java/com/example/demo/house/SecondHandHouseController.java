@@ -24,9 +24,11 @@ import java.util.List;
 public class SecondHandHouseController {
 
     private final SecondHandHouseService service;
+    private final GaodeMapSettings mapSettings;
 
-    public SecondHandHouseController(SecondHandHouseService service) {
+    public SecondHandHouseController(SecondHandHouseService service, GaodeMapSettings mapSettings) {
         this.service = service;
+        this.mapSettings = mapSettings;
     }
 
     @GetMapping
@@ -45,6 +47,24 @@ public class SecondHandHouseController {
                                              @RequestParam(value = "radiusKm", required = false) Double radiusKm,
                                              @RequestParam(value = "requester", required = false) String requesterUsername) {
         return service.listLocations(centerLat, centerLng, radiusKm, requesterUsername);
+    }
+
+    @GetMapping("/map-config")
+    public MapConfigResponse mapConfig() {
+        return new MapConfigResponse(mapSettings.apiKey(), mapSettings.jsSecurityCode().orElse(null));
+    }
+
+    @GetMapping("/map-search")
+    public MapSearchResponse mapSearch(@RequestParam("query") String query,
+                                       @RequestParam(value = "city", required = false) String city) {
+        return service.searchMapLocation(query, city)
+                .map(result -> new MapSearchResponse(
+                        true,
+                        result.name(),
+                        result.address(),
+                        result.latitude(),
+                        result.longitude()))
+                .orElseGet(() -> new MapSearchResponse(false, null, null, null, null));
     }
 
     @GetMapping("/{id}")
@@ -76,4 +96,10 @@ public class SecondHandHouseController {
     public SecondHandHouseView review(@PathVariable Long id, @Valid @RequestBody SecondHandHouseReviewRequest request) {
         return service.review(id, request.status(), request.message(), request.reviewerUsername());
     }
+}
+
+record MapConfigResponse(String apiKey, String jsSecurityCode) {
+}
+
+record MapSearchResponse(boolean found, String name, String address, Double latitude, Double longitude) {
 }

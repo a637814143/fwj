@@ -246,7 +246,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, provide, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
@@ -4001,13 +4001,24 @@ const handleShowOnMap = (house) => {
     return;
   }
   const key = house.id != null ? String(house.id) : '';
-  locationFocusId.value = key;
-  activeTab.value = 'locations';
-  const hasListing = key
-    ? houseLocations.value.some((item) => String(item?.id ?? '') === key)
-    : false;
-  if (!hasListing) {
-    fetchHouseLocations({ silent: false });
+  const navigateToMap = () => {
+    locationFocusId.value = key;
+    activeTab.value = 'locations';
+    const hasListing = key
+      ? houseLocations.value.some((item) => String(item?.id ?? '') === key)
+      : false;
+    if (!hasListing) {
+      fetchHouseLocations({ silent: false });
+    }
+  };
+
+  if (key && locationFocusId.value === key) {
+    locationFocusId.value = '';
+    nextTick(() => {
+      navigateToMap();
+    });
+  } else {
+    navigateToMap();
   }
 };
 

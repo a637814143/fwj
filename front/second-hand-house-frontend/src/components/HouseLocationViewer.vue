@@ -120,6 +120,15 @@ const normalizedHouses = computed(() =>
 const activeHouseId = ref('');
 const pendingFocusKey = ref('');
 
+const normalizedFocusKey = computed(() => {
+  const raw = props.focusKey;
+  if (raw === undefined || raw === null) {
+    return '';
+  }
+  const value = String(raw).trim();
+  return value;
+});
+
 const formatPrice = (value) => {
   const num = Number(value);
   if (!Number.isFinite(num) || num <= 0) {
@@ -209,15 +218,6 @@ const updatedTime = computed(() => {
     return '';
   }
   return date.toLocaleString(locale.value, { hour12: false });
-});
-
-const normalizedFocusKey = computed(() => {
-  const raw = props.focusKey;
-  if (raw === undefined || raw === null) {
-    return '';
-  }
-  const value = String(raw).trim();
-  return value;
 });
 
 const selectHouse = (key) => {

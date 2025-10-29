@@ -91,6 +91,7 @@
           :loading="loading"
           :updated-at="housesUpdatedAt"
           :focus-key="locationFocusId"
+          :api-base-url="apiBaseUrl"
           @refresh="fetchHouses({ silent: false })"
         />
 
@@ -901,7 +902,7 @@ const translations = {
       login: '登录成功。',
       loginReputationSuffix: ' 当前信誉分：{score}。',
       restoredSession: '已恢复上次的登录状态。',
-      mapSearchLaunched: '已尝试复制房源地址，并在新标签页打开地图搜索页面。'
+      mapSearchLaunched: '已切换到地段地图，并尝试自动定位房源地址。'
     },
     errors: {
       loadHouses: '加载房源数据失败，请检查后端服务。',
@@ -936,7 +937,7 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
-      mapAddressMissing: '该房源尚未提供地址，无法打开地图搜索。',
+      mapAddressMissing: '该房源尚未提供地址，无法进行地图定位。',
       installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
@@ -1098,7 +1099,7 @@ const translations = {
     },
     locationViewer: {
       title: '房源地段地图',
-      subtitle: '复制房源填写的地址，在地图中手动搜索并查看位置。',
+      subtitle: '系统将根据房源地址自动定位，并展示周边地图实况。',
       refresh: '刷新房源数据',
       refreshing: '刷新中…',
       updatedAt: '数据更新：{time}',
@@ -1107,16 +1108,25 @@ const translations = {
       noTitle: '未命名房源',
       noAddress: '地址信息待补充',
       priceLabel: '参考价：￥{price}',
-      manualSearchHint: '系统会尝试复制地址，并在新标签页打开高德地图搜索页面。',
       noSelection: '请选择左侧的房源以查看详情。',
       actions: {
         copyAddress: '复制地址',
-        openMap: '打开地图搜索'
+        locate: '重新定位'
       },
       status: {
         copySuccess: '地址已复制到剪贴板。',
         copyUnavailable: '该房源暂未提供可复制的地址。',
         copyManual: '复制功能不可用，可手动复制：{address}'
+      },
+      map: {
+        locating: '正在根据房源地址定位…',
+        idle: '选择房源后将尝试自动定位并展示地图。',
+        explore: '可拖动地图查看周边环境。',
+        coordinates: '坐标：{lat}，{lng}',
+        place: '定位结果：{name}',
+        noResult: '暂时无法根据该地址定位，请核对地址或稍后再试。',
+        error: '定位服务暂时不可用，请稍后重试。',
+        addressMissing: '该房源暂未提供详细地址，无法进行定位。'
       }
     },
     prediction: {
@@ -1908,7 +1918,7 @@ const translations = {
       login: 'Signed in successfully.',
       loginReputationSuffix: ' Current reputation score: {score}.',
       restoredSession: 'Previous session restored.',
-      mapSearchLaunched: 'Tried to copy the listing address and opened the map search in a new tab.'
+      mapSearchLaunched: 'Switched to the map view and attempted to locate the listing automatically.'
     },
     errors: {
       loadHouses: 'Failed to load listings. Please check the backend service.',
@@ -1943,7 +1953,7 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
-      mapAddressMissing: 'This listing is missing an address, so the map search cannot be opened yet.',
+      mapAddressMissing: 'This listing is missing an address, so it cannot be located on the map yet.',
       installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
@@ -2101,7 +2111,7 @@ const translations = {
     },
     locationViewer: {
       title: 'Listing map overview',
-      subtitle: 'Copy the listing address and search it manually on the map.',
+      subtitle: 'We locate each listing automatically by address and render the live map around it.',
       refresh: 'Refresh listings',
       refreshing: 'Refreshing…',
       updatedAt: 'Data updated: {time}',
@@ -2110,16 +2120,25 @@ const translations = {
       noTitle: 'Untitled listing',
       noAddress: 'Address pending',
       priceLabel: 'Price: ￥{price}',
-      manualSearchHint: 'We will try to copy the address and open Gaode Map search in a new tab.',
       noSelection: 'Select a listing on the left to view its details.',
       actions: {
         copyAddress: 'Copy address',
-        openMap: 'Open map search'
+        locate: 'Locate again'
       },
       status: {
         copySuccess: 'Address copied to the clipboard.',
         copyUnavailable: 'No address is available to copy for this listing.',
         copyManual: 'Copying is unavailable. Please copy manually: {address}'
+      },
+      map: {
+        locating: 'Locating the listing by its address…',
+        idle: 'Select a listing to locate it and display the map.',
+        explore: 'Pan and zoom the map to explore the surrounding area.',
+        coordinates: 'Coordinates: {lat}, {lng}',
+        place: 'Matched place: {name}',
+        noResult: 'We could not locate this address for now. Please verify it or try again later.',
+        error: 'The location service is temporarily unavailable. Please try again later.',
+        addressMissing: 'This listing is missing a detailed address, so it cannot be located yet.'
       }
     },
     prediction: {
@@ -3920,22 +3939,7 @@ const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
 };
 
-const buildMapSearchUrl = (address) => {
-  if (!address) {
-    return '';
-  }
-  return `https://uri.amap.com/search?keyword=${encodeURIComponent(address)}`;
-};
-
-const openMapSearchWindow = (address) => {
-  const url = buildMapSearchUrl(address);
-  if (!url || typeof window === 'undefined') {
-    return;
-  }
-  window.open(url, '_blank', 'noopener');
-};
-
-const handleShowOnMap = async (house) => {
+const handleShowOnMap = (house) => {
   if (!house) {
     return;
   }
@@ -3947,16 +3951,6 @@ const handleShowOnMap = async (house) => {
     messages.error = t('errors.mapAddressMissing');
     return;
   }
-
-  if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(address);
-    } catch (error) {
-      console.warn('Failed to copy address to clipboard', error);
-    }
-  }
-
-  openMapSearchWindow(address);
   messages.success = t('success.mapSearchLaunched');
   locationFocusId.value = key;
   activeTab.value = 'locations';

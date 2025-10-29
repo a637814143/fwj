@@ -97,6 +97,7 @@ public class SecondHandHouseService {
         house.setReviewedAt(null);
         house.setReviewedBy(null);
         house.setReviewMessage(null);
+        ensureCoordinates(house, !hasCoordinates(house));
         return repository.save(house);
     }
 
@@ -104,6 +105,10 @@ public class SecondHandHouseService {
         SecondHandHouse existing = findById(id);
         validateSellerAccount(updatedHouse.getSellerUsername());
         ensureNotDuplicate(updatedHouse, id);
+        String previousAddress = existing.getAddress();
+        String nextAddress = updatedHouse.getAddress();
+        boolean addressChanged = !Objects.equals(normalize(previousAddress), normalize(nextAddress));
+        boolean newCoordinatesProvided = hasCoordinates(updatedHouse);
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
@@ -123,6 +128,8 @@ public class SecondHandHouseService {
         existing.setImageUrls(updatedHouse.getImageUrls());
         ensureCertificateProvided(updatedHouse);
         existing.setPropertyCertificateUrl(updatedHouse.getPropertyCertificateUrl());
+        boolean shouldRefreshCoordinates = addressChanged ? !newCoordinatesProvided : !hasCoordinates(existing);
+        ensureCoordinates(existing, shouldRefreshCoordinates);
         existing.setStatus(ListingStatus.PENDING_REVIEW);
         existing.setReviewedAt(null);
         existing.setReviewedBy(null);
@@ -144,7 +151,7 @@ public class SecondHandHouseService {
         List<HouseLocationView> locations = repository.findAll().stream()
                 .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
-                .map(HouseLocationView::fromEntity)
+                .map(this::buildLocationView)
                 .filter(Objects::nonNull)
                 .toList();
         if (sanitizedLat != null && sanitizedLng != null) {
@@ -325,6 +332,76 @@ public class SecondHandHouseService {
         }
         String address = house.getAddress();
         return address != null && !address.trim().isEmpty();
+    }
+
+    private void ensureCoordinates(SecondHandHouse house, boolean requireFreshLookup) {
+        if (house == null) {
+            return;
+        }
+        if (!requireFreshLookup && hasCoordinates(house)) {
+            return;
+        }
+        if (!hasMappableAddress(house)) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        if (!geocodingClient.isEnabled()) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        String address = house.getAddress();
+        String cityHint = resolveCityHint(address);
+        Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, cityHint);
+        if (coordinate.isEmpty()) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        Double latitude = sanitizeCoordinate(coordinate.get().latitude(), -90d, 90d);
+        Double longitude = sanitizeCoordinate(coordinate.get().longitude(), -180d, 180d);
+        if (latitude == null || longitude == null) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        house.setLatitude(latitude);
+        house.setLongitude(longitude);
+    }
+
+    private HouseLocationView buildLocationView(SecondHandHouse house) {
+        if (house == null) {
+            return null;
+        }
+        Double latitude = sanitizeCoordinate(house.getLatitude(), -90d, 90d);
+        Double longitude = sanitizeCoordinate(house.getLongitude(), -180d, 180d);
+        if ((latitude == null || longitude == null) && hasMappableAddress(house) && geocodingClient.isEnabled()) {
+            Optional<GaodeGeocodingClient.Coordinate> coordinate =
+                    geocodingClient.geocode(house.getAddress(), resolveCityHint(house.getAddress()));
+            if (coordinate.isPresent()) {
+                latitude = sanitizeCoordinate(coordinate.get().latitude(), -90d, 90d);
+                longitude = sanitizeCoordinate(coordinate.get().longitude(), -180d, 180d);
+            }
+        }
+        return new HouseLocationView(
+                house.getId(),
+                house.getTitle(),
+                house.getAddress(),
+                house.getPrice(),
+                house.getStatus(),
+                latitude,
+                longitude,
+                house.getUpdatedAt()
+        );
     }
 
     public Optional<GaodeGeocodingClient.PlaceSuggestion> searchMapLocation(String query, String cityHint) {

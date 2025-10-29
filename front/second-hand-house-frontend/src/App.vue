@@ -3069,11 +3069,22 @@ const fetchHouseLocations = async ({ silent = false } = {}) => {
     }
     const { data } = await client.get('/houses/locations', { params });
     const list = Array.isArray(data) ? data : [];
-    houseLocations.value = list.filter((item) => {
-      const lat = Number(item?.latitude);
-      const lng = Number(item?.longitude);
-      return Number.isFinite(lat) && Number.isFinite(lng);
-    });
+    houseLocations.value = list
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+        const lat = Number(item.latitude);
+        const lng = Number(item.longitude);
+        const price = Number(item.price);
+        return {
+          ...item,
+          latitude: Number.isFinite(lat) ? lat : null,
+          longitude: Number.isFinite(lng) ? lng : null,
+          price: Number.isFinite(price) ? price : null
+        };
+      })
+      .filter((item) => item && (item.title || item.address));
     houseLocationsUpdatedAt.value = new Date().toISOString();
   } catch (error) {
     if (!silent) {

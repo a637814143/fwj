@@ -131,7 +131,7 @@ public class SecondHandHouseService {
                 ? radiusKm
                 : null;
         return repository.findAll().stream()
-                .filter(this::hasCoordinates)
+                .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
                 .filter(house -> isWithinRadius(house, sanitizedLat, sanitizedLng, sanitizedRadius))
                 .map(HouseLocationView::fromEntity)
@@ -146,13 +146,28 @@ public class SecondHandHouseService {
         UserAccount requester = userAccountRepository.findByUsernameIgnoreCase(requesterUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "操作用户不存在"));
 
+        List<HouseOrder> relatedOrders = house.getId() == null
+                ? List.of()
+                : houseOrderRepository.findByHouse_Id(house.getId());
+
+        if (!relatedOrders.isEmpty() && requester.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "房源存在正在处理的订单，请联系管理员删除或完成相关流程。");
+        }
+
         if (requester.getRole() == UserRole.ADMIN) {
+            if (!relatedOrders.isEmpty()) {
+                houseOrderRepository.deleteAll(relatedOrders);
+                log.info("管理员 {} 删除房源 {} 时移除了 {} 条关联订单", requester.getUsername(), house.getId(), relatedOrders.size());
+            }
             repository.delete(house);
             return;
         }
 
         if (requester.getRole() != null && requester.getRole().isSellerRole()
                 && requester.getUsername().equalsIgnoreCase(house.getSellerUsername())) {
+            if (!relatedOrders.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "房源存在正在处理的订单，无法删除。");
+            }
             repository.delete(house);
             return;
         }
@@ -284,6 +299,14 @@ public class SecondHandHouseService {
                 && house.getLongitude() != null
                 && Double.isFinite(house.getLatitude())
                 && Double.isFinite(house.getLongitude());
+    }
+
+    private boolean hasMappableAddress(SecondHandHouse house) {
+        if (house == null) {
+            return false;
+        }
+        String address = house.getAddress();
+        return address != null && !address.trim().isEmpty();
     }
 
     private boolean isWithinRadius(SecondHandHouse house,

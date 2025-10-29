@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import 'leaflet/dist/leaflet.css';
 
 const props = defineProps({
@@ -376,6 +376,7 @@ let leafletMap = null;
 let leafletMarkerLayer = null;
 let updateToken = 0;
 let latestGeometries = [];
+let resizeObserver = null;
 
 const resetTencentMap = () => {
   if (markerLayer && typeof markerLayer.setGeometries === 'function') {
@@ -398,6 +399,43 @@ const resetLeafletMap = () => {
     leafletMap.remove();
   }
   leafletMap = null;
+};
+
+const ensureMapResized = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    if (activeMapProvider.value === 'tencent' && mapInstance && typeof mapInstance.resize === 'function') {
+      mapInstance.resize();
+    } else if (activeMapProvider.value === 'leaflet' && leafletMap) {
+      window.requestAnimationFrame(() => {
+        try {
+          leafletMap.invalidateSize();
+        } catch (error) {
+          console.warn('Leaflet map resize failed', error);
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('Map resize failed', error);
+  }
+};
+
+const startResizeObserver = () => {
+  if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+    return;
+  }
+  if (!mapContainer.value) {
+    return;
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
+  resizeObserver = new ResizeObserver(() => {
+    ensureMapResized();
+  });
+  resizeObserver.observe(mapContainer.value);
 };
 
 const loadTencentMapScript = () => {
@@ -468,6 +506,9 @@ const ensureTencentMap = async () => {
   tencentNamespace = TMap;
   mapReady.value = true;
   activeMapProvider.value = 'tencent';
+  nextTick(() => {
+    ensureMapResized();
+  });
   return 'tencent';
 };
 
@@ -493,6 +534,9 @@ const ensureLeafletMap = async () => {
   }
   mapReady.value = true;
   activeMapProvider.value = 'leaflet';
+  nextTick(() => {
+    ensureMapResized();
+  });
   return 'leaflet';
 };
 
@@ -689,6 +733,7 @@ const updateMapMarkers = async () => {
       return;
     }
     renderMarkers(provider);
+    ensureMapResized();
   } catch (error) {
     console.error('Failed to update map markers', error);
     if (provider === 'tencent') {
@@ -742,15 +787,38 @@ watch(activeHouseId, () => {
   highlightActiveMarker();
 });
 
+watch(mapReady, (ready) => {
+  if (ready) {
+    nextTick(() => {
+      ensureMapResized();
+    });
+  }
+});
+
+watch(activeMapProvider, () => {
+  if (mapReady.value) {
+    nextTick(() => {
+      ensureMapResized();
+    });
+  }
+});
+
 onMounted(() => {
   isMounted.value = true;
-  updateMapMarkers();
+  nextTick(() => {
+    startResizeObserver();
+    updateMapMarkers();
+  });
 });
 
 onBeforeUnmount(() => {
   latestGeometries = [];
   resetTencentMap();
   resetLeafletMap();
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
 });
 </script>
 

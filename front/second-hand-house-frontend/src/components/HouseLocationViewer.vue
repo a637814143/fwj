@@ -154,6 +154,8 @@ const activeMapProvider = ref('');
 const mapKey = ref('');
 const mapSecurityCode = ref('');
 
+const GEOCODE_CACHE_VERSION = 'v2';
+
 const envMapCandidates = [
   import.meta.env.VITE_GAODE_MAP_KEY,
   import.meta.env.VITE_AMAP_KEY,
@@ -371,24 +373,46 @@ const showLoadingOverlay = computed(() => props.loading || mapBusy.value || !map
 const geocodeCache = new Map();
 const pendingGeocodes = new Map();
 
-const cacheKey = (address) => `gaode::${mapKey.value || 'default'}::${address}`;
+const cacheKey = (address) => `gaode::${GEOCODE_CACHE_VERSION}::${mapKey.value || 'default'}::${address}`;
+
+const sanitizeAdministrativeName = (value) => {
+  if (!value) {
+    return '';
+  }
+  return value.replace(/(自治州|地区|盟)/g, '').trim();
+};
+
+const normalizeCityQuery = (value) => {
+  if (!value) {
+    return '';
+  }
+  const sanitized = sanitizeAdministrativeName(value.trim());
+  return sanitized.replace(/(市|县|区|旗)$/u, '');
+};
 
 const extractRegion = (address) => {
   if (!address || typeof address !== 'string') {
     return '';
   }
-  const text = address.trim();
+  const text = address.replace(/\s+/g, '').trim();
+  if (!text) {
+    return '';
+  }
+  const municipalityMatches = text.match(/(北京|上海|天津|重庆)/g);
+  if (municipalityMatches?.length) {
+    return `${municipalityMatches[municipalityMatches.length - 1]}市`;
+  }
+  const cityMatches = text.match(/[\u4e00-\u9fa5]{2,6}市/g);
+  if (cityMatches?.length) {
+    return sanitizeAdministrativeName(cityMatches[cityMatches.length - 1]);
+  }
+  const countyMatches = text.match(/[\u4e00-\u9fa5]{2,6}(?:县|区|旗)/g);
+  if (countyMatches?.length) {
+    return sanitizeAdministrativeName(countyMatches[countyMatches.length - 1]);
+  }
   const provinceMatch = text.match(/^(.*?(省|自治区|特别行政区))/);
   if (provinceMatch) {
-    return provinceMatch[1];
-  }
-  const municipalityMatch = text.match(/(北京|上海|天津|重庆)/);
-  if (municipalityMatch) {
-    return `${municipalityMatch[1]}市`;
-  }
-  const cityMatch = text.match(/([\u4e00-\u9fa5]{2,6}市)/);
-  if (cityMatch) {
-    return cityMatch[1];
+    return sanitizeAdministrativeName(provinceMatch[1]);
   }
   return '';
 };
@@ -418,7 +442,8 @@ const geocodeWithGaode = async (address) => {
   });
   const region = extractRegion(address);
   if (region) {
-    params.set('city', region.replace(/市$/, ''));
+    params.set('city', normalizeCityQuery(region));
+    params.set('citylimit', 'true');
   }
   try {
     const response = await fetch(`https://restapi.amap.com/v3/geocode/geo?${params.toString()}`);

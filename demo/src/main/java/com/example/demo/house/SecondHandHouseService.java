@@ -33,6 +33,7 @@ public class SecondHandHouseService {
 
     private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
     private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
+    private static final Pattern COUNTY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}(?:县|区|旗))");
 
     private final SecondHandHouseRepository repository;
     private final UserAccountRepository userAccountRepository;
@@ -381,16 +382,37 @@ public class SecondHandHouseService {
         if (address == null || address.isBlank()) {
             return null;
         }
-        String trimmed = address.trim();
-        Matcher municipality = MUNICIPALITY_PATTERN.matcher(trimmed);
-        if (municipality.find()) {
-            return municipality.group(1) + "市";
+        String trimmed = address.replaceAll("\\s+", "").trim();
+        String municipality = findLastMatch(MUNICIPALITY_PATTERN, trimmed);
+        if (municipality != null) {
+            return municipality + "市";
         }
-        Matcher city = CITY_PATTERN.matcher(trimmed);
-        if (city.find()) {
-            return city.group(1);
+        String city = findLastMatch(CITY_PATTERN, trimmed);
+        if (city != null) {
+            return sanitizeAdministrativeName(city);
+        }
+        String county = findLastMatch(COUNTY_PATTERN, trimmed);
+        if (county != null) {
+            return sanitizeAdministrativeName(county);
         }
         return null;
+    }
+
+    private String findLastMatch(Pattern pattern, String input) {
+        Matcher matcher = pattern.matcher(input);
+        String candidate = null;
+        while (matcher.find()) {
+            candidate = matcher.group(1);
+        }
+        return candidate;
+    }
+
+    private String sanitizeAdministrativeName(String value) {
+        if (value == null) {
+            return null;
+        }
+        String sanitized = value.replaceAll("(自治州|地区|盟)", "").trim();
+        return sanitized.isEmpty() ? null : sanitized;
     }
 
     private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {

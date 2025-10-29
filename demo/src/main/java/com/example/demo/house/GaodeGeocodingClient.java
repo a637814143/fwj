@@ -54,7 +54,7 @@ public class GaodeGeocodingClient {
                         .queryParam("output", "JSON")
                         .queryParam("extensions", "base");
                 if (cityHint != null && !cityHint.isBlank()) {
-                    uriBuilder.queryParam("city", cityHint.replace("市", ""));
+                    uriBuilder.queryParam("city", normalizeCityQuery(cityHint));
                 }
                 return uriBuilder.build();
             });
@@ -91,6 +91,15 @@ public class GaodeGeocodingClient {
             log.warn("Gaode geocode request failed for address {}: {}", address, ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    private String normalizeCityQuery(String cityHint) {
+        String sanitized = cityHint.trim();
+        sanitized = sanitized.replaceAll("(自治州|地区|盟)", "");
+        if (sanitized.endsWith("市") || sanitized.endsWith("县") || sanitized.endsWith("区") || sanitized.endsWith("旗")) {
+            sanitized = sanitized.substring(0, sanitized.length() - 1);
+        }
+        return sanitized;
     }
 
     public record Coordinate(double latitude, double longitude) {

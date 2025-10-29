@@ -37,33 +37,6 @@
       </label>
 
       <label>
-        {{ t('manage.form.fields.latitude') }}
-        <input
-          v-model="form.latitude"
-          type="number"
-          step="0.000001"
-          min="-90"
-          max="90"
-          :placeholder="t('manage.form.placeholders.latitude')"
-          :disabled="disabled"
-        />
-        <small class="hint">{{ t('manage.form.hints.locationHint') }}</small>
-      </label>
-
-      <label>
-        {{ t('manage.form.fields.longitude') }}
-        <input
-          v-model="form.longitude"
-          type="number"
-          step="0.000001"
-          min="-180"
-          max="180"
-          :placeholder="t('manage.form.placeholders.longitude')"
-          :disabled="disabled"
-        />
-      </label>
-
-      <label>
         {{ t('manage.form.fields.price') }}
         <input
           v-model.number="form.price"
@@ -387,8 +360,6 @@ const resolveAssetUrl = (raw) => {
 const form = reactive({
   title: '',
   address: '',
-  latitude: '',
-  longitude: '',
   price: '',
   downPayment: '',
   area: '',
@@ -551,8 +522,6 @@ const applyImageUrls = (images = []) => {
 const setFormDefaults = () => {
   form.title = '';
   form.address = '';
-  form.latitude = '';
-  form.longitude = '';
   form.price = '';
   form.downPayment = '';
   form.area = '';
@@ -574,8 +543,6 @@ const setFormDefaults = () => {
 const fillFromHouse = (house) => {
   form.title = house.title ?? '';
   form.address = house.address ?? '';
-  form.latitude = house.latitude ?? '';
-  form.longitude = house.longitude ?? '';
   form.price = house.price ?? '';
   form.downPayment = house.downPayment ?? '';
   form.area = house.area ?? '';
@@ -794,26 +761,6 @@ const validateForm = () => {
     formError.value = t('manage.form.validation.installmentMonths');
     return false;
   }
-  const hasLatitude = form.latitude !== '' && form.latitude != null;
-  const hasLongitude = form.longitude !== '' && form.longitude != null;
-  if (hasLatitude !== hasLongitude) {
-    formError.value = t('manage.form.validation.coordinatePair');
-    return false;
-  }
-  if (hasLatitude) {
-    const latitude = Number(form.latitude);
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-      formError.value = t('manage.form.validation.latitudeRange');
-      return false;
-    }
-  }
-  if (hasLongitude) {
-    const longitude = Number(form.longitude);
-    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      formError.value = t('manage.form.validation.longitudeRange');
-      return false;
-    }
-  }
   formError.value = '';
   return true;
 };
@@ -836,8 +783,6 @@ const submitForm = () => {
   const payload = {
     title: form.title.trim(),
     address: form.address.trim(),
-    latitude: normalizeNumber(form.latitude),
-    longitude: normalizeNumber(form.longitude),
     price: normalizeNumber(form.price),
     downPayment: normalizeNumber(form.downPayment),
     area: normalizeNumber(form.area),

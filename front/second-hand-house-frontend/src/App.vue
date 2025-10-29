@@ -87,15 +87,11 @@
 
         <HouseLocationViewer
           v-else-if="activeTab === 'locations'"
-          :houses="houseLocations.length ? houseLocations : houses"
-          :loading="loading || locationLoading"
-          :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
+          :houses="houses"
+          :loading="loading"
+          :updated-at="housesUpdatedAt"
           :focus-key="locationFocusId"
-          :map-config="mapConfig"
-          :api-base-url="apiBaseUrl"
-          :search-query="locationSearchQuery"
           @refresh="fetchHouses({ silent: false })"
-          @viewport-change="handleLocationViewportChange"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -250,7 +246,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, provide, reactive, ref, watch } from 'vue';
+import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
@@ -272,32 +268,9 @@ import HouseLocationViewer from './components/HouseLocationViewer.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
-const houseLocations = ref([]);
 const housesUpdatedAt = ref('');
-const houseLocationsUpdatedAt = ref('');
 const locationFocusId = ref('');
-const locationSearchQuery = ref('');
-const locationViewport = reactive({
-  centerLat: null,
-  centerLng: null,
-  radiusKm: null
-});
-let locationViewportTimer = null;
-const normalizeMapEnv = (value) => (typeof value === 'string' ? value.trim() : '');
-const defaultMapKey =
-  normalizeMapEnv(import.meta.env.VITE_GAODE_MAP_KEY) ||
-  normalizeMapEnv(import.meta.env.VITE_AMAP_KEY) ||
-  '46dff0d2a8f9204d4642f8dd91e10daf';
-const defaultMapSecurityCode =
-  normalizeMapEnv(import.meta.env.VITE_GAODE_SECURITY_CODE) ||
-  normalizeMapEnv(import.meta.env.VITE_AMAP_SECURITY_CODE) ||
-  '';
-const mapConfig = reactive({
-  apiKey: defaultMapKey,
-  jsSecurityCode: defaultMapSecurityCode
-});
 const loading = ref(false);
-const locationLoading = ref(false);
 const selectedHouse = ref(null);
 const formResetKey = ref(0);
 const currentUser = ref(null);
@@ -353,16 +326,6 @@ const coerceNumber = (value, fallback = 0) => {
     return Number.isFinite(fallbackNum) ? fallbackNum : 0;
   }
   return num;
-};
-
-const approxEqual = (a, b, epsilon = 0.0001) => {
-  if (a === null || a === undefined) {
-    return b === null || b === undefined;
-  }
-  if (b === null || b === undefined) {
-    return false;
-  }
-  return Math.abs(a - b) <= epsilon;
 };
 
 const normalizeWallet = (next, previous = null) => {
@@ -718,8 +681,6 @@ const translations = {
         fields: {
           title: '房源标题',
           address: '房源地址',
-          latitude: '纬度（可选）',
-          longitude: '经度（可选）',
           price: '房源总价（元）',
           downPayment: '首付款（元）',
           area: '建筑面积（㎡）',
@@ -737,8 +698,6 @@ const translations = {
         placeholders: {
           title: '请输入房源标题',
           address: '请输入房源地址',
-          latitude: '例如 31.2304',
-          longitude: '例如 121.4737',
           price: '例如 2000000',
           downPayment: '例如 600000',
           area: '例如 89',
@@ -755,8 +714,7 @@ const translations = {
           installmentCalculation: '系统会根据首付与分期设置自动预估月供。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
-          noImages: '尚未上传图片。',
-          locationHint: '填写经纬度后地图功能可立即定位房源。'
+          noImages: '尚未上传图片。'
         },
         actions: {
           upload: '上传图片',
@@ -784,10 +742,7 @@ const translations = {
           downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
           area: '请输入有效的建筑面积。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
-          installmentMonths: '分期期限必须大于0。',
-          coordinatePair: '经纬度需同时填写或同时留空。',
-          latitudeRange: '请输入 -90 至 90 之间的纬度。',
-          longitudeRange: '请输入 -180 至 180 之间的经度。'
+          installmentMonths: '分期期限必须大于0。'
         }
       },
       list: {
@@ -946,11 +901,10 @@ const translations = {
       login: '登录成功。',
       loginReputationSuffix: ' 当前信誉分：{score}。',
       restoredSession: '已恢复上次的登录状态。',
-      mapAddressCopied: '已复制房源地址，可在地图中搜索。'
+      mapSearchLaunched: '已尝试复制房源地址，并在新标签页打开地图搜索页面。'
     },
     errors: {
       loadHouses: '加载房源数据失败，请检查后端服务。',
-      loadLocations: '加载房源坐标失败。',
       loadRecommendations: '加载推荐用户失败。',
       loadWallet: '加载钱包信息失败。',
       loadOrders: '加载订单信息失败。',
@@ -982,7 +936,7 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
-      mapAddressMissing: '该房源尚未提供地址，暂无法在地图中搜索。',
+      mapAddressMissing: '该房源尚未提供地址，无法打开地图搜索。',
       installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
@@ -1040,7 +994,7 @@ const translations = {
         search: '搜索房源',
         applyFilters: '应用筛选',
         reset: '重置',
-        viewMap: '查看地图',
+        viewMap: '打开地图',
         contactSeller: '联系卖家',
         reserve: '预定（定金 ￥{deposit}）',
         reserving: '预定中…',
@@ -1144,51 +1098,25 @@ const translations = {
     },
     locationViewer: {
       title: '房源地段地图',
-      subtitle: '接入高德地图实时地段视图，可切换标准与卫星影像。',
+      subtitle: '复制房源填写的地址，在地图中手动搜索并查看位置。',
       refresh: '刷新房源数据',
       refreshing: '刷新中…',
-      loading: '房源数据同步中…',
-      mapLoading: '地图加载中…',
       updatedAt: '数据更新：{time}',
       listTitle: '房源列表',
-      empty: '暂无可展示的房源位置，请先在首页检索或发布房源。',
+      empty: '暂无可展示的房源，请先发布或检索房源。',
       noTitle: '未命名房源',
       noAddress: '地址信息待补充',
       priceLabel: '参考价：￥{price}',
-      item: {
-        focus: '查看位置',
-        active: '正在查看'
+      manualSearchHint: '系统会尝试复制地址，并在新标签页打开高德地图搜索页面。',
+      noSelection: '请选择左侧的房源以查看详情。',
+      actions: {
+        copyAddress: '复制地址',
+        openMap: '打开地图搜索'
       },
-      styles: {
-        label: '地图图层',
-        street: '标准地图',
-        satellite: '卫星影像'
-      },
-      fallback: '已连接至高德地图服务。',
-      focusSummary: '已定位至「{title}」附近',
-      viewportSummary: '当前视图范围内共有 {count} 套房源',
-      errors: {
-        mapInit: '地图加载失败，请稍后重试。',
-        geocode: '暂时无法定位房源，请检查地址信息。',
-        missingKey: '缺少高德地图密钥，无法加载地图。',
-        partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
-      },
-      search: {
-        searching: '正在搜索「{query}」的地图位置…',
-        success: '已根据搜索结果定位至「{name}」。',
-        empty: '未找到与「{query}」匹配的位置，请尝试调整关键词。',
-        error: '地图搜索失败，请稍后重试。'
-      },
-      pois: {
-        title: '周边实况',
-        loading: '正在获取周边环境…',
-        empty: '未检索到周边实况点，可尝试放大地图或调整位置。',
-        error: '周边实况暂时不可用，请稍后重试。',
-        distanceM: '{value} 米',
-        distanceKm: '{value} 公里'
-      },
-      aria: {
-        map: '房源位置分布地图'
+      status: {
+        copySuccess: '地址已复制到剪贴板。',
+        copyUnavailable: '该房源暂未提供可复制的地址。',
+        copyManual: '复制功能不可用，可手动复制：{address}'
       }
     },
     prediction: {
@@ -1760,8 +1688,6 @@ const translations = {
         fields: {
           title: 'Listing title',
           address: 'Listing address',
-          latitude: 'Latitude (optional)',
-          longitude: 'Longitude (optional)',
           price: 'Total price (CNY)',
           downPayment: 'Down payment (CNY)',
           area: 'Floor area (㎡)',
@@ -1779,8 +1705,6 @@ const translations = {
         placeholders: {
           title: 'Enter listing title',
           address: 'Enter listing address',
-          latitude: 'e.g. 31.2304',
-          longitude: 'e.g. 121.4737',
           price: 'e.g. 2000000',
           downPayment: 'e.g. 600000',
           area: 'e.g. 89',
@@ -1797,8 +1721,7 @@ const translations = {
           installmentCalculation: 'The system estimates the monthly instalment based on your down payment and term.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
-          noImages: 'No images uploaded yet.',
-          locationHint: 'Provide coordinates so the location map can highlight this listing precisely.'
+          noImages: 'No images uploaded yet.'
         },
         actions: {
           upload: 'Upload images',
@@ -1826,10 +1749,7 @@ const translations = {
           downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
           area: 'Enter a valid floor area.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
-          installmentMonths: 'The instalment term must be greater than zero.',
-          coordinatePair: 'Latitude and longitude must both be provided or both left blank.',
-          latitudeRange: 'Latitude must stay between -90 and 90 degrees.',
-          longitudeRange: 'Longitude must stay between -180 and 180 degrees.'
+          installmentMonths: 'The instalment term must be greater than zero.'
         }
       },
       list: {
@@ -1988,11 +1908,10 @@ const translations = {
       login: 'Signed in successfully.',
       loginReputationSuffix: ' Current reputation score: {score}.',
       restoredSession: 'Previous session restored.',
-      mapAddressCopied: 'Listing address copied. Opening the map…'
+      mapSearchLaunched: 'Tried to copy the listing address and opened the map search in a new tab.'
     },
     errors: {
       loadHouses: 'Failed to load listings. Please check the backend service.',
-      loadLocations: 'Failed to load listing locations.',
       loadRecommendations: 'Failed to load recommended users.',
       loadWallet: 'Failed to load wallet information.',
       loadOrders: 'Failed to load orders.',
@@ -2024,7 +1943,7 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
-      mapAddressMissing: 'This listing is missing an address, so the map search cannot run yet.',
+      mapAddressMissing: 'This listing is missing an address, so the map search cannot be opened yet.',
       installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
@@ -2082,7 +2001,7 @@ const translations = {
         search: 'Search listings',
         applyFilters: 'Apply filters',
         reset: 'Reset',
-        viewMap: 'View on map',
+        viewMap: 'Open map search',
         contactSeller: 'Contact seller',
         reserve: 'Reserve (deposit ¥{deposit})',
         reserving: 'Reserving…',
@@ -2182,51 +2101,25 @@ const translations = {
     },
     locationViewer: {
       title: 'Listing map overview',
-      subtitle: 'Powered by Gaode Maps with live coverage and optional satellite tiles.',
+      subtitle: 'Copy the listing address and search it manually on the map.',
       refresh: 'Refresh listings',
       refreshing: 'Refreshing…',
-      loading: 'Synchronising listing data…',
-      mapLoading: 'Loading map view…',
       updatedAt: 'Data updated: {time}',
       listTitle: 'Listings',
-      empty: 'No listing locations are available yet. Try searching or publishing first.',
+      empty: 'No listings are available yet. Publish or search for a property first.',
       noTitle: 'Untitled listing',
       noAddress: 'Address pending',
       priceLabel: 'Price: ￥{price}',
-      item: {
-        focus: 'Focus on map',
-        active: 'Viewing'
+      manualSearchHint: 'We will try to copy the address and open Gaode Map search in a new tab.',
+      noSelection: 'Select a listing on the left to view its details.',
+      actions: {
+        copyAddress: 'Copy address',
+        openMap: 'Open map search'
       },
-      styles: {
-        label: 'Base map',
-        street: 'Street',
-        satellite: 'Satellite'
-      },
-      fallback: 'Connected to the Gaode map service.',
-      focusSummary: 'Focusing on “{title}” and nearby listings',
-      viewportSummary: '{count} listing(s) visible within the current view',
-      errors: {
-        mapInit: 'The map failed to load. Please try again later.',
-        geocode: 'Some listings could not be located on the map.',
-        missingKey: 'The Gaode Maps key is missing, so the map cannot be displayed.',
-        partial: '{count} listing(s) could not be located. Their addresses are listed below.'
-      },
-      search: {
-        searching: 'Searching the map for “{query}”…',
-        success: 'Centered the map on “{name}” from the search results.',
-        empty: 'No results found for “{query}”. Try adjusting the keywords.',
-        error: 'Map search failed. Please try again later.'
-      },
-      pois: {
-        title: 'Live surroundings',
-        loading: 'Fetching nearby points of interest…',
-        empty: 'No surroundings found yet. Try zooming out or moving the map.',
-        error: 'Nearby surroundings are temporarily unavailable. Please try again soon.',
-        distanceM: '{value} m',
-        distanceKm: '{value} km'
-      },
-      aria: {
-        map: 'Map showing listing locations'
+      status: {
+        copySuccess: 'Address copied to the clipboard.',
+        copyUnavailable: 'No address is available to copy for this listing.',
+        copyManual: 'Copying is unavailable. Please copy manually: {address}'
       }
     },
     prediction: {
@@ -2695,9 +2588,6 @@ watch(
   () => activeTab.value,
   (tab) => {
     updateDocumentLanguage();
-    if (tab === 'locations' && !houseLocations.value.length && !locationLoading.value) {
-      fetchHouseLocations({ silent: false });
-    }
   }
 );
 
@@ -3145,93 +3035,6 @@ const assignFilters = (filters = {}) => {
   });
 };
 
-const fetchHouseLocations = async ({ silent = false } = {}) => {
-  if (!silent) {
-    locationLoading.value = true;
-  }
-  try {
-    const params = {};
-    if (currentUser.value?.username) {
-      params.requester = currentUser.value.username;
-    }
-    if (Number.isFinite(locationViewport.centerLat) && Number.isFinite(locationViewport.centerLng)) {
-      params.centerLat = Number(locationViewport.centerLat.toFixed(6));
-      params.centerLng = Number(locationViewport.centerLng.toFixed(6));
-      if (Number.isFinite(locationViewport.radiusKm) && locationViewport.radiusKm > 0) {
-        const radius = Math.min(Math.max(locationViewport.radiusKm, 0.2), 50);
-        params.radiusKm = Number(radius.toFixed(3));
-      }
-    }
-    const { data } = await client.get('/houses/locations', { params });
-    const list = Array.isArray(data) ? data : [];
-    houseLocations.value = list
-      .map((item) => {
-        if (!item || typeof item !== 'object') {
-          return null;
-        }
-        const lat = Number(item.latitude);
-        const lng = Number(item.longitude);
-        const price = Number(item.price);
-        return {
-          ...item,
-          latitude: Number.isFinite(lat) ? lat : null,
-          longitude: Number.isFinite(lng) ? lng : null,
-          price: Number.isFinite(price) ? price : null
-        };
-      })
-      .filter((item) => item && (item.title || item.address));
-    if (
-      locationFocusId.value &&
-      !houseLocations.value.some((item) => String(item?.id ?? '') === locationFocusId.value)
-    ) {
-      const fallback = houses.value.find((house) => String(house?.id ?? '') === locationFocusId.value);
-      if (fallback) {
-        const fallbackLat = normalizeViewportValue(fallback.latitude, 6);
-        const fallbackLng = normalizeViewportValue(fallback.longitude, 6);
-        houseLocations.value = [
-          ...houseLocations.value,
-          {
-            ...fallback,
-            latitude: fallbackLat,
-            longitude: fallbackLng,
-            price: Number.isFinite(Number(fallback.price)) ? Number(fallback.price) : null
-          }
-        ];
-      }
-    }
-    houseLocationsUpdatedAt.value = new Date().toISOString();
-  } catch (error) {
-    if (!silent) {
-      messages.error = resolveError(error, 'errors.loadLocations');
-    } else {
-      console.warn('Failed to load house locations', error);
-    }
-  } finally {
-    if (!silent) {
-      locationLoading.value = false;
-    }
-  }
-};
-
-const loadMapConfig = async () => {
-  try {
-    const { data } = await client.get('/houses/map-config');
-    if (data && typeof data === 'object') {
-      const nextKey = normalizeMapEnv(data.apiKey ?? data.key);
-      if (nextKey) {
-        mapConfig.apiKey = nextKey;
-      }
-      if ('jsSecurityCode' in data || 'securityCode' in data) {
-        mapConfig.jsSecurityCode = normalizeMapEnv(
-          data.jsSecurityCode ?? data.securityCode ?? ''
-        );
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to load map configuration', error);
-  }
-};
-
 const fetchHouses = async ({ filters, silent = false } = {}) => {
   if (filters) {
     assignFilters(filters);
@@ -3249,13 +3052,6 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     houses.value = data.map(normalizeHouse);
     syncReviewHouseTitles();
     housesUpdatedAt.value = new Date().toISOString();
-    if (silent) {
-      fetchHouseLocations({ silent: true }).catch((error) => {
-        console.warn('Failed to refresh house locations silently', error);
-      });
-    } else {
-      await fetchHouseLocations({ silent: false });
-    }
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadHouses');
   } finally {
@@ -4124,68 +3920,19 @@ const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
 };
 
-const normalizeViewportValue = (value, precision = null) => {
-  if (value === null || value === undefined) {
-    return null;
+const buildMapSearchUrl = (address) => {
+  if (!address) {
+    return '';
   }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-  if (precision != null) {
-    const factor = 10 ** precision;
-    return Math.round(numeric * factor) / factor;
-  }
-  return numeric;
+  return `https://uri.amap.com/search?keyword=${encodeURIComponent(address)}`;
 };
 
-const scheduleViewportFetch = ({ silent, immediate }) => {
-  if (locationViewportTimer) {
-    clearTimeout(locationViewportTimer);
-    locationViewportTimer = null;
-  }
-  const trigger = () => {
-    fetchHouseLocations({ silent }).catch((error) => {
-      console.warn('Failed to refresh house locations for viewport change', error);
-    });
-  };
-  if (immediate) {
-    trigger();
-  } else {
-    locationViewportTimer = setTimeout(() => {
-      trigger();
-      locationViewportTimer = null;
-    }, 600);
-  }
-};
-
-const handleLocationViewportChange = (payload = {}) => {
-  if (!payload || typeof payload !== 'object') {
+const openMapSearchWindow = (address) => {
+  const url = buildMapSearchUrl(address);
+  if (!url || typeof window === 'undefined') {
     return;
   }
-  const source = payload.source ?? 'auto';
-  const focusKey = typeof payload.focusKey === 'string' ? payload.focusKey : '';
-  const lat = normalizeViewportValue(payload.centerLat, 6);
-  const lng = normalizeViewportValue(payload.centerLng, 6);
-  const radius = normalizeViewportValue(payload.radiusKm, 3);
-
-  const latChanged = !approxEqual(lat, locationViewport.centerLat, 0.0005);
-  const lngChanged = !approxEqual(lng, locationViewport.centerLng, 0.0005);
-  const radiusChanged = !approxEqual(radius, locationViewport.radiusKm, 0.2);
-
-  if (!latChanged && !lngChanged && !radiusChanged) {
-    if (source !== 'focus' || !focusKey || focusKey === locationFocusId.value) {
-      return;
-    }
-  }
-
-  locationViewport.centerLat = lat;
-  locationViewport.centerLng = lng;
-  locationViewport.radiusKm = radius;
-
-  const immediate = source === 'focus' || source === 'init';
-  const silent = source !== 'focus';
-  scheduleViewportFetch({ silent, immediate });
+  window.open(url, '_blank', 'noopener');
 };
 
 const handleShowOnMap = async (house) => {
@@ -4195,49 +3942,24 @@ const handleShowOnMap = async (house) => {
   const key = house.id != null ? String(house.id) : '';
   const address = typeof house.address === 'string' ? house.address.trim() : '';
   messages.error = '';
+  messages.success = '';
   if (!address) {
     messages.error = t('errors.mapAddressMissing');
     return;
   }
 
-  const syncSearchQuery = async () => {
-    if (locationSearchQuery.value === address) {
-      locationSearchQuery.value = '';
-      await nextTick();
-    }
-    locationSearchQuery.value = address;
-  };
-
-  const navigateToMap = async () => {
-    locationFocusId.value = key;
-    await syncSearchQuery();
-    activeTab.value = 'locations';
-    const hasListing = key
-      ? houseLocations.value.some((item) => String(item?.id ?? '') === key)
-      : false;
-    if (!hasListing) {
-      fetchHouseLocations({ silent: false });
-    }
-  };
-
-  if (address && typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+  if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(address);
-      messages.success = t('success.mapAddressCopied');
     } catch (error) {
       console.warn('Failed to copy address to clipboard', error);
     }
   }
 
-  if (!key || locationFocusId.value !== key) {
-    await navigateToMap();
-    return;
-  }
-
-  locationFocusId.value = '';
-  nextTick(async () => {
-    await navigateToMap();
-  });
+  openMapSearchWindow(address);
+  messages.success = t('success.mapSearchLaunched');
+  locationFocusId.value = key;
+  activeTab.value = 'locations';
 };
 
 const handleToggleBlacklist = async ({ username, blacklisted }) => {
@@ -4512,7 +4234,6 @@ const handleLoginSuccess = (user) => {
   messages.error = '';
   persistUser(user);
   activeTab.value = 'home';
-  locationSearchQuery.value = '';
   fetchHouses();
   fetchWallet();
   fetchOrders();
@@ -4529,7 +4250,6 @@ const handleLoginSuccess = (user) => {
 const handleLogout = () => {
   currentUser.value = null;
   houses.value = [];
-  houseLocations.value = [];
   selectedHouse.value = null;
   wallet.value = null;
   orders.value = [];
@@ -4541,16 +4261,11 @@ const handleLogout = () => {
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
-  locationLoading.value = false;
   housesUpdatedAt.value = '';
-  houseLocationsUpdatedAt.value = '';
   messages.error = '';
   messages.success = '';
   activeTab.value = 'home';
   localStorage.removeItem(storageKey);
-  mapConfig.apiKey = defaultMapKey;
-  mapConfig.jsSecurityCode = defaultMapSecurityCode;
-  locationSearchQuery.value = '';
   resetConversationState();
   fetchHouses();
   loadRecommendations();
@@ -4576,7 +4291,6 @@ watch(
 );
 
 onMounted(() => {
-  loadMapConfig();
   try {
     const cached = localStorage.getItem(storageKey);
     if (cached) {

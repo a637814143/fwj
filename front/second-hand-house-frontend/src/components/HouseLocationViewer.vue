@@ -5,14 +5,35 @@
         <h2>{{ t('locationViewer.title') }}</h2>
         <p>{{ t('locationViewer.subtitle') }}</p>
       </div>
-      <button type="button" :disabled="loading" @click="emit('refresh')">
-        {{ loading ? t('locationViewer.refreshing') : t('locationViewer.refresh') }}
-      </button>
+      <div class="header-actions">
+        <div
+          v-if="mapStyleOptions.length"
+          class="style-toggle"
+          role="group"
+          :aria-label="t('locationViewer.styles.label')"
+        >
+          <button
+            v-for="option in mapStyleOptions"
+            :key="option.value"
+            type="button"
+            :class="['style-option', { active: option.active }]"
+            :disabled="!option.enabled"
+            @click="setMapStyle(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <button type="button" :disabled="loading" @click="emit('refresh')">
+          {{ loading ? t('locationViewer.refreshing') : t('locationViewer.refresh') }}
+        </button>
+      </div>
     </header>
 
     <p v-if="updatedTime" class="updated-label">
       {{ t('locationViewer.updatedAt', { time: updatedTime }) }}
     </p>
+
+    <p v-if="mapFallbackNotice" class="map-fallback">{{ mapFallbackNotice }}</p>
 
     <div class="viewer-body">
       <div class="map-area">
@@ -34,6 +55,9 @@
           <p>{{ activeSummary.address }}</p>
           <p v-if="activeSummary.price" class="price">{{ activeSummary.price }}</p>
         </div>
+
+        <p v-if="focusSummary" class="focus-summary">{{ focusSummary }}</p>
+        <p v-if="viewportSummary" class="viewport-summary">{{ viewportSummary }}</p>
 
         <p v-if="geocodeWarnings.length" class="map-warning">
           {{ t('locationViewer.errors.partial', { count: geocodeWarnings.length }) }}
@@ -93,7 +117,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['refresh']);
+const emit = defineEmits(['refresh', 'viewport-change']);
 
 const translate = inject('translate', (key, vars) => key);
 const settings = inject('appSettings', { language: 'zh' });
@@ -108,8 +132,53 @@ const mapError = ref('');
 const geocodeWarnings = ref([]);
 const isMounted = ref(false);
 const activeMapProvider = ref('');
+const mapStyle = ref('street');
 
 const mapKey = (import.meta.env.VITE_TENCENT_MAP_KEY || '').toString().trim();
+
+const mapStyleOptions = computed(() => {
+  const provider = activeMapProvider.value;
+  const styleEnabled = provider === 'leaflet';
+  const lang = settings?.language ?? 'zh';
+  void lang;
+  return [
+    {
+      value: 'street',
+      label: t('locationViewer.styles.street'),
+      active: mapStyle.value === 'street',
+      enabled: styleEnabled
+    },
+    {
+      value: 'satellite',
+      label: t('locationViewer.styles.satellite'),
+      active: mapStyle.value === 'satellite',
+      enabled: styleEnabled
+    }
+  ];
+});
+
+const mapFallbackNotice = computed(() => {
+  const lang = settings?.language ?? 'zh';
+  void lang;
+  if (!mapKey) {
+    return '';
+  }
+  if (activeMapProvider.value === 'leaflet' && mapReady.value) {
+    return t('locationViewer.fallback');
+  }
+  return '';
+});
+
+const visibleGeometryCount = computed(() => latestGeometries.value.length);
+
+const viewportSummary = computed(() => {
+  const lang = settings?.language ?? 'zh';
+  void lang;
+  if (!visibleGeometryCount.value) {
+    return '';
+  }
+  return t('locationViewer.viewportSummary', { count: visibleGeometryCount.value });
+});
 
 const normalizedHouses = computed(() =>
   Array.isArray(props.houses)
@@ -169,6 +238,15 @@ const activeSummary = computed(() => {
     address: activeListItem.value.address,
     price: activeListItem.value.priceLabel
   };
+});
+
+const focusSummary = computed(() => {
+  const lang = settings?.language ?? 'zh';
+  void lang;
+  if (!activeSummary.value || !activeSummary.value.title) {
+    return '';
+  }
+  return t('locationViewer.focusSummary', { title: activeSummary.value.title });
 });
 
 watch(
@@ -257,6 +335,20 @@ const extractRegion = (address) => {
     return cityMatch[1];
   }
   return '';
+};
+
+const haversineDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const earthRadiusKm = 6371.0088;
+  const toRad = (value) => (value * Math.PI) / 180;
+  const latRad1 = toRad(lat1);
+  const latRad2 = toRad(lat2);
+  const deltaLat = toRad(lat2 - lat1);
+  const deltaLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
 };
 
 const geocodeWithTencent = async (address) => {
@@ -409,8 +501,15 @@ let markerLayer = null;
 let leafletModule = null;
 let leafletMap = null;
 let leafletMarkerLayer = null;
+let leafletStreetLayer = null;
+let leafletSatelliteLayer = null;
+let leafletSatelliteLabelLayer = null;
+let leafletActiveBaseLayers = [];
+let leafletListenersAttached = false;
+let tencentListenersAttached = false;
 let updateToken = 0;
-let latestGeometries = [];
+const latestGeometries = ref([]);
+let lastViewportPayload = null;
 let resizeObserver = null;
 
 const resetTencentMap = () => {
@@ -418,6 +517,11 @@ const resetTencentMap = () => {
     markerLayer.setGeometries([]);
   }
   markerLayer = null;
+  if (mapInstance && typeof mapInstance.off === 'function' && tencentListenersAttached) {
+    mapInstance.off('moveend', handleTencentViewChange);
+    mapInstance.off('zoomend', handleTencentViewChange);
+  }
+  tencentListenersAttached = false;
   if (mapInstance && typeof mapInstance.destroy === 'function') {
     mapInstance.destroy();
   }
@@ -430,6 +534,13 @@ const resetLeafletMap = () => {
     leafletMarkerLayer.clearLayers();
   }
   leafletMarkerLayer = null;
+  clearLeafletBaseLayers();
+  if (leafletMap && leafletListenersAttached) {
+    leafletMap.off('moveend', handleLeafletViewChange);
+    leafletMap.off('zoomend', handleLeafletViewChange);
+    leafletMap.off('resize', handleLeafletViewChange);
+  }
+  leafletListenersAttached = false;
   if (leafletMap && typeof leafletMap.remove === 'function') {
     leafletMap.remove();
   }
@@ -539,12 +650,232 @@ const ensureTencentMap = async () => {
     });
   }
   tencentNamespace = TMap;
+  if (!tencentListenersAttached && mapInstance && typeof mapInstance.on === 'function') {
+    mapInstance.on('moveend', handleTencentViewChange);
+    mapInstance.on('zoomend', handleTencentViewChange);
+    tencentListenersAttached = true;
+  }
   mapReady.value = true;
   activeMapProvider.value = 'tencent';
   nextTick(() => {
     ensureMapResized();
   });
   return 'tencent';
+};
+
+const handleLeafletViewChange = () => {
+  emitViewportChange('move');
+};
+
+const handleTencentViewChange = () => {
+  emitViewportChange('move');
+};
+
+const clearLeafletBaseLayers = () => {
+  if (!leafletMap || !leafletActiveBaseLayers.length) {
+    leafletActiveBaseLayers = [];
+    return;
+  }
+  leafletActiveBaseLayers.forEach((layer) => {
+    if (layer && typeof layer.remove === 'function') {
+      try {
+        layer.remove();
+      } catch (error) {
+        console.warn('Failed to remove Leaflet base layer', error);
+      }
+    } else if (layer && leafletMap.hasLayer(layer)) {
+      try {
+        leafletMap.removeLayer(layer);
+      } catch (error) {
+        console.warn('Failed to detach Leaflet base layer', error);
+      }
+    }
+  });
+  leafletActiveBaseLayers = [];
+};
+
+const ensureLeafletBaseLayers = (L) => {
+  if (!leafletStreetLayer) {
+    leafletStreetLayer = L.tileLayer(
+      'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}',
+      {
+        subdomains: ['1', '2', '3', '4'],
+        maxZoom: 19,
+        attribution: '© 高德地图'
+      }
+    );
+  }
+  if (!leafletSatelliteLayer) {
+    leafletSatelliteLayer = L.tileLayer(
+      'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+      {
+        subdomains: ['1', '2', '3', '4'],
+        maxZoom: 18,
+        attribution: '© 高德地图-影像'
+      }
+    );
+  }
+  if (!leafletSatelliteLabelLayer) {
+    leafletSatelliteLabelLayer = L.tileLayer(
+      'https://webst0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
+      {
+        subdomains: ['1', '2', '3', '4'],
+        maxZoom: 18
+      }
+    );
+  }
+};
+
+const applyLeafletBaseLayer = (style) => {
+  if (!leafletModule || !leafletMap) {
+    return;
+  }
+  const { default: L } = leafletModule;
+  ensureLeafletBaseLayers(L);
+  clearLeafletBaseLayers();
+  if (style === 'satellite') {
+    leafletActiveBaseLayers = [leafletSatelliteLayer, leafletSatelliteLabelLayer].filter(Boolean);
+  } else {
+    leafletActiveBaseLayers = [leafletStreetLayer].filter(Boolean);
+  }
+  leafletActiveBaseLayers.forEach((layer) => {
+    if (layer && typeof layer.addTo === 'function') {
+      layer.addTo(leafletMap);
+    }
+  });
+};
+
+const setMapStyle = (style) => {
+  if (!style || mapStyle.value === style) {
+    return;
+  }
+  mapStyle.value = style;
+};
+
+const computeLeafletViewport = () => {
+  if (!leafletMap) {
+    return null;
+  }
+  const center = leafletMap.getCenter();
+  if (!center) {
+    return null;
+  }
+  const bounds = leafletMap.getBounds();
+  let radiusKm = 0;
+  if (bounds) {
+    const north = bounds.getNorth();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const west = bounds.getWest();
+    radiusKm = Math.max(
+      haversineDistanceKm(center.lat, center.lng, north, center.lng),
+      haversineDistanceKm(center.lat, center.lng, south, center.lng),
+      haversineDistanceKm(center.lat, center.lng, center.lat, east),
+      haversineDistanceKm(center.lat, center.lng, center.lat, west)
+    );
+  }
+  return {
+    centerLat: center.lat,
+    centerLng: center.lng,
+    radiusKm: Math.max(radiusKm, 0.3),
+    provider: 'leaflet'
+  };
+};
+
+const computeTencentViewport = () => {
+  if (!mapInstance || !tencentNamespace) {
+    return null;
+  }
+  const center = mapInstance.getCenter();
+  if (!center) {
+    return null;
+  }
+  const bounds = typeof mapInstance.getBounds === 'function' ? mapInstance.getBounds() : null;
+  let radiusKm = 0;
+  if (bounds && typeof bounds.getNorthEast === 'function' && typeof bounds.getSouthWest === 'function') {
+    const northEast = bounds.getNorthEast();
+    const southWest = bounds.getSouthWest();
+    radiusKm = Math.max(
+      haversineDistanceKm(center.lat, center.lng, northEast.lat, center.lng),
+      haversineDistanceKm(center.lat, center.lng, center.lat, northEast.lng),
+      haversineDistanceKm(center.lat, center.lng, southWest.lat, center.lng),
+      haversineDistanceKm(center.lat, center.lng, center.lat, southWest.lng)
+    );
+  }
+  return {
+    centerLat: center.lat,
+    centerLng: center.lng,
+    radiusKm: Math.max(radiusKm, 0.3),
+    provider: 'tencent'
+  };
+};
+
+const computeViewportPayload = (source = 'auto') => {
+  if (activeMapProvider.value === 'leaflet') {
+    const leafletViewport = computeLeafletViewport();
+    if (leafletViewport) {
+      return { ...leafletViewport, source };
+    }
+  }
+  if (activeMapProvider.value === 'tencent') {
+    const tencentViewport = computeTencentViewport();
+    if (tencentViewport) {
+      return { ...tencentViewport, source };
+    }
+  }
+  const active = latestGeometries.value.find((geometry) => geometry.id === activeHouseId.value);
+  if (active) {
+    return {
+      centerLat: active.coords.lat,
+      centerLng: active.coords.lng,
+      radiusKm: 3,
+      provider: activeMapProvider.value || 'leaflet',
+      source
+    };
+  }
+  if (latestGeometries.value.length) {
+    const first = latestGeometries.value[0];
+    return {
+      centerLat: first.coords.lat,
+      centerLng: first.coords.lng,
+      radiusKm: 3,
+      provider: activeMapProvider.value || 'leaflet',
+      source
+    };
+  }
+  return null;
+};
+
+const emitViewportChange = (source = 'auto') => {
+  const payload = computeViewportPayload(source);
+  if (!payload) {
+    return;
+  }
+  const rounded = {
+    centerLat: Number.parseFloat(Number(payload.centerLat).toFixed(6)),
+    centerLng: Number.parseFloat(Number(payload.centerLng).toFixed(6)),
+    radiusKm: Number.parseFloat(Number(payload.radiusKm).toFixed(3)),
+    provider: payload.provider,
+    source,
+    focusKey: activeHouseId.value
+  };
+  const shouldEmit = () => {
+    if (!lastViewportPayload) {
+      return true;
+    }
+    if (source === 'focus' && lastViewportPayload.focusKey !== rounded.focusKey) {
+      return true;
+    }
+    const latDiff = Math.abs((lastViewportPayload.centerLat ?? 0) - (rounded.centerLat ?? 0));
+    const lngDiff = Math.abs((lastViewportPayload.centerLng ?? 0) - (rounded.centerLng ?? 0));
+    const radiusDiff = Math.abs((lastViewportPayload.radiusKm ?? 0) - (rounded.radiusKm ?? 0));
+    const providerChanged = lastViewportPayload.provider !== rounded.provider;
+    return providerChanged || latDiff > 0.0005 || lngDiff > 0.0005 || radiusDiff > 0.2;
+  };
+  if (shouldEmit()) {
+    lastViewportPayload = rounded;
+    emit('viewport-change', rounded);
+  }
 };
 
 const ensureLeafletMap = async () => {
@@ -562,10 +893,15 @@ const ensureLeafletMap = async () => {
       zoom: 12,
       zoomControl: true
     });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(leafletMap);
+    ensureLeafletBaseLayers(L);
+    applyLeafletBaseLayer(mapStyle.value);
     leafletMarkerLayer = L.layerGroup().addTo(leafletMap);
+    if (!leafletListenersAttached) {
+      leafletMap.on('moveend', handleLeafletViewChange);
+      leafletMap.on('zoomend', handleLeafletViewChange);
+      leafletMap.on('resize', handleLeafletViewChange);
+      leafletListenersAttached = true;
+    }
   }
   mapReady.value = true;
   activeMapProvider.value = 'leaflet';
@@ -597,12 +933,12 @@ const ensureMap = async () => {
 };
 
 const focusOnActiveGeometry = () => {
-  if (!latestGeometries.length) {
+  if (!latestGeometries.value.length) {
     return;
   }
-  let active = latestGeometries.find((geometry) => geometry.id === activeHouseId.value);
+  let active = latestGeometries.value.find((geometry) => geometry.id === activeHouseId.value);
   if (!active && pendingFocusKey.value) {
-    const pending = latestGeometries.find(
+    const pending = latestGeometries.value.find(
       (geometry) => geometry.id === pendingFocusKey.value
     );
     if (pending) {
@@ -611,8 +947,8 @@ const focusOnActiveGeometry = () => {
       pendingFocusKey.value = '';
     }
   }
-  if (!active && latestGeometries.length) {
-    active = latestGeometries[0];
+  if (!active && latestGeometries.value.length) {
+    active = latestGeometries.value[0];
     if (active) {
       activeHouseId.value = active.id;
     }
@@ -639,14 +975,15 @@ const focusOnActiveGeometry = () => {
   } catch (error) {
     console.warn('Failed to focus map marker', error);
   }
+  emitViewportChange('focus');
 };
 
 const renderMarkers = (provider) => {
-  if (!latestGeometries.length) {
+  if (!latestGeometries.value.length) {
     return;
   }
   if (provider === 'tencent' && markerLayer && tencentNamespace) {
-    const geometries = latestGeometries.map((geometry) => ({
+    const geometries = latestGeometries.value.map((geometry) => ({
       id: geometry.id,
       position: new tencentNamespace.LatLng(geometry.coords.lat, geometry.coords.lng),
       styleId: geometry.id === activeHouseId.value ? 'active' : 'default',
@@ -661,7 +998,7 @@ const renderMarkers = (provider) => {
   } else if (provider === 'leaflet' && leafletMarkerLayer && leafletModule) {
     const { default: L } = leafletModule;
     leafletMarkerLayer.clearLayers();
-    latestGeometries.forEach((geometry) => {
+    latestGeometries.value.forEach((geometry) => {
       const isActive = geometry.id === activeHouseId.value;
       const marker = L.circleMarker([geometry.coords.lat, geometry.coords.lng], {
         radius: isActive ? 8 : 6,
@@ -692,8 +1029,9 @@ const updateMapMarkers = async () => {
     return;
   }
   if (!locationItems.value.length) {
-    latestGeometries = [];
+    latestGeometries.value = [];
     geocodeWarnings.value = [];
+    lastViewportPayload = null;
     if (markerLayer) {
       markerLayer.setGeometries([]);
     }
@@ -745,7 +1083,7 @@ const updateMapMarkers = async () => {
         coords
       });
     });
-    latestGeometries = geometries;
+    latestGeometries.value = geometries;
     geocodeWarnings.value = warnings;
     if (!geometries.length) {
       mapError.value = warnings.length
@@ -789,7 +1127,7 @@ const updateMapMarkers = async () => {
 };
 
 const highlightActiveMarker = () => {
-  if (!mapReady.value || !latestGeometries.length) {
+  if (!mapReady.value || !latestGeometries.value.length) {
     return;
   }
   try {
@@ -824,6 +1162,7 @@ watch(mapReady, (ready) => {
   if (ready) {
     nextTick(() => {
       ensureMapResized();
+      emitViewportChange('init');
     });
   }
 });
@@ -832,6 +1171,17 @@ watch(activeMapProvider, () => {
   if (mapReady.value) {
     nextTick(() => {
       ensureMapResized();
+      emitViewportChange('provider');
+    });
+  }
+});
+
+watch(mapStyle, (style) => {
+  if (activeMapProvider.value === 'leaflet') {
+    applyLeafletBaseLayer(style);
+    nextTick(() => {
+      ensureMapResized();
+      emitViewportChange('style');
     });
   }
 });
@@ -845,9 +1195,10 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  latestGeometries = [];
+  latestGeometries.value = [];
   resetTencentMap();
   resetLeafletMap();
+  lastViewportPayload = null;
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
@@ -872,6 +1223,43 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.style-toggle {
+  display: inline-flex;
+  gap: 0.4rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.style-option {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.85rem;
+  background: transparent;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.style-option.active {
+  background: var(--gradient-primary);
+  color: var(--color-text-on-emphasis);
+  box-shadow: var(--shadow-sm);
+}
+
+.style-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .viewer-header h2 {
@@ -906,6 +1294,13 @@ onBeforeUnmount(() => {
   margin: -0.2rem 0 0;
   color: var(--color-text-muted);
   font-size: 0.85rem;
+}
+
+.map-fallback {
+  margin: -0.2rem 0 0;
+  color: color-mix(in srgb, var(--color-warning) 60%, var(--color-text-soft) 40%);
+  font-size: 0.85rem;
+  font-style: italic;
 }
 
 .viewer-body {
@@ -981,6 +1376,17 @@ onBeforeUnmount(() => {
 .active-summary .price {
   color: var(--color-accent);
   font-weight: 600;
+}
+
+.focus-summary,
+.viewport-summary {
+  margin: -0.4rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.viewport-summary {
+  color: color-mix(in srgb, var(--color-text-soft) 70%, var(--color-accent) 30%);
 }
 
 .map-warning {

@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -130,12 +131,18 @@ public class SecondHandHouseService {
         Double sanitizedRadius = radiusKm != null && Double.isFinite(radiusKm) && radiusKm > 0
                 ? radiusKm
                 : null;
-        return repository.findAll().stream()
+        List<HouseLocationView> locations = repository.findAll().stream()
                 .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
                 .filter(house -> isWithinRadius(house, sanitizedLat, sanitizedLng, sanitizedRadius))
                 .map(HouseLocationView::fromEntity)
                 .toList();
+        if (sanitizedLat != null && sanitizedLng != null) {
+            return locations.stream()
+                    .sorted(Comparator.comparingDouble(view -> distanceToView(view, sanitizedLat, sanitizedLng)))
+                    .toList();
+        }
+        return locations;
     }
 
     public void delete(Long id, String requesterUsername) {
@@ -333,6 +340,13 @@ public class SecondHandHouseService {
                 + Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return earthRadiusKm * c;
+    }
+
+    private double distanceToView(HouseLocationView view, double centerLat, double centerLng) {
+        if (view == null || view.latitude() == null || view.longitude() == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
     }
 
     private Double sanitizeCoordinate(Double value, double min, double max) {

@@ -92,6 +92,7 @@
           :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
           :focus-key="locationFocusId"
           @refresh="fetchHouses({ silent: false })"
+          @viewport-change="handleLocationViewportChange"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -272,6 +273,12 @@ const houseLocations = ref([]);
 const housesUpdatedAt = ref('');
 const houseLocationsUpdatedAt = ref('');
 const locationFocusId = ref('');
+const locationViewport = reactive({
+  centerLat: null,
+  centerLng: null,
+  radiusKm: null
+});
+let locationViewportTimer = null;
 const loading = ref(false);
 const locationLoading = ref(false);
 const selectedHouse = ref(null);
@@ -329,6 +336,16 @@ const coerceNumber = (value, fallback = 0) => {
     return Number.isFinite(fallbackNum) ? fallbackNum : 0;
   }
   return num;
+};
+
+const approxEqual = (a, b, epsilon = 0.0001) => {
+  if (a === null || a === undefined) {
+    return b === null || b === undefined;
+  }
+  if (b === null || b === undefined) {
+    return false;
+  }
+  return Math.abs(a - b) <= epsilon;
 };
 
 const normalizeWallet = (next, previous = null) => {
@@ -1123,6 +1140,14 @@ const translations = {
         focus: '查看位置',
         active: '正在查看'
       },
+      styles: {
+        label: '地图图层',
+        street: '标准地图',
+        satellite: '卫星影像'
+      },
+      fallback: '腾讯地图当前不可用，已切换至备用地图服务。',
+      focusSummary: '已定位至「{title}」附近',
+      viewportSummary: '当前视图范围内共有 {count} 套房源',
       errors: {
         mapInit: '地图加载失败，请稍后重试。',
         geocode: '暂时无法定位房源，请检查地址信息。',
@@ -2137,6 +2162,14 @@ const translations = {
         focus: 'Focus on map',
         active: 'Viewing'
       },
+      styles: {
+        label: 'Base map',
+        street: 'Street',
+        satellite: 'Satellite'
+      },
+      fallback: 'Tencent Maps is unavailable right now. Showing the backup map tiles instead.',
+      focusSummary: 'Focusing on “{title}” and nearby listings',
+      viewportSummary: '{count} listing(s) visible within the current view',
       errors: {
         mapInit: 'The map failed to load. Please try again later.',
         geocode: 'Some listings could not be located on the map.',
@@ -3072,6 +3105,14 @@ const fetchHouseLocations = async ({ silent = false } = {}) => {
     if (currentUser.value?.username) {
       params.requester = currentUser.value.username;
     }
+    if (Number.isFinite(locationViewport.centerLat) && Number.isFinite(locationViewport.centerLng)) {
+      params.centerLat = Number(locationViewport.centerLat.toFixed(6));
+      params.centerLng = Number(locationViewport.centerLng.toFixed(6));
+      if (Number.isFinite(locationViewport.radiusKm) && locationViewport.radiusKm > 0) {
+        const radius = Math.min(Math.max(locationViewport.radiusKm, 0.2), 50);
+        params.radiusKm = Number(radius.toFixed(3));
+      }
+    }
     const { data } = await client.get('/houses/locations', { params });
     const list = Array.isArray(data) ? data : [];
     houseLocations.value = list
@@ -3090,6 +3131,25 @@ const fetchHouseLocations = async ({ silent = false } = {}) => {
         };
       })
       .filter((item) => item && (item.title || item.address));
+    if (
+      locationFocusId.value &&
+      !houseLocations.value.some((item) => String(item?.id ?? '') === locationFocusId.value)
+    ) {
+      const fallback = houses.value.find((house) => String(house?.id ?? '') === locationFocusId.value);
+      if (fallback) {
+        const fallbackLat = normalizeViewportValue(fallback.latitude, 6);
+        const fallbackLng = normalizeViewportValue(fallback.longitude, 6);
+        houseLocations.value = [
+          ...houseLocations.value,
+          {
+            ...fallback,
+            latitude: fallbackLat,
+            longitude: fallbackLng,
+            price: Number.isFinite(Number(fallback.price)) ? Number(fallback.price) : null
+          }
+        ];
+      }
+    }
     houseLocationsUpdatedAt.value = new Date().toISOString();
   } catch (error) {
     if (!silent) {
@@ -3996,11 +4056,83 @@ const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
 };
 
+const normalizeViewportValue = (value, precision = null) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (precision != null) {
+    const factor = 10 ** precision;
+    return Math.round(numeric * factor) / factor;
+  }
+  return numeric;
+};
+
+const scheduleViewportFetch = ({ silent, immediate }) => {
+  if (locationViewportTimer) {
+    clearTimeout(locationViewportTimer);
+    locationViewportTimer = null;
+  }
+  const trigger = () => {
+    fetchHouseLocations({ silent }).catch((error) => {
+      console.warn('Failed to refresh house locations for viewport change', error);
+    });
+  };
+  if (immediate) {
+    trigger();
+  } else {
+    locationViewportTimer = setTimeout(() => {
+      trigger();
+      locationViewportTimer = null;
+    }, 600);
+  }
+};
+
+const handleLocationViewportChange = (payload = {}) => {
+  if (!payload || typeof payload !== 'object') {
+    return;
+  }
+  const source = payload.source ?? 'auto';
+  const focusKey = typeof payload.focusKey === 'string' ? payload.focusKey : '';
+  const lat = normalizeViewportValue(payload.centerLat, 6);
+  const lng = normalizeViewportValue(payload.centerLng, 6);
+  const radius = normalizeViewportValue(payload.radiusKm, 3);
+
+  const latChanged = !approxEqual(lat, locationViewport.centerLat, 0.0005);
+  const lngChanged = !approxEqual(lng, locationViewport.centerLng, 0.0005);
+  const radiusChanged = !approxEqual(radius, locationViewport.radiusKm, 0.2);
+
+  if (!latChanged && !lngChanged && !radiusChanged) {
+    if (source !== 'focus' || !focusKey || focusKey === locationFocusId.value) {
+      return;
+    }
+  }
+
+  locationViewport.centerLat = lat;
+  locationViewport.centerLng = lng;
+  locationViewport.radiusKm = radius;
+
+  const immediate = source === 'focus' || source === 'init';
+  const silent = source !== 'focus';
+  scheduleViewportFetch({ silent, immediate });
+};
+
 const handleShowOnMap = (house) => {
   if (!house) {
     return;
   }
   const key = house.id != null ? String(house.id) : '';
+  const lat = normalizeViewportValue(house.latitude, 6);
+  const lng = normalizeViewportValue(house.longitude, 6);
+  if (lat !== null && lng !== null) {
+    locationViewport.centerLat = lat;
+    locationViewport.centerLng = lng;
+    const radius = locationViewport.radiusKm != null ? Math.max(locationViewport.radiusKm, 3) : 3;
+    locationViewport.radiusKm = normalizeViewportValue(radius, 3);
+  }
   const navigateToMap = () => {
     locationFocusId.value = key;
     activeTab.value = 'locations';

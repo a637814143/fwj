@@ -92,6 +92,7 @@
           :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
           :focus-key="locationFocusId"
           :map-config="mapConfig"
+          :api-base-url="apiBaseUrl"
           :search-query="locationSearchQuery"
           @refresh="fetchHouses({ silent: false })"
           @viewport-change="handleLocationViewportChange"

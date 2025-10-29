@@ -54,6 +54,19 @@ public class SecondHandHouseController {
         return new MapConfigResponse(mapSettings.apiKey(), mapSettings.jsSecurityCode().orElse(null));
     }
 
+    @GetMapping("/map-search")
+    public MapSearchResponse mapSearch(@RequestParam("query") String query,
+                                       @RequestParam(value = "city", required = false) String city) {
+        return service.searchMapLocation(query, city)
+                .map(result -> new MapSearchResponse(
+                        true,
+                        result.name(),
+                        result.address(),
+                        result.latitude(),
+                        result.longitude()))
+                .orElseGet(() -> new MapSearchResponse(false, null, null, null, null));
+    }
+
     @GetMapping("/{id}")
     public SecondHandHouseView get(@PathVariable Long id,
                                    @RequestParam(value = "requester", required = false) String requesterUsername) {
@@ -86,4 +99,7 @@ public class SecondHandHouseController {
 }
 
 record MapConfigResponse(String apiKey, String jsSecurityCode) {
+}
+
+record MapSearchResponse(boolean found, String name, String address, Double latitude, Double longitude) {
 }

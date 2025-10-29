@@ -146,6 +146,10 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
+  apiBaseUrl: {
+    type: String,
+    default: ''
+  },
   searchQuery: {
     type: String,
     default: ''
@@ -172,7 +176,13 @@ const activeMapProvider = ref('');
 const mapKey = ref('');
 const mapSecurityCode = ref('');
 
-const GEOCODE_CACHE_VERSION = 'v2';
+const effectiveApiBaseUrl = computed(() => {
+  const raw = typeof props.apiBaseUrl === 'string' ? props.apiBaseUrl.trim() : '';
+  if (!raw) {
+    return '';
+  }
+  return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+});
 
 const envMapCandidates = [
   import.meta.env.VITE_GAODE_MAP_KEY,
@@ -411,24 +421,11 @@ const selectHouse = (key) => {
 
 const showLoadingOverlay = computed(() => props.loading || mapBusy.value || !mapReady.value);
 
-const geocodeCache = new Map();
-const pendingGeocodes = new Map();
-
-const cacheKey = (address) => `gaode::${GEOCODE_CACHE_VERSION}::${mapKey.value || 'default'}::${address}`;
-
 const sanitizeAdministrativeName = (value) => {
   if (!value) {
     return '';
   }
   return value.replace(/(自治州|地区|盟)/g, '').trim();
-};
-
-const normalizeCityQuery = (value) => {
-  if (!value) {
-    return '';
-  }
-  const sanitized = sanitizeAdministrativeName(value.trim());
-  return sanitized.replace(/(市|县|区|旗)$/u, '');
 };
 
 const extractRegion = (address) => {
@@ -458,58 +455,8 @@ const extractRegion = (address) => {
   return '';
 };
 
-const haversineDistanceKm = (lat1, lng1, lat2, lng2) => {
-  const earthRadiusKm = 6371.0088;
-  const toRad = (value) => (value * Math.PI) / 180;
-  const latRad1 = toRad(lat1);
-  const latRad2 = toRad(lat2);
-  const deltaLat = toRad(lat2 - lat1);
-  const deltaLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-    Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
-};
-
-const geocodeWithGaode = async (address) => {
-  if (!mapKey.value) {
-    return null;
-  }
-  const params = new URLSearchParams({
-    key: mapKey.value,
-    address,
-    output: 'JSON'
-  });
-  const region = extractRegion(address);
-  if (region) {
-    params.set('city', normalizeCityQuery(region));
-    params.set('citylimit', 'true');
-  }
-  try {
-    const response = await fetch(`https://restapi.amap.com/v3/geocode/geo?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error('geocode-http');
-    }
-    const payload = await response.json();
-    const geocodes = Array.isArray(payload?.geocodes) ? payload.geocodes : [];
-    if (payload?.status === '1' && geocodes.length > 0) {
-      const location = geocodes[0]?.location;
-      if (typeof location === 'string' && location.includes(',')) {
-        const [lng, lat] = location.split(',').map((value) => Number(value));
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          return { lat, lng };
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Gaode geocoder failed', error);
-  }
-  return null;
-};
-
-const geocodeHouse = async (house) => {
-  if (!house) {
+const extractHouseCoordinates = (house) => {
+  if (!house || typeof house !== 'object') {
     return null;
   }
   const latitudeFields = ['latitude', 'lat'];
@@ -530,33 +477,24 @@ const geocodeHouse = async (house) => {
       break;
     }
   }
-  if (lat != null && lng != null) {
-    return { lat, lng };
-  }
-  const address = house?.address;
-  if (!address || typeof address !== 'string' || !address.trim()) {
+  if (lat == null || lng == null) {
     return null;
   }
-  const normalized = address.trim();
-  const key = cacheKey(normalized);
-  if (geocodeCache.has(key)) {
-    return geocodeCache.get(key);
-  }
-  if (pendingGeocodes.has(key)) {
-    return pendingGeocodes.get(key);
-  }
-  const promise = geocodeWithGaode(normalized)
-    .catch((error) => {
-      console.warn('Gaode geocode failed', error);
-      return null;
-    })
-    .finally(() => {
-      pendingGeocodes.delete(key);
-    });
-  pendingGeocodes.set(key, promise);
-  const result = await promise;
-  geocodeCache.set(key, result);
-  return result;
+  return { lat, lng };
+};
+
+const haversineDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const earthRadiusKm = 6371.0088;
+  const toRad = (value) => (value * Math.PI) / 180;
+  const latRad1 = toRad(lat1);
+  const latRad2 = toRad(lat2);
+  const deltaLat = toRad(lat2 - lat1);
+  const deltaLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
 };
 
 let scriptPromise = null;
@@ -600,6 +538,7 @@ let placeSearchInstance = null;
 let poiSearchToken = 0;
 let addressSearchMarker = null;
 let addressSearchToken = 0;
+let addressSearchAbortController = null;
 let stopSearchWatcher = null;
 
 const removeGaodeScripts = () => {
@@ -782,25 +721,6 @@ const runNearbySearch = (placeSearch, center) =>
     }
   });
 
-const runKeywordSearch = (placeSearch, keyword) =>
-  new Promise((resolve, reject) => {
-    try {
-      placeSearch.search(keyword, (status, result) => {
-        if (status === 'complete' && result?.poiList?.pois) {
-          resolve(result.poiList.pois);
-          return;
-        }
-        if (status === 'no_data') {
-          resolve([]);
-          return;
-        }
-        reject(new Error(status || 'poi-failed'));
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-
 const normalizePoi = (poi) => {
   if (!poi) {
     return null;
@@ -917,6 +837,10 @@ const clearAddressSearchMarker = () => {
 };
 
 const resetSearchState = ({ resetQuery = false, preservePois = false } = {}) => {
+  if (addressSearchAbortController) {
+    addressSearchAbortController.abort();
+    addressSearchAbortController = null;
+  }
   clearAddressSearchMarker();
   if (!preservePois) {
     clearNearbyPois();
@@ -940,33 +864,63 @@ const runAddressSearch = async (keyword) => {
   searchLoading.value = true;
   searchErrorMessage.value = '';
   searchStatusMessage.value = t('locationViewer.search.searching', { query });
+
+  if (addressSearchAbortController) {
+    addressSearchAbortController.abort();
+  }
+  const abortController = new AbortController();
+  addressSearchAbortController = abortController;
+
+  const params = new URLSearchParams({ query });
+  const region = extractRegion(query);
+  if (region) {
+    params.set('city', region);
+  }
+  const base = effectiveApiBaseUrl.value;
+  const url = `${base ? base : ''}/houses/map-search?${params.toString()}`;
+
   try {
     const map = await ensureMap();
-    const placeSearch = await ensurePlaceSearch();
-    const pois = await runKeywordSearch(placeSearch, query);
+    const response = await fetch(url, { signal: abortController.signal });
     if (token !== addressSearchToken) {
       return;
     }
-    if (!pois.length) {
+    if (!response.ok) {
+      if (response.status === 404) {
+        resetSearchState({ preservePois: false });
+        searchErrorMessage.value = t('locationViewer.search.empty', { query });
+        emitViewportChange('search');
+        return;
+      }
+      throw new Error(`map-search-${response.status}`);
+    }
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      payload = null;
+    }
+    if (!payload || payload.found === false) {
       resetSearchState({ preservePois: false });
       searchErrorMessage.value = t('locationViewer.search.empty', { query });
       emitViewportChange('search');
       return;
     }
-    const poi =
-      pois.find((item) => parsePoiLocation(item.location)) ?? pois[0];
-    const coords = parsePoiLocation(poi.location);
-    if (!coords) {
+    const lat = Number(payload.latitude);
+    const lng = Number(payload.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       resetSearchState({ preservePois: false });
       searchErrorMessage.value = t('locationViewer.search.empty', { query });
       emitViewportChange('search');
       return;
     }
-    const name = typeof poi.name === 'string' && poi.name.trim() ? poi.name.trim() : query;
-    const address =
-      typeof poi.address === 'string' && poi.address.trim()
-        ? poi.address.trim()
-        : poi.adname || '';
+    const coords = { lat, lng };
+    const name =
+      typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : query;
+    const resolvedAddress =
+      typeof payload.address === 'string' && payload.address.trim()
+        ? payload.address.trim()
+        : query;
     const position = [coords.lng, coords.lat];
     clearAddressSearchMarker();
     if (AMapNamespace && map) {
@@ -983,7 +937,7 @@ const runAddressSearch = async (keyword) => {
         addressSearchMarker.on('click', () => {
           if (infoWindow) {
             infoWindow.setContent(
-              buildMarkerContent({ title: name, address, price: '' })
+              buildMarkerContent({ title: name, address: resolvedAddress, price: '' })
             );
             infoWindow.open(map, position);
           }
@@ -1001,17 +955,22 @@ const runAddressSearch = async (keyword) => {
       console.warn('Failed to focus search result', error);
     }
     if (infoWindow) {
-      infoWindow.setContent(buildMarkerContent({ title: name, address, price: '' }));
+      infoWindow.setContent(
+        buildMarkerContent({ title: name, address: resolvedAddress, price: '' })
+      );
       infoWindow.open(map, position);
     }
-    activeSearchResult.value = { name, address, coords };
+    activeSearchResult.value = { name, address: resolvedAddress, coords };
     searchStatusMessage.value = t('locationViewer.search.success', { name });
     searchErrorMessage.value = '';
-    refreshNearbyPois({ title: name, address, coords });
+    refreshNearbyPois({ title: name, address: resolvedAddress, coords });
     emitViewportChange('search');
   } catch (error) {
+    if (error?.name === 'AbortError') {
+      return;
+    }
     if (token === addressSearchToken) {
-      console.error('Failed to execute Gaode keyword search', error);
+      console.error('Failed to execute map search', error);
       resetSearchState({ preservePois: false });
       searchErrorMessage.value = t('locationViewer.search.error');
       searchStatusMessage.value = '';
@@ -1019,6 +978,9 @@ const runAddressSearch = async (keyword) => {
   } finally {
     if (token === addressSearchToken) {
       searchLoading.value = false;
+      if (addressSearchAbortController === abortController) {
+        addressSearchAbortController = null;
+      }
     }
   }
 };
@@ -1365,15 +1327,16 @@ const updateMapMarkers = async () => {
     mapBusy.value = false;
     return;
   }
+  if (token !== updateToken) {
+    mapBusy.value = false;
+    return;
+  }
   try {
-    const results = await Promise.all(locationItems.value.map((item) => geocodeHouse(item.house)));
-    if (token !== updateToken) {
-      return;
-    }
+    mapError.value = '';
     const warnings = [];
     const geometries = [];
-    results.forEach((coords, index) => {
-      const item = locationItems.value[index];
+    locationItems.value.forEach((item) => {
+      const coords = extractHouseCoordinates(item.house);
       if (!coords) {
         warnings.push(item);
         return;
@@ -1389,9 +1352,7 @@ const updateMapMarkers = async () => {
     geocodeWarnings.value = warnings;
     latestGeometries.value = geometries;
     if (!geometries.length) {
-      mapError.value = warnings.length
-        ? t('locationViewer.errors.geocode')
-        : t('locationViewer.errors.mapInit');
+      mapError.value = '';
       clearNearbyPois();
       return;
     }
@@ -1418,8 +1379,6 @@ const resetMapForConfig = () => {
   }
   scriptPromise = null;
   removeGaodeScripts();
-  geocodeCache.clear();
-  pendingGeocodes.clear();
   if (isMounted.value) {
     nextTick(() => {
       updateMapMarkers();

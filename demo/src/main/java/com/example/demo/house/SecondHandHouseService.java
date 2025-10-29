@@ -145,7 +145,6 @@ public class SecondHandHouseService {
                 .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
                 .map(HouseLocationView::fromEntity)
-                .map(this::enrichWithCoordinates)
                 .filter(Objects::nonNull)
                 .toList();
         if (sanitizedLat != null && sanitizedLng != null) {
@@ -328,32 +327,13 @@ public class SecondHandHouseService {
         return address != null && !address.trim().isEmpty();
     }
 
-    private HouseLocationView enrichWithCoordinates(HouseLocationView view) {
-        if (view == null) {
-            return null;
+    public Optional<GaodeGeocodingClient.PlaceSuggestion> searchMapLocation(String query, String cityHint) {
+        if (query == null || query.isBlank()) {
+            return Optional.empty();
         }
-        if (hasCoordinates(view) || !geocodingClient.isEnabled()) {
-            return view;
-        }
-        String address = view.address();
-        if (address == null || address.isBlank()) {
-            return view;
-        }
-        Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, resolveCityHint(address));
-        if (coordinate.isEmpty()) {
-            return view;
-        }
-        GaodeGeocodingClient.Coordinate coords = coordinate.get();
-        return new HouseLocationView(
-                view.id(),
-                view.title(),
-                view.address(),
-                view.price(),
-                view.status(),
-                coords.latitude(),
-                coords.longitude(),
-                view.updatedAt()
-        );
+        String candidate = (cityHint == null || cityHint.isBlank()) ? resolveCityHint(query) : cityHint.trim();
+        String effectiveCity = candidate == null ? null : sanitizeAdministrativeName(candidate);
+        return geocodingClient.searchPlace(query, effectiveCity);
     }
 
     private boolean hasCoordinates(HouseLocationView view) {

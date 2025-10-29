@@ -21,6 +21,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @Transactional
@@ -28,16 +31,22 @@ public class SecondHandHouseService {
 
     private static final Logger log = LoggerFactory.getLogger(SecondHandHouseService.class);
 
+    private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
+    private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
+
     private final SecondHandHouseRepository repository;
     private final UserAccountRepository userAccountRepository;
     private final HouseOrderRepository houseOrderRepository;
+    private final GaodeGeocodingClient geocodingClient;
 
     public SecondHandHouseService(SecondHandHouseRepository repository,
                                   UserAccountRepository userAccountRepository,
-                                  HouseOrderRepository houseOrderRepository) {
+                                  HouseOrderRepository houseOrderRepository,
+                                  GaodeGeocodingClient geocodingClient) {
         this.repository = repository;
         this.userAccountRepository = userAccountRepository;
         this.houseOrderRepository = houseOrderRepository;
+        this.geocodingClient = geocodingClient;
     }
 
     @Transactional(readOnly = true)
@@ -134,11 +143,13 @@ public class SecondHandHouseService {
         List<HouseLocationView> locations = repository.findAll().stream()
                 .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
-                .filter(house -> isWithinRadius(house, sanitizedLat, sanitizedLng, sanitizedRadius))
                 .map(HouseLocationView::fromEntity)
+                .map(this::enrichWithCoordinates)
+                .filter(Objects::nonNull)
                 .toList();
         if (sanitizedLat != null && sanitizedLng != null) {
             return locations.stream()
+                    .filter(view -> isWithinRadius(view, sanitizedLat, sanitizedLng, sanitizedRadius))
                     .sorted(Comparator.comparingDouble(view -> distanceToView(view, sanitizedLat, sanitizedLng)))
                     .toList();
         }
@@ -316,18 +327,70 @@ public class SecondHandHouseService {
         return address != null && !address.trim().isEmpty();
     }
 
-    private boolean isWithinRadius(SecondHandHouse house,
+    private HouseLocationView enrichWithCoordinates(HouseLocationView view) {
+        if (view == null) {
+            return null;
+        }
+        if (hasCoordinates(view) || !geocodingClient.isEnabled()) {
+            return view;
+        }
+        String address = view.address();
+        if (address == null || address.isBlank()) {
+            return view;
+        }
+        Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, resolveCityHint(address));
+        if (coordinate.isEmpty()) {
+            return view;
+        }
+        GaodeGeocodingClient.Coordinate coords = coordinate.get();
+        return new HouseLocationView(
+                view.id(),
+                view.title(),
+                view.address(),
+                view.price(),
+                view.status(),
+                coords.latitude(),
+                coords.longitude(),
+                view.updatedAt()
+        );
+    }
+
+    private boolean hasCoordinates(HouseLocationView view) {
+        return view != null
+                && view.latitude() != null
+                && view.longitude() != null
+                && Double.isFinite(view.latitude())
+                && Double.isFinite(view.longitude());
+    }
+
+    private boolean isWithinRadius(HouseLocationView view,
                                    Double centerLat,
                                    Double centerLng,
                                    Double radiusKm) {
         if (radiusKm == null || centerLat == null || centerLng == null) {
             return true;
         }
-        if (!hasCoordinates(house)) {
+        if (!hasCoordinates(view)) {
             return false;
         }
-        double distance = haversineDistanceKm(centerLat, centerLng, house.getLatitude(), house.getLongitude());
+        double distance = haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
         return distance <= radiusKm;
+    }
+
+    private String resolveCityHint(String address) {
+        if (address == null || address.isBlank()) {
+            return null;
+        }
+        String trimmed = address.trim();
+        Matcher municipality = MUNICIPALITY_PATTERN.matcher(trimmed);
+        if (municipality.find()) {
+            return municipality.group(1) + "市";
+        }
+        Matcher city = CITY_PATTERN.matcher(trimmed);
+        if (city.find()) {
+            return city.group(1);
+        }
+        return null;
     }
 
     private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
@@ -343,7 +406,7 @@ public class SecondHandHouseService {
     }
 
     private double distanceToView(HouseLocationView view, double centerLat, double centerLng) {
-        if (view == null || view.latitude() == null || view.longitude() == null) {
+        if (!hasCoordinates(view)) {
             return Double.POSITIVE_INFINITY;
         }
         return haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());

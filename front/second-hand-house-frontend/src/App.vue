@@ -1125,7 +1125,7 @@ const translations = {
     },
     locationViewer: {
       title: '房源地段地图',
-      subtitle: '优先加载腾讯地图，若无法访问将自动切换至开源地图服务。',
+      subtitle: '接入高德地图实时地段视图，可切换标准与卫星影像。',
       refresh: '刷新房源数据',
       refreshing: '刷新中…',
       loading: '房源数据同步中…',
@@ -1145,13 +1145,13 @@ const translations = {
         street: '标准地图',
         satellite: '卫星影像'
       },
-      fallback: '腾讯地图当前不可用，已切换至备用地图服务。',
+      fallback: '已连接至高德地图服务。',
       focusSummary: '已定位至「{title}」附近',
       viewportSummary: '当前视图范围内共有 {count} 套房源',
       errors: {
         mapInit: '地图加载失败，请稍后重试。',
         geocode: '暂时无法定位房源，请检查地址信息。',
-        missingKey: '缺少腾讯地图密钥，无法加载地图。',
+        missingKey: '缺少高德地图密钥，无法加载地图。',
         partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
       },
       aria: {
@@ -2147,7 +2147,7 @@ const translations = {
     },
     locationViewer: {
       title: 'Listing map overview',
-      subtitle: 'We try Tencent Maps first and gracefully fall back to open-source tiles when access is limited.',
+      subtitle: 'Powered by Gaode Maps with live coverage and optional satellite tiles.',
       refresh: 'Refresh listings',
       refreshing: 'Refreshing…',
       loading: 'Synchronising listing data…',
@@ -2167,13 +2167,13 @@ const translations = {
         street: 'Street',
         satellite: 'Satellite'
       },
-      fallback: 'Tencent Maps is unavailable right now. Showing the backup map tiles instead.',
+      fallback: 'Connected to the Gaode map service.',
       focusSummary: 'Focusing on “{title}” and nearby listings',
       viewportSummary: '{count} listing(s) visible within the current view',
       errors: {
         mapInit: 'The map failed to load. Please try again later.',
         geocode: 'Some listings could not be located on the map.',
-        missingKey: 'Tencent Map key is missing, so the map cannot be displayed.',
+        missingKey: 'The Gaode Maps key is missing, so the map cannot be displayed.',
         partial: '{count} listing(s) could not be located. Their addresses are listed below.'
       },
       aria: {

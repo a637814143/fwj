@@ -502,6 +502,7 @@ const translations = {
       admin: '系统管理员'
     },
     statuses: {
+      draft: '草稿',
       pending: '待审核',
       approved: '已通过',
       rejected: '已驳回',
@@ -532,8 +533,6 @@ const translations = {
       sellerAccount: '卖家账号',
       contactName: '联系人',
       contactPhone: '联系电话',
-      certificate: '房产证件',
-      certificateLink: '查看证件',
       actions: {
         approve: '通过',
         reject: '驳回',
@@ -694,8 +693,7 @@ const translations = {
           floor: '楼层（可选）',
           description: '房源描述',
           keywords: '房源关键词',
-          images: '房源图片',
-          propertyCertificate: '房产证件链接'
+          images: '房源图片'
         },
         placeholders: {
           title: '请输入房源标题',
@@ -710,15 +708,13 @@ const translations = {
           contactNumber: '请输入联系电话',
           floor: '例如 10',
           description: '补充房源亮点或其他信息',
-          keywords: '例如 市中心、近地铁、朝南',
-          propertyCertificate: '请输入房产证件链接（支持外部链接或相对路径）'
+          keywords: '例如 市中心、近地铁、朝南'
         },
         hints: {
           installmentCalculation: '系统会根据首付与分期设置自动预估月供。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
-          noImages: '尚未上传图片。',
-          propertyCertificate: '请确保链接可访问，便于审核与买家核验房源。'
+          noImages: '尚未上传图片。'
         },
         actions: {
           upload: '上传图片',
@@ -727,8 +723,8 @@ const translations = {
           submitting: '提交中…',
           submitCreate: '提交审核',
           submitEdit: '保存修改',
-          cancel: '取消',
-          openCertificate: '打开证件链接'
+          saveDraft: '保存草稿',
+          cancel: '取消'
         },
         imageAlt: '房源图片 {index}',
         upload: {
@@ -746,7 +742,6 @@ const translations = {
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
           area: '请输入有效的建筑面积。',
-          certificate: '请填写房产证件链接，确保可访问。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
           installmentMonths: '分期期限必须大于0。'
         }
@@ -771,7 +766,6 @@ const translations = {
           actions: '操作'
         },
         photoCount: '{count} 张图片',
-        certificateAvailable: '查看房产证件',
         pricing: {
           full: '总价：￥{price}',
           downPayment: '首付：￥{amount}',
@@ -885,8 +879,10 @@ const translations = {
       unlistHouse: '已手动下架房源《{title}》，当前状态：{status}，备注：{reason}。',
       houseUpdatedApproved: '房源《{title}》已更新并重新上架。',
       houseUpdatedPending: '房源《{title}》已更新，当前状态：{status}。',
+      houseDraftUpdated: '房源《{title}》草稿已保存，可稍后继续编辑。',
       houseCreatedApproved: '已新增房源《{title}》，已通过审核并上架。',
       houseCreatedPending: '已提交房源《{title}》，当前状态：{status}。',
+      houseDraftCreated: '已保存房源《{title}》草稿。',
       purchase: '成功以{method}方式购买房源《{title}》，支付金额 ￥{amount}。',
       reservation: '已成功预定房源《{title}》，定金 ￥{amount}。',
       orderReleasedSeller: '订单资金已发放给卖家。',
@@ -1522,6 +1518,7 @@ const translations = {
       admin: 'Administrator'
     },
     statuses: {
+      draft: 'Draft',
       pending: 'Pending review',
       approved: 'Approved',
       rejected: 'Rejected',
@@ -1552,8 +1549,6 @@ const translations = {
       sellerAccount: 'Seller account',
       contactName: 'Contact name',
       contactPhone: 'Contact phone',
-      certificate: 'Ownership certificate',
-      certificateLink: 'View certificate',
       actions: {
         approve: 'Approve',
         reject: 'Reject',
@@ -1715,8 +1710,7 @@ const translations = {
           floor: 'Floor (optional)',
           description: 'Listing description',
           keywords: 'Keywords',
-          images: 'Listing photos',
-          propertyCertificate: 'Ownership certificate link'
+          images: 'Listing photos'
         },
         placeholders: {
           title: 'Enter listing title',
@@ -1731,15 +1725,13 @@ const translations = {
           contactNumber: 'Enter contact number',
           floor: 'e.g. 10',
           description: 'Highlight selling points or additional details',
-          keywords: 'e.g. city centre, subway nearby, south-facing',
-          propertyCertificate: 'Provide a link to the ownership certificate (URL or relative path)'
+          keywords: 'e.g. city centre, subway nearby, south-facing'
         },
         hints: {
           installmentCalculation: 'The system estimates the monthly instalment based on your down payment and term.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
-          noImages: 'No images uploaded yet.',
-          propertyCertificate: 'Ensure the link is accessible so reviewers and buyers can verify the listing.'
+          noImages: 'No images uploaded yet.'
         },
         actions: {
           upload: 'Upload images',
@@ -1748,8 +1740,8 @@ const translations = {
           submitting: 'Submitting…',
           submitCreate: 'Submit for review',
           submitEdit: 'Save changes',
-          cancel: 'Cancel',
-          openCertificate: 'Open certificate link'
+          saveDraft: 'Save draft',
+          cancel: 'Cancel'
         },
         imageAlt: 'Listing image {index}',
         upload: {
@@ -1767,7 +1759,6 @@ const translations = {
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
           area: 'Enter a valid floor area.',
-          certificate: 'Please provide an accessible ownership certificate link.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
           installmentMonths: 'The instalment term must be greater than zero.'
         }
@@ -1792,7 +1783,6 @@ const translations = {
           actions: 'Actions'
         },
         photoCount: '{count} photos',
-        certificateAvailable: 'View property certificate',
         pricing: {
           full: 'Full price: ￥{price}',
           downPayment: 'Down payment: ￥{amount}',
@@ -1906,8 +1896,10 @@ const translations = {
       unlistHouse: 'Listing “{title}” has been manually unlisted. Current status: {status}. Note: {reason}.',
       houseUpdatedApproved: 'Listing “{title}” has been updated and republished.',
       houseUpdatedPending: 'Listing “{title}” has been updated. Current status: {status}.',
+      houseDraftUpdated: 'Draft for “{title}” saved successfully. Continue editing any time.',
       houseCreatedApproved: 'Listing “{title}” has been created and approved.',
       houseCreatedPending: 'Listing “{title}” has been submitted. Current status: {status}.',
+      houseDraftCreated: 'Draft for “{title}” saved successfully.',
       purchase: 'Successfully purchased “{title}” via {method}, amount paid ¥{amount}.',
       reservation: 'Successfully reserved “{title}” with a deposit of ¥{amount}.',
       orderReleasedSeller: 'Funds released to the seller.',
@@ -2681,6 +2673,7 @@ const roleLabels = computed(() => ({
 }));
 
 const listingStatusLabels = computed(() => ({
+  DRAFT: t('statuses.draft'),
   PENDING_REVIEW: t('statuses.pending'),
   APPROVED: t('statuses.approved'),
   REJECTED: t('statuses.rejected'),
@@ -3486,7 +3479,7 @@ const guardReadOnly = () => {
   return true;
 };
 
-const normalizeHousePayload = (payload) => {
+const normalizeHousePayload = (payload, { draft = false } = {}) => {
   const result = { ...payload };
   result.imageUrls = Array.isArray(result.imageUrls)
     ? result.imageUrls.map((url) => (url ?? '').trim()).filter((url) => url.length > 0)
@@ -3518,32 +3511,39 @@ const normalizeHousePayload = (payload) => {
       result.sellerName = currentUser.value.displayName ?? '';
     }
   }
+  result.saveAsDraft = draft;
   return result;
 };
 
-const handleSubmit = async (payload) => {
+const handleSubmit = async ({ payload, draft }) => {
   if (!guardReadOnly()) {
     return;
   }
   loading.value = true;
   messages.error = '';
   messages.success = '';
-  const requestPayload = normalizeHousePayload(payload);
+  const requestPayload = normalizeHousePayload(payload, { draft: Boolean(draft) });
   try {
     if (selectedHouse.value) {
       const { data } = await client.put(`/houses/${selectedHouse.value.id}`, requestPayload);
       const statusLabel = listingStatusLabels.value[data.status] ?? t('statuses.pending');
-      messages.success =
-        data.status === 'APPROVED'
-          ? t('success.houseUpdatedApproved', { title: data.title })
-          : t('success.houseUpdatedPending', { title: data.title, status: statusLabel });
+      if (data.status === 'DRAFT') {
+        messages.success = t('success.houseDraftUpdated', { title: data.title });
+      } else if (data.status === 'APPROVED') {
+        messages.success = t('success.houseUpdatedApproved', { title: data.title });
+      } else {
+        messages.success = t('success.houseUpdatedPending', { title: data.title, status: statusLabel });
+      }
     } else {
       const { data } = await client.post('/houses', requestPayload);
       const statusLabel = listingStatusLabels.value[data.status] ?? t('statuses.pending');
-      messages.success =
-        data.status === 'APPROVED'
-          ? t('success.houseCreatedApproved', { title: data.title })
-          : t('success.houseCreatedPending', { title: data.title, status: statusLabel });
+      if (data.status === 'DRAFT') {
+        messages.success = t('success.houseDraftCreated', { title: data.title });
+      } else if (data.status === 'APPROVED') {
+        messages.success = t('success.houseCreatedApproved', { title: data.title });
+      } else {
+        messages.success = t('success.houseCreatedPending', { title: data.title, status: statusLabel });
+      }
     }
     formResetKey.value += 1;
     selectedHouse.value = null;

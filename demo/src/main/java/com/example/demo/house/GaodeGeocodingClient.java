@@ -196,44 +196,46 @@ public class GaodeGeocodingClient {
             if (!pois.isArray() || pois.isEmpty()) {
                 return Optional.empty();
             }
-            JsonNode first = pois.get(0);
-            String location = first.path("location").asText();
-            if (location == null || location.isBlank() || !location.contains(",")) {
-                return Optional.empty();
+            for (JsonNode poi : pois) {
+                String location = poi.path("location").asText();
+                if (location == null || location.isBlank() || !location.contains(",")) {
+                    continue;
+                }
+                String[] parts = location.split(",");
+                if (parts.length != 2) {
+                    continue;
+                }
+                double lng = Double.parseDouble(parts[0]);
+                double lat = Double.parseDouble(parts[1]);
+                if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
+                    continue;
+                }
+                if (!isWithinChina(lat, lng)) {
+                    log.debug("Gaode place search returned coordinate outside China bounds lat {} lng {} for keyword {}", lat, lng,
+                            keyword);
+                    continue;
+                }
+                String name = poi.path("name").asText(null);
+                String address = poi.path("address").asText(null);
+                if (address == null || address.isBlank()) {
+                    String province = poi.path("pname").asText("");
+                    String cityName = poi.path("cityname").asText("");
+                    String adName = poi.path("adname").asText("");
+                    address = String.join("",
+                            province == null ? "" : province,
+                            cityName == null ? "" : cityName,
+                            adName == null ? "" : adName,
+                            poi.path("address").asText(""));
+                }
+                if (address == null || address.isBlank()) {
+                    address = keyword;
+                }
+                if (name == null || name.isBlank()) {
+                    name = keyword;
+                }
+                return Optional.of(new PlaceSuggestion(name, address, lat, lng));
             }
-            String[] parts = location.split(",");
-            if (parts.length != 2) {
-                return Optional.empty();
-            }
-            double lng = Double.parseDouble(parts[0]);
-            double lat = Double.parseDouble(parts[1]);
-            if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
-                return Optional.empty();
-            }
-            if (!isWithinChina(lat, lng)) {
-                log.debug("Gaode place search returned coordinate outside China bounds lat {} lng {} for keyword {}", lat, lng,
-                        keyword);
-                return Optional.empty();
-            }
-            String name = first.path("name").asText(null);
-            String address = first.path("address").asText(null);
-            if (address == null || address.isBlank()) {
-                String province = first.path("pname").asText("");
-                String cityName = first.path("cityname").asText("");
-                String adName = first.path("adname").asText("");
-                address = String.join("",
-                        province == null ? "" : province,
-                        cityName == null ? "" : cityName,
-                        adName == null ? "" : adName,
-                        first.path("address").asText(""));
-            }
-            if (address == null || address.isBlank()) {
-                address = keyword;
-            }
-            if (name == null || name.isBlank()) {
-                name = keyword;
-            }
-            return Optional.of(new PlaceSuggestion(name, address, lat, lng));
+            return Optional.empty();
         } catch (Exception ex) {
             log.warn("Gaode place search failed for keyword {}: {}", keyword, ex.getMessage());
             return Optional.empty();

@@ -16,7 +16,7 @@ class SecondHandHousePersistenceTest {
     private SecondHandHouseRepository repository;
 
     @Test
-    void savesCertificateUrlWhenPersistingHouse() {
+    void persistsHouseWithoutCertificateColumnAndDefaultsStatus() {
         SecondHandHouse house = new SecondHandHouse();
         house.setTitle("测试房源");
         house.setAddress("测试城市大道1号");
@@ -29,12 +29,12 @@ class SecondHandHousePersistenceTest {
         house.setSellerName("张三");
         house.setContactNumber("13800138000");
         house.setListingDate(LocalDate.now().plusDays(2));
-        house.setPropertyCertificateUrl("/api/houses/images/certificates/test-cert.jpg");
 
         SecondHandHouse saved = repository.saveAndFlush(house);
-        assertThat(saved.getPropertyCertificateUrl()).isEqualTo("/api/houses/images/certificates/test-cert.jpg");
+        assertThat(saved.getStatus()).isEqualTo(ListingStatus.PENDING_REVIEW);
 
         SecondHandHouse reloaded = repository.findById(saved.getId()).orElseThrow();
-        assertThat(reloaded.getPropertyCertificateUrl()).isEqualTo("/api/houses/images/certificates/test-cert.jpg");
+        assertThat(reloaded.getStatus()).isEqualTo(ListingStatus.PENDING_REVIEW);
+        assertThat(reloaded.getAddress()).isEqualTo("测试城市大道1号");
     }
 }

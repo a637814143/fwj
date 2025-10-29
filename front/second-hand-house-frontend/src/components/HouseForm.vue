@@ -154,22 +154,6 @@
         />
       </label>
 
-      <label class="certificate-field">
-        {{ t('manage.form.fields.propertyCertificate') }}
-        <input
-          v-model.trim="form.propertyCertificateUrl"
-          type="url"
-          required
-          :placeholder="t('manage.form.placeholders.propertyCertificate')"
-          :disabled="disabled"
-        />
-        <small class="hint">{{ t('manage.form.hints.propertyCertificate') }}</small>
-        <p v-if="certificateLink" class="certificate-actions">
-          <a :href="certificateLink" target="_blank" rel="noopener">
-            {{ t('manage.form.actions.openCertificate') }}
-          </a>
-        </p>
-      </label>
     </div>
 
     <label class="block">
@@ -234,6 +218,14 @@
     <p v-if="formError" class="error">{{ formError }}</p>
 
     <div class="actions">
+      <button
+        class="btn secondary"
+        type="button"
+        :disabled="disabled"
+        @click="submitForm({ draft: true })"
+      >
+        {{ t('manage.form.actions.saveDraft') }}
+      </button>
       <button class="btn primary" type="submit" :disabled="disabled">
         {{
           loading
@@ -295,6 +287,7 @@ const translate = inject('translate', (key, vars) => {
 const t = (key, vars) => translate(key, vars);
 
 const listingStatusLabels = computed(() => ({
+  DRAFT: t('statuses.draft'),
   PENDING_REVIEW: t('statuses.pending'),
   APPROVED: t('statuses.approved'),
   REJECTED: t('statuses.rejected'),
@@ -388,8 +381,7 @@ const form = reactive({
   floor: '',
   installmentMonthlyPayment: '',
   installmentMonths: '',
-  imageUrls: [],
-  propertyCertificateUrl: ''
+  imageUrls: []
 });
 
 const keywordInput = ref('');
@@ -414,6 +406,8 @@ const statusLabel = computed(
 );
 const statusClass = computed(() => {
   switch (props.initialHouse?.status) {
+    case 'DRAFT':
+      return 'status draft';
     case 'APPROVED':
       return 'status approved';
     case 'REJECTED':
@@ -432,8 +426,6 @@ const sanitizedImageUrls = computed(() =>
     .filter((url) => url.length > 0)
 );
 
-const certificateLink = computed(() => resolveAssetUrl(form.propertyCertificateUrl));
-
 const formHasContent = computed(() => {
   return Boolean(
     form.title ||
@@ -449,7 +441,6 @@ const formHasContent = computed(() => {
       form.floor ||
       form.installmentMonthlyPayment ||
       form.installmentMonths ||
-      form.propertyCertificateUrl ||
       keywordInput.value ||
       form.imageUrls.length
   );
@@ -555,7 +546,6 @@ const setFormDefaults = () => {
   form.installmentMonthlyPayment = '';
   form.installmentMonths = '';
   applyImageUrls();
-  form.propertyCertificateUrl = '';
   keywordInput.value = '';
   formError.value = '';
   uploadError.value = '';
@@ -577,7 +567,6 @@ const fillFromHouse = (house) => {
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
-  form.propertyCertificateUrl = house.propertyCertificateUrl ?? '';
   keywordInput.value = Array.isArray(house.keywords)
     ? house.keywords.join(keywordSeparator.value)
     : '';
@@ -742,7 +731,7 @@ const removeImage = (index) => {
   form.imageUrls.splice(index, 1);
 };
 
-const validateForm = () => {
+const validateForm = ({ draft = false } = {}) => {
   if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
     formError.value = t('manage.form.validation.required');
     return false;
@@ -776,10 +765,6 @@ const validateForm = () => {
     formError.value = t('manage.form.validation.area');
     return false;
   }
-  if (!form.propertyCertificateUrl || !form.propertyCertificateUrl.trim()) {
-    formError.value = t('manage.form.validation.certificate');
-    return false;
-  }
   if (!ensurePositive(form.installmentMonthlyPayment)) {
     formError.value = t('manage.form.validation.installmentMonthly');
     return false;
@@ -800,11 +785,14 @@ const normalizeNumber = (value) => {
   return Number.isFinite(num) ? num : null;
 };
 
-const submitForm = () => {
+const submitForm = (maybeOptions) => {
+  const options =
+    maybeOptions && typeof maybeOptions === 'object' && 'draft' in maybeOptions ? maybeOptions : { draft: false };
+  const draft = Boolean(options.draft);
   if (disabled.value) {
     return;
   }
-  if (!validateForm()) {
+  if (!validateForm({ draft })) {
     return;
   }
   const payload = {
@@ -822,10 +810,9 @@ const submitForm = () => {
     keywords: [...keywordsPreview.value],
     imageUrls: sanitizedImageUrls.value,
     installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
-    installmentMonths: normalizeNumber(form.installmentMonths),
-    propertyCertificateUrl: certificateLink.value
+    installmentMonths: normalizeNumber(form.installmentMonths)
   };
-  emit('submit', payload);
+  emit('submit', { payload, draft });
 };
 
 const cancelEdit = () => {
@@ -883,6 +870,11 @@ const cancelEdit = () => {
   color: #166534;
 }
 
+.status-indicator.status.draft {
+  background: rgba(191, 219, 254, 0.3);
+  color: #1d4ed8;
+}
+
 .status-indicator.status.pending {
   background: rgba(250, 204, 21, 0.18);
   color: #92400e;
@@ -901,6 +893,11 @@ const cancelEdit = () => {
 :global(body[data-theme='dark']) :deep(.status-indicator.status.approved) {
   background: rgba(74, 222, 128, 0.18);
   color: #bbf7d0;
+}
+
+:global(body[data-theme='dark']) :deep(.status-indicator.status.draft) {
+  background: rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
 }
 
 :global(body[data-theme='dark']) :deep(.status-indicator.status.pending) {
@@ -980,24 +977,6 @@ textarea:focus {
   background: rgba(59, 130, 246, 0.12);
   color: #1d4ed8;
   font-size: 0.9rem;
-}
-
-.certificate-field .hint {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-}
-
-.certificate-actions {
-  font-size: 0.85rem;
-}
-
-.certificate-actions a {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.certificate-actions a:hover {
-  text-decoration: underline;
 }
 
 .images-section {
@@ -1089,6 +1068,12 @@ textarea:focus {
   box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
 }
 
+.btn.secondary {
+  background: rgba(219, 234, 254, 0.85);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
 .btn.ghost {
   background: transparent;
   color: var(--color-text-strong);
@@ -1105,6 +1090,12 @@ textarea:focus {
   background: rgba(254, 226, 226, 0.9);
   color: #b91c1c;
   padding: 0.45rem 0.95rem;
+}
+
+:global(body[data-theme='dark']) :deep(.btn.secondary) {
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.6);
 }
 
 .btn:disabled {

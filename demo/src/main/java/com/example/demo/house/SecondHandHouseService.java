@@ -17,7 +17,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -431,12 +433,13 @@ public class SecondHandHouseService {
         );
     }
 
-    public Optional<GaodeGeocodingClient.PlaceSuggestion> searchMapLocation(String query, String cityHint) {
+    public MapSearchResult searchMapLocation(String query, String cityHint) {
         if (query == null || query.isBlank()) {
-            return Optional.empty();
+            return MapSearchResult.empty();
         }
+        LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestionMap = new LinkedHashMap<>();
         String normalizedQuery = normalize(query);
-        Optional<GaodeGeocodingClient.PlaceSuggestion> storedCoordinate = repository.findAll().stream()
+        GaodeGeocodingClient.PlaceSuggestion bestMatch = repository.findAll().stream()
                 .filter(house -> normalize(house.getAddress()).equals(normalizedQuery))
                 .map(house -> {
                     Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
@@ -453,10 +456,9 @@ public class SecondHandHouseService {
                     return new GaodeGeocodingClient.PlaceSuggestion(name, address, latitude, longitude);
                 })
                 .filter(Objects::nonNull)
-                .findFirst();
-        if (storedCoordinate.isPresent()) {
-            return storedCoordinate;
-        }
+                .findFirst()
+                .orElse(null);
+        addSuggestion(suggestionMap, bestMatch);
 
         List<String> queryCandidates = buildQueryCandidates(query);
         for (String candidateQuery : queryCandidates) {
@@ -466,28 +468,106 @@ public class SecondHandHouseService {
             String effectiveCity = effectiveCityCandidate == null
                     ? null
                     : sanitizeAdministrativeName(effectiveCityCandidate);
+
             Optional<GaodeGeocodingClient.PlaceSuggestion> placeSuggestion = geocodingClient.searchPlace(candidateQuery, effectiveCity)
                     .filter(place -> isCoordinateWithinChina(place.latitude(), place.longitude()));
             if (placeSuggestion.isPresent()) {
-                return placeSuggestion;
+                GaodeGeocodingClient.PlaceSuggestion suggestion = placeSuggestion.get();
+                addSuggestion(suggestionMap, suggestion);
+                if (bestMatch == null) {
+                    bestMatch = suggestion;
+                }
             }
+
+            List<GaodeGeocodingClient.PlaceSuggestion> tipSuggestions =
+                    geocodingClient.suggestPlaces(candidateQuery, effectiveCity);
+            for (GaodeGeocodingClient.PlaceSuggestion suggestion : tipSuggestions) {
+                if (!isCoordinateWithinChina(suggestion.latitude(), suggestion.longitude())) {
+                    continue;
+                }
+                addSuggestion(suggestionMap, suggestion);
+                if (bestMatch == null) {
+                    bestMatch = suggestion;
+                }
+            }
+
             Optional<GaodeGeocodingClient.Coordinate> geocoded = geocodingClient.geocode(candidateQuery, effectiveCity);
             if (geocoded.isPresent()) {
                 double lat = geocoded.get().latitude();
                 double lng = geocoded.get().longitude();
                 if (isCoordinateWithinChina(lat, lng)) {
-                    return Optional.of(new GaodeGeocodingClient.PlaceSuggestion(
+                    GaodeGeocodingClient.PlaceSuggestion suggestion = new GaodeGeocodingClient.PlaceSuggestion(
                             candidateQuery,
                             candidateQuery,
                             lat,
                             lng
-                    ));
+                    );
+                    addSuggestion(suggestionMap, suggestion);
+                    if (bestMatch == null) {
+                        bestMatch = suggestion;
+                    }
                 }
             }
         }
-        return Optional.empty();
+
+        if (bestMatch == null && !suggestionMap.isEmpty()) {
+            bestMatch = suggestionMap.values().iterator().next();
+        }
+
+        List<GaodeGeocodingClient.PlaceSuggestion> orderedSuggestions = new ArrayList<>();
+        if (bestMatch != null) {
+            orderedSuggestions.add(bestMatch);
+        }
+        for (GaodeGeocodingClient.PlaceSuggestion suggestion : suggestionMap.values()) {
+            if (bestMatch != null && suggestionsEqual(bestMatch, suggestion)) {
+                continue;
+            }
+            orderedSuggestions.add(suggestion);
+        }
+
+        List<GaodeGeocodingClient.PlaceSuggestion> limitedSuggestions = orderedSuggestions.stream()
+                .limit(8)
+                .toList();
+
+        return new MapSearchResult(Optional.ofNullable(bestMatch), limitedSuggestions);
     }
 
+    private void addSuggestion(LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestions,
+                               GaodeGeocodingClient.PlaceSuggestion suggestion) {
+        if (suggestion == null) {
+            return;
+        }
+        String key = buildSuggestionKey(suggestion);
+        suggestions.putIfAbsent(key, suggestion);
+    }
+
+    private boolean suggestionsEqual(GaodeGeocodingClient.PlaceSuggestion left,
+                                     GaodeGeocodingClient.PlaceSuggestion right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return buildSuggestionKey(left).equals(buildSuggestionKey(right));
+    }
+
+    private String buildSuggestionKey(GaodeGeocodingClient.PlaceSuggestion suggestion) {
+        long latKey = Math.round(suggestion.latitude() * 1_000_000d);
+        long lngKey = Math.round(suggestion.longitude() * 1_000_000d);
+        String normalizedAddress = normalize(suggestion.address());
+        return latKey + ":" + lngKey + "::" + normalizedAddress;
+    }
+
+
+    public record MapSearchResult(Optional<GaodeGeocodingClient.PlaceSuggestion> match,
+                                  List<GaodeGeocodingClient.PlaceSuggestion> suggestions) {
+        public MapSearchResult {
+            Objects.requireNonNull(match, "match must not be null");
+            Objects.requireNonNull(suggestions, "suggestions must not be null");
+        }
+
+        public static MapSearchResult empty() {
+            return new MapSearchResult(Optional.empty(), List.of());
+        }
+    }
 
     private boolean hasCoordinates(HouseLocationView view) {
         if (view == null) {

@@ -1119,7 +1119,11 @@ const translations = {
         success: '已为您定位：{name}',
         failure: '暂未找到对应位置，请尝试调整输入。',
         error: '搜索失败，请稍后重试。',
-        required: '请输入要搜索的房源地址。'
+        required: '请输入要搜索的房源地址。',
+        suggestions: '未找到精确匹配，可尝试以下推荐位置。',
+        suggestionsTitle: '推荐位置',
+        suggestionsApply: '使用该位置',
+        appliedSuggestion: '已应用推荐位置：{name}'
       },
       actions: {
         copyAddress: '复制地址',
@@ -2143,7 +2147,11 @@ const translations = {
         success: 'Showing location for {name}.',
         failure: 'No matching location was found. Try another address.',
         error: 'Search failed. Please try again later.',
-        required: 'Enter an address before searching.'
+        required: 'Enter an address before searching.',
+        suggestions: 'No exact match was found. Try one of the suggested locations below.',
+        suggestionsTitle: 'Suggested locations',
+        suggestionsApply: 'Use this location',
+        appliedSuggestion: 'Applied suggested location: {name}'
       },
       actions: {
         copyAddress: 'Copy address',

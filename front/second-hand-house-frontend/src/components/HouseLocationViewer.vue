@@ -70,6 +70,29 @@
             >
               {{ manualSearchMessage }}
             </p>
+            <div v-if="manualSearchSuggestions.length" class="manual-search-suggestions">
+              <p class="manual-search-suggestions-title">{{ t('locationViewer.search.suggestionsTitle') }}</p>
+              <ul>
+                <li
+                  v-for="suggestion in manualSearchSuggestions"
+                  :key="suggestion.id"
+                  class="manual-search-suggestion"
+                >
+                  <button
+                    type="button"
+                    class="suggestion-action"
+                    :disabled="manualSearchLoading || mapLoading"
+                    @click="applyManualSuggestion(suggestion)"
+                  >
+                    {{ t('locationViewer.search.suggestionsApply') }}
+                  </button>
+                  <div class="suggestion-text">
+                    <p class="name">{{ suggestion.name }}</p>
+                    <p class="address">{{ suggestion.address }}</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
           </div>
 
           <div class="map-wrapper">
@@ -232,6 +255,7 @@ const manualSearchQuery = ref('');
 const manualSearchMessage = ref('');
 const manualSearchMessageType = ref('info');
 const manualSearchLoading = ref(false);
+const manualSearchSuggestions = ref([]);
 
 const CHINA_BOUNDS = Object.freeze({
   south: 17.0,
@@ -564,11 +588,11 @@ const setMapToCoordinates = async (entry) => {
 const requestMapLocation = async (query, { house = null, city, signatureOverride, fallbackName } = {}) => {
   const base = normalizedApiBaseUrl.value;
   if (!base) {
-    return { status: 'error' };
+    return { status: 'error', suggestions: [] };
   }
   const trimmed = typeof query === 'string' ? query.trim() : '';
   if (!trimmed) {
-    return { status: 'error' };
+    return { status: 'error', suggestions: [] };
   }
   const params = new URLSearchParams({ query: trimmed });
   if (city && city.trim()) {
@@ -580,6 +604,33 @@ const requestMapLocation = async (query, { house = null, city, signatureOverride
       throw new Error(`HTTP ${response.status}`);
     }
     const payload = await response.json();
+    const rawSuggestions = Array.isArray(payload?.suggestions) ? payload.suggestions : [];
+    const seenSuggestionKeys = new Set();
+    const suggestions = rawSuggestions
+      .map((item, index) => {
+        const lat = sanitizeCoordinate(item?.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+        const lng = sanitizeCoordinate(item?.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+        if (lat == null || lng == null || !isWithinChina(lat, lng)) {
+          return null;
+        }
+        const name = typeof item?.name === 'string' && item.name.trim() ? item.name.trim() : fallbackName ?? trimmed;
+        const address =
+          typeof item?.address === 'string' && item.address.trim() ? item.address.trim() : fallbackName ?? trimmed;
+        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        if (seenSuggestionKeys.has(key)) {
+          return null;
+        }
+        seenSuggestionKeys.add(key);
+        const identifier = `${key}::${index.toString(36)}::${normalizeSignature(address) || normalizeSignature(name)}`;
+        return {
+          id: identifier,
+          name,
+          address,
+          lat,
+          lng
+        };
+      })
+      .filter(Boolean);
     if (
       payload?.found &&
       Number.isFinite(payload.latitude) &&
@@ -596,13 +647,16 @@ const requestMapLocation = async (query, { house = null, city, signatureOverride
           payload.address ?? fallbackName ?? trimmed,
           signatureOverride
         );
-        return { status: 'success', entry };
+        return { status: 'success', entry, suggestions };
       }
     }
-    return { status: 'not-found' };
+    if (suggestions.length) {
+      return { status: 'suggestions', suggestions };
+    }
+    return { status: 'not-found', suggestions: [] };
   } catch (error) {
     console.warn('Failed to request Gaode location', error);
-    return { status: 'error' };
+    return { status: 'error', suggestions: [] };
   }
 };
 
@@ -692,6 +746,7 @@ watch(
     manualSearchQuery.value = deriveHouseAddress(house) || '';
     manualSearchMessage.value = '';
     manualSearchMessageType.value = 'info';
+    manualSearchSuggestions.value = [];
   },
   { immediate: true }
 );
@@ -732,6 +787,7 @@ const handleManualSearch = async () => {
   const query = typeof manualSearchQuery.value === 'string' ? manualSearchQuery.value.trim() : '';
   manualSearchMessage.value = '';
   manualSearchMessageType.value = 'info';
+  manualSearchSuggestions.value = [];
   if (!query) {
     manualSearchMessage.value = t('locationViewer.search.required');
     manualSearchMessageType.value = 'error';
@@ -750,7 +806,7 @@ const handleManualSearch = async () => {
     const signatureOverride = shouldPersist && houseSignature
       ? houseSignature
       : `manual::${querySignature || Date.now().toString(36)}`;
-    const { status, entry } = await requestMapLocation(query, {
+    const { status, entry, suggestions } = await requestMapLocation(query, {
       house,
       signatureOverride,
       fallbackName: query
@@ -758,6 +814,7 @@ const handleManualSearch = async () => {
     if (token !== locateSequence) {
       return;
     }
+    manualSearchSuggestions.value = Array.isArray(suggestions) ? suggestions.slice(0, 8) : [];
     if (status === 'success' && entry) {
       activeLocation.value = entry;
       await setMapToCoordinates(entry);
@@ -767,6 +824,13 @@ const handleManualSearch = async () => {
       manualSearchMessage.value = t('locationViewer.search.success', { name: entry.name });
       manualSearchMessageType.value = 'success';
       mapError.value = '';
+      return;
+    }
+    if (status === 'suggestions' && manualSearchSuggestions.value.length) {
+      manualSearchMessage.value = t('locationViewer.search.suggestions');
+      manualSearchMessageType.value = 'info';
+      mapError.value = t('locationViewer.map.noResult');
+      await resetMapView();
       return;
     }
     manualSearchMessageType.value = 'error';
@@ -794,12 +858,68 @@ const handleManualSearch = async () => {
   }
 };
 
+const applyManualSuggestion = async (suggestion) => {
+  if (!suggestion) {
+    return;
+  }
+  const lat = sanitizeCoordinate(suggestion.lat, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+  const lng = sanitizeCoordinate(suggestion.lng, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+  if (lat == null || lng == null || !isWithinChina(lat, lng)) {
+    return;
+  }
+  locateSequence += 1;
+  const token = locateSequence;
+  mapError.value = '';
+  manualSearchMessageType.value = 'info';
+  mapLoading.value = true;
+  try {
+    const house = activeHouse.value ?? null;
+    const houseSignature = normalizeSignature(house?.rawAddress ?? deriveHouseAddress(house) ?? '');
+    const fallbackSignature = normalizeSignature(suggestion.address ?? suggestion.name ?? '');
+    const signatureOverride = houseSignature || (fallbackSignature ? `suggestion::${fallbackSignature}` : undefined);
+    const entry = buildLocationEntry(
+      house,
+      lat,
+      lng,
+      suggestion.name,
+      suggestion.address,
+      signatureOverride
+    );
+    activeLocation.value = entry;
+    await setMapToCoordinates(entry);
+    if (token !== locateSequence) {
+      return;
+    }
+    manualSearchMessage.value = t('locationViewer.search.appliedSuggestion', { name: entry.name });
+    manualSearchMessageType.value = 'success';
+    manualSearchQuery.value = entry.address;
+    mapError.value = '';
+    if (house) {
+      const storedSource = houseSignature || entry.sourceAddress;
+      coordinateCache.set(house.key, { ...entry, sourceAddress: storedSource });
+    }
+  } catch (error) {
+    if (token === locateSequence) {
+      console.warn('Failed to apply manual suggestion', error);
+      manualSearchMessage.value = t('locationViewer.search.error');
+      manualSearchMessageType.value = 'error';
+      mapError.value = t('locationViewer.map.error');
+      await resetMapView();
+    }
+  } finally {
+    if (token === locateSequence) {
+      mapLoading.value = false;
+    }
+  }
+};
+
 const handleRefresh = () => {
   copyStatus.value = '';
   copyStatusType.value = '';
   mapError.value = '';
   manualSearchMessage.value = '';
   manualSearchMessageType.value = 'info';
+  manualSearchSuggestions.value = [];
   emit('refresh');
 };
 
@@ -1098,6 +1218,73 @@ onBeforeUnmount(() => {
 
 .manual-search-status.error {
   color: var(--color-danger);
+}
+
+.manual-search-suggestions {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent 20%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.manual-search-suggestions-title {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.manual-search-suggestions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-search-suggestion {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.suggestion-action {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent 90%);
+  color: var(--color-primary);
+  font-weight: 600;
+  padding: 0.35rem 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggestion-action:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.manual-search-suggestion .suggestion-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.manual-search-suggestion .name {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.manual-search-suggestion .address {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .map-wrapper {

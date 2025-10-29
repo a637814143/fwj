@@ -42,7 +42,18 @@
           </div>
 
           <div class="map-wrapper">
-            <div ref="mapContainerRef" class="map-container"></div>
+            <iframe
+              v-if="mapUrl"
+              :key="mapUrl"
+              class="map-iframe"
+              :src="mapUrl"
+              title="Amap location viewer"
+              allowfullscreen
+              loading="lazy"
+            ></iframe>
+            <div v-else class="map-placeholder">
+              <span>{{ t('locationViewer.map.idle') }}</span>
+            </div>
             <div v-if="mapLoading" class="map-overlay">
               <span>{{ t('locationViewer.map.locating') }}</span>
             </div>
@@ -86,17 +97,7 @@
 </template>
 
 <script setup>
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-const markerIcons = {
-  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).toString(),
-  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).toString(),
-  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).toString()
-};
-
-L.Icon.Default.mergeOptions(markerIcons);
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
   houses: {
@@ -203,7 +204,7 @@ const selectedId = ref('');
 const copyStatus = ref('');
 const copyStatusType = ref('');
 
-const mapContainerRef = ref(null);
+const mapUrl = ref('');
 const mapLoading = ref(false);
 const mapError = ref('');
 const activeLocation = ref(null);
@@ -215,20 +216,7 @@ const CHINA_BOUNDS = Object.freeze({
   east: 136.5
 });
 
-const chinaBounds = L.latLngBounds(
-  [CHINA_BOUNDS.south, CHINA_BOUNDS.west],
-  [CHINA_BOUNDS.north, CHINA_BOUNDS.east]
-);
-
-let mapInstance = null;
-let tileLayer = null;
-let markerLayer = null;
 let locateSequence = 0;
-
-const defaultCenterPoint = chinaBounds.getCenter();
-const defaultCenter = [defaultCenterPoint.lat, defaultCenterPoint.lng];
-const defaultZoom = 5;
-const focusZoom = 16;
 
 const updatedTime = computed(() => {
   if (!props.updatedAt) {
@@ -302,49 +290,33 @@ const normalizedApiBaseUrl = computed(() => {
   return base.replace(/\/$/, '');
 });
 
-const ensureMapReady = async () => {
-  if (mapInstance || !mapContainerRef.value) {
-    return;
+const buildMapUrl = (entry) => {
+  if (!entry) {
+    return '';
   }
-  mapInstance = L.map(mapContainerRef.value, {
-    zoomControl: true,
-    attributionControl: true,
-    minZoom: 4,
-    maxBounds: chinaBounds,
-    maxBoundsViscosity: 1.0,
-    worldCopyJump: false
-  });
-  tileLayer = L.tileLayer(
-    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-    {
-      subdomains: ['1', '2', '3', '4'],
-      minZoom: 4,
-      maxZoom: 18,
-      noWrap: true,
-      attribution: '© 高德地图'
-    }
-  );
-  tileLayer.addTo(mapInstance);
-  mapInstance.setView(defaultCenter, defaultZoom);
-  mapInstance.panInsideBounds(chinaBounds, { animate: false });
+  const hasCoordinates = Number.isFinite(entry.lng) && Number.isFinite(entry.lat);
+  const querySource = entry.address?.trim() || entry.name?.trim();
+  if (hasCoordinates) {
+    const coordinateQuery = `${entry.lng},${entry.lat}`;
+    const query = querySource ? `${querySource} ${coordinateQuery}` : coordinateQuery;
+    return `https://www.amap.com/search?query=${encodeURIComponent(query)}&zoom=16`;
+  }
+  if (querySource) {
+    return `https://www.amap.com/search?query=${encodeURIComponent(querySource)}&zoom=16`;
+  }
+  return '';
 };
 
-const resetMapView = async () => {
-  await nextTick();
-  if (!mapContainerRef.value) {
-    return;
-  }
-  await ensureMapReady();
-  if (!mapInstance) {
-    return;
-  }
-  if (markerLayer) {
-    markerLayer.remove();
-    markerLayer = null;
-  }
-  mapInstance.setView(defaultCenter, defaultZoom);
-  mapInstance.panInsideBounds(chinaBounds, { animate: false });
-  mapInstance.invalidateSize();
+const applyLocationEntry = (entry) => {
+  activeLocation.value = entry;
+  mapUrl.value = entry ? buildMapUrl(entry) : '';
+  mapLoading.value = false;
+};
+
+const resetMapView = () => {
+  mapUrl.value = '';
+  activeLocation.value = null;
+  mapLoading.value = false;
 };
 
 const fallbackTitle = (house) => {
@@ -363,24 +335,6 @@ const buildLocationEntry = (house, lat, lng, name, address) => ({
   sourceAddress: normalizeSignature(house?.rawAddress)
 });
 
-const setMapToCoordinates = async (entry) => {
-  await nextTick();
-  await ensureMapReady();
-  if (!mapInstance) {
-    return;
-  }
-  const position = [entry.lat, entry.lng];
-  mapInstance.setView(position, focusZoom);
-  mapInstance.panInsideBounds(chinaBounds, { animate: false });
-  if (!markerLayer) {
-    markerLayer = L.marker(position);
-    markerLayer.addTo(mapInstance);
-  } else {
-    markerLayer.setLatLng(position);
-  }
-  mapInstance.invalidateSize();
-};
-
 const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   locateSequence += 1;
   const token = locateSequence;
@@ -388,7 +342,7 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   activeLocation.value = null;
 
   if (!house) {
-    await resetMapView();
+    resetMapView();
     return;
   }
 
@@ -400,8 +354,7 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   const cached = coordinateCache.get(house.key);
   if (cached && cached.sourceAddress === signature) {
     if (isWithinChina(cached.lat, cached.lng)) {
-      activeLocation.value = cached;
-      await setMapToCoordinates(cached);
+      applyLocationEntry(cached);
       return;
     }
     coordinateCache.delete(house.key);
@@ -413,8 +366,7 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
     if (lat != null && lng != null && isWithinChina(lat, lng)) {
       const entry = buildLocationEntry(house, lat, lng, house.rawTitle, house.rawAddress);
       coordinateCache.set(house.key, entry);
-      activeLocation.value = entry;
-      await setMapToCoordinates(entry);
+      applyLocationEntry(entry);
       return;
     }
   }
@@ -422,14 +374,14 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   const address = house.rawAddress?.trim();
   if (!address) {
     mapError.value = t('locationViewer.map.addressMissing');
-    await resetMapView();
+    resetMapView();
     return;
   }
 
   const base = normalizedApiBaseUrl.value;
   if (!base) {
     mapError.value = t('locationViewer.map.error');
-    await resetMapView();
+    resetMapView();
     return;
   }
 
@@ -458,18 +410,17 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
           payload.address
         );
         coordinateCache.set(house.key, entry);
-        activeLocation.value = entry;
-        await setMapToCoordinates(entry);
+        applyLocationEntry(entry);
         return;
       }
     }
     mapError.value = t('locationViewer.map.noResult');
-    await resetMapView();
+    resetMapView();
   } catch (error) {
     if (token === locateSequence) {
       console.warn('Failed to locate house on map', error);
       mapError.value = t('locationViewer.map.error');
-      await resetMapView();
+      resetMapView();
     }
   } finally {
     if (token === locateSequence) {
@@ -559,18 +510,10 @@ const formatCoordinate = (value) => {
   return Number(value).toFixed(6);
 };
 
-onMounted(() => {
-  nextTick(ensureMapReady);
-});
-
 onBeforeUnmount(() => {
   coordinateCache.clear();
-  if (mapInstance) {
-    mapInstance.remove();
-  }
-  mapInstance = null;
-  tileLayer = null;
-  markerLayer = null;
+  mapUrl.value = '';
+  activeLocation.value = null;
 });
 </script>
 
@@ -744,9 +687,22 @@ onBeforeUnmount(() => {
   min-height: 320px;
 }
 
-.map-container {
+.map-iframe {
   width: 100%;
   height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.map-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 .map-overlay {

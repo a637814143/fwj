@@ -241,46 +241,6 @@
       <p v-else class="hint">{{ t('manage.form.hints.noImages') }}</p>
     </section>
 
-    <section class="certificate-section">
-      <div class="certificate-header">
-        <h4>{{ t('manage.form.fields.propertyCertificate') }}</h4>
-        <div class="certificate-actions">
-          <input
-            ref="certificateInputRef"
-            class="file-input"
-            type="file"
-            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
-            :disabled="disabled || uploadingCertificate"
-            @change="handleCertificateSelection"
-          />
-          <button
-            type="button"
-            class="btn add"
-            :disabled="disabled || uploadingCertificate"
-            @click="triggerCertificateUpload"
-          >
-            {{ uploadingCertificate ? t('manage.form.actions.uploading') : t('manage.form.actions.uploadCertificate') }}
-          </button>
-        </div>
-      </div>
-      <p class="hint">{{ t('manage.form.hints.propertyCertificate') }}</p>
-      <p v-if="certificateError" class="error">{{ certificateError }}</p>
-      <div v-if="form.propertyCertificateUrl" class="certificate-preview">
-        <figure v-if="certificateIsImage">
-          <img :src="form.propertyCertificateUrl" :alt="t('manage.form.certificateAlt')" />
-        </figure>
-        <a
-          v-else
-          class="certificate-link"
-          :href="form.propertyCertificateUrl"
-          target="_blank"
-          rel="noopener"
-        >
-          {{ t('manage.form.actions.viewCertificate') }}
-        </a>
-      </div>
-    </section>
-
     <p v-if="formError" class="error">{{ formError }}</p>
 
     <div class="actions">
@@ -359,8 +319,6 @@ const keywordSeparator = computed(() => {
 const sellerRoles = ['SELLER', 'LANDLORD'];
 
 const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
-const certificateExtensions = [...imageExtensions, '.pdf'];
-
 const formatDate = (date) => {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return '';
@@ -442,8 +400,7 @@ const form = reactive({
   floor: '',
   installmentMonthlyPayment: '',
   installmentMonths: '',
-  imageUrls: [],
-  propertyCertificateUrl: ''
+  imageUrls: []
 });
 
 const keywordInput = ref('');
@@ -451,19 +408,11 @@ const formError = ref('');
 const uploadError = ref('');
 const uploadingImages = ref(false);
 const fileInputRef = ref(null);
-const uploadingCertificate = ref(false);
-const certificateError = ref('');
-const certificateInputRef = ref(null);
 const maxImageCount = 10;
 
 const uploadEndpoint = computed(() => {
   const base = props.apiBaseUrl?.replace(/\/$/, '') ?? '';
   return `${base}/houses/images`;
-});
-
-const certificateUploadEndpoint = computed(() => {
-  const base = props.apiBaseUrl?.replace(/\/$/, '') ?? '';
-  return `${base}/houses/images/certificates`;
 });
 
 const isSeller = computed(() => sellerRoles.includes(props.currentUser?.role));
@@ -510,12 +459,9 @@ const formHasContent = computed(() => {
       form.installmentMonthlyPayment ||
       form.installmentMonths ||
       keywordInput.value ||
-      form.propertyCertificateUrl ||
       form.imageUrls.length
   );
 });
-
-const certificateIsImage = computed(() => isImageUrl(form.propertyCertificateUrl));
 
 const premiumRate = 1.2;
 
@@ -525,14 +471,6 @@ const isImageUrl = (url) => {
   }
   const normalized = String(url).trim().toLowerCase();
   return imageExtensions.some((ext) => normalized.endsWith(ext));
-};
-
-const hasAllowedCertificateExtension = (filename) => {
-  if (!filename) {
-    return false;
-  }
-  const normalized = String(filename).trim().toLowerCase();
-  return certificateExtensions.some((ext) => normalized.endsWith(ext));
 };
 
 const parseLocalDate = (value) => {
@@ -627,13 +565,10 @@ const setFormDefaults = () => {
   form.installmentMonthlyPayment = '';
   form.installmentMonths = '';
   applyImageUrls();
-  form.propertyCertificateUrl = '';
   keywordInput.value = '';
   formError.value = '';
   uploadError.value = '';
   uploadingImages.value = false;
-  certificateError.value = '';
-  uploadingCertificate.value = false;
 };
 
 const fillFromHouse = (house) => {
@@ -653,15 +588,12 @@ const fillFromHouse = (house) => {
   form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
   form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
-  form.propertyCertificateUrl = resolveAssetUrl(house.propertyCertificateUrl ?? '');
   keywordInput.value = Array.isArray(house.keywords)
     ? house.keywords.join(keywordSeparator.value)
     : '';
   formError.value = '';
   uploadError.value = '';
   uploadingImages.value = false;
-  certificateError.value = '';
-  uploadingCertificate.value = false;
 };
 
 watch(
@@ -723,7 +655,6 @@ const ensurePositive = (value) => {
 };
 
 const maxUploadSize = 5 * 1024 * 1024;
-const maxCertificateSize = 10 * 1024 * 1024;
 
 const triggerImageUpload = () => {
   if (disabled.value) {
@@ -821,68 +752,6 @@ const removeImage = (index) => {
   form.imageUrls.splice(index, 1);
 };
 
-const triggerCertificateUpload = () => {
-  if (disabled.value) {
-    return;
-  }
-  certificateError.value = '';
-  certificateInputRef.value?.click();
-};
-
-const handleCertificateSelection = async (event) => {
-  if (disabled.value) {
-    if (event?.target) {
-      event.target.value = '';
-    }
-    return;
-  }
-  const input = event?.target;
-  const [file] = Array.from(input?.files ?? []);
-  if (input) {
-    input.value = '';
-  }
-  if (!file) {
-    return;
-  }
-  certificateError.value = '';
-  uploadingCertificate.value = true;
-  try {
-    await uploadCertificate(file);
-  } catch (error) {
-    certificateError.value =
-      error instanceof Error ? error.message : t('manage.form.upload.failure');
-  } finally {
-    uploadingCertificate.value = false;
-  }
-};
-
-const uploadCertificate = async (file) => {
-  if (file.size > maxCertificateSize) {
-    throw new Error(t('manage.form.upload.certificateTooLarge'));
-  }
-  const filename = file.name ?? '';
-  const mime = (file.type ?? '').toLowerCase();
-  const allowedByMime = mime.startsWith('image/') || mime === 'application/pdf';
-  if (!hasAllowedCertificateExtension(filename) && !allowedByMime) {
-    throw new Error(t('manage.form.upload.invalidCertificateType'));
-  }
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await fetch(certificateUploadEndpoint.value, {
-    method: 'POST',
-    body: formData
-  });
-  if (!response.ok) {
-    throw new Error(await readUploadError(response));
-  }
-  const payload = await response.json();
-  if (!payload || typeof payload.url !== 'string') {
-    throw new Error(t('manage.form.upload.failure'));
-  }
-  form.propertyCertificateUrl = resolveAssetUrl(payload.url);
-  certificateError.value = '';
-};
-
 const validateForm = () => {
   if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
     formError.value = t('manage.form.validation.required');
@@ -923,10 +792,6 @@ const validateForm = () => {
   }
   if (!ensurePositive(form.installmentMonths)) {
     formError.value = t('manage.form.validation.installmentMonths');
-    return false;
-  }
-  if (!form.propertyCertificateUrl) {
-    formError.value = t('manage.form.validation.propertyCertificate');
     return false;
   }
   const hasLatitude = form.latitude !== '' && form.latitude != null;
@@ -985,11 +850,7 @@ const submitForm = () => {
     keywords: [...keywordsPreview.value],
     imageUrls: sanitizedImageUrls.value,
     installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
-    installmentMonths: normalizeNumber(form.installmentMonths),
-    propertyCertificateUrl:
-      typeof form.propertyCertificateUrl === 'string'
-        ? form.propertyCertificateUrl.trim()
-        : ''
+    installmentMonths: normalizeNumber(form.installmentMonths)
   };
   emit('submit', payload);
 };
@@ -1156,63 +1017,6 @@ textarea:focus {
   border: 1px dashed rgba(148, 163, 184, 0.45);
   border-radius: var(--radius-lg);
   background: rgba(248, 250, 252, 0.85);
-}
-
-.certificate-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.1rem;
-  border-radius: var(--radius-lg);
-  border: 1px dashed rgba(148, 163, 184, 0.45);
-  background: rgba(248, 250, 252, 0.8);
-}
-
-.certificate-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.certificate-header h4 {
-  margin: 0;
-  font-size: 1rem;
-  color: var(--color-text-strong);
-}
-
-.certificate-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.certificate-preview {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  flex-wrap: wrap;
-}
-
-.certificate-preview figure {
-  margin: 0;
-}
-
-.certificate-preview img {
-  max-width: 240px;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: var(--shadow-sm);
-}
-
-.certificate-link {
-  font-weight: 600;
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-
-.certificate-link:hover {
-  color: color-mix(in srgb, var(--color-primary) 85%, #1d4ed8);
 }
 
 .images-header {

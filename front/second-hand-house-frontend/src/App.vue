@@ -86,9 +86,9 @@
 
         <HouseLocationViewer
           v-else-if="activeTab === 'locations'"
-          :houses="houses"
-          :loading="loading"
-          :updated-at="housesUpdatedAt"
+          :houses="houseLocations.length ? houseLocations : houses"
+          :loading="loading || locationLoading"
+          :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
           @refresh="fetchHouses({ silent: false })"
         />
 
@@ -266,8 +266,11 @@ import HouseLocationViewer from './components/HouseLocationViewer.vue';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
+const houseLocations = ref([]);
 const housesUpdatedAt = ref('');
+const houseLocationsUpdatedAt = ref('');
 const loading = ref(false);
+const locationLoading = ref(false);
 const selectedHouse = ref(null);
 const formResetKey = ref(0);
 const currentUser = ref(null);
@@ -453,6 +456,44 @@ const translations = {
     },
     alerts: {
       errorPrefix: '提示：'
+    },
+    conversation: {
+      title: '消息中心',
+      subtitle: '实时与卖家沟通，确认房源细节与交易安排。',
+      actions: {
+        refresh: '刷新列表',
+        refreshing: '刷新中…',
+        close: '关闭',
+        back: '返回列表',
+        send: '发送',
+        sending: '发送中…'
+      },
+      list: {
+        title: '对话列表',
+        count: '{count}',
+        loading: '正在加载对话…',
+        empty: '暂无对话。'
+      },
+      preview: {
+        you: '我',
+        partner: '对方',
+        empty: '暂无消息'
+      },
+      empty: {
+        title: '请选择一个对话',
+        description: '在左侧选择卖家以查看历史消息并发送新消息。'
+      },
+      chat: {
+        subtitle: '与卖家协调看房、付款等具体事项。',
+        loading: '正在加载消息…',
+        none: '暂无消息，向卖家发起第一条交流吧。',
+        placeholder: '请输入消息（最多2000字）',
+        headerFallback: '对话详情'
+      },
+      participant: {
+        seller: '卖家',
+        buyer: '买家'
+      }
     },
     roles: {
       buyer: '买家',
@@ -654,8 +695,7 @@ const translations = {
           floor: '楼层（可选）',
           description: '房源描述',
           keywords: '房源关键词',
-          images: '房源图片',
-          propertyCertificate: '房产证件凭证'
+          images: '房源图片'
         },
         placeholders: {
           title: '请输入房源标题',
@@ -679,30 +719,24 @@ const translations = {
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
           noImages: '尚未上传图片。',
-          propertyCertificate: '请上传房产证件的清晰照片或 PDF 扫描件，仅管理员审核可见。',
           locationHint: '填写经纬度后地图功能可立即定位房源。'
         },
         actions: {
           upload: '上传图片',
           uploading: '上传中…',
           removeImage: '移除',
-          uploadCertificate: '上传证件',
-          viewCertificate: '查看证件',
           submitting: '提交中…',
           submitCreate: '提交审核',
           submitEdit: '保存修改',
           cancel: '取消'
         },
         imageAlt: '房源图片 {index}',
-        certificateAlt: '房产证件凭证预览',
         upload: {
           limit: '最多可上传 {count} 张图片。',
           extraIgnored: '仅保留前 {count} 张图片，多余文件已忽略。',
           invalidType: '仅支持上传图片文件。',
           tooLarge: '单张图片大小需不超过5MB。',
-          failure: '图片上传失败，请稍后再试。',
-          invalidCertificateType: '仅支持上传图片或 PDF 证件文件。',
-          certificateTooLarge: '证件文件需不超过10MB。'
+          failure: '图片上传失败，请稍后再试。'
         },
         validation: {
           required: '请完善必填的房源信息。',
@@ -714,7 +748,6 @@ const translations = {
           area: '请输入有效的建筑面积。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
           installmentMonths: '分期期限必须大于0。',
-          propertyCertificate: '请先上传房产证件凭证。',
           coordinatePair: '经纬度需同时填写或同时留空。',
           latitudeRange: '请输入 -90 至 90 之间的纬度。',
           longitudeRange: '请输入 -180 至 180 之间的经度。'
@@ -879,6 +912,7 @@ const translations = {
     },
     errors: {
       loadHouses: '加载房源数据失败，请检查后端服务。',
+      loadLocations: '加载房源坐标失败。',
       loadRecommendations: '加载推荐用户失败。',
       loadWallet: '加载钱包信息失败。',
       loadOrders: '加载订单信息失败。',
@@ -1439,6 +1473,44 @@ const translations = {
     alerts: {
       errorPrefix: 'Notice:'
     },
+    conversation: {
+      title: 'Message center',
+      subtitle: 'Chat with sellers in real time to confirm listing details and schedule transactions.',
+      actions: {
+        refresh: 'Refresh list',
+        refreshing: 'Refreshing…',
+        close: 'Close',
+        back: 'Back to list',
+        send: 'Send',
+        sending: 'Sending…'
+      },
+      list: {
+        title: 'Conversations',
+        count: '{count}',
+        loading: 'Loading conversations…',
+        empty: 'No conversations yet.'
+      },
+      preview: {
+        you: 'You',
+        partner: 'Partner',
+        empty: 'No messages yet'
+      },
+      empty: {
+        title: 'Select a conversation to begin',
+        description: 'Choose a seller on the left to browse history and send a new message.'
+      },
+      chat: {
+        subtitle: 'Coordinate viewings, payments, and other details with the seller.',
+        loading: 'Loading messages…',
+        none: 'No messages yet. Start the conversation with the seller.',
+        placeholder: 'Type a message (max 2000 characters)',
+        headerFallback: 'Conversation details'
+      },
+      participant: {
+        seller: 'Seller',
+        buyer: 'Buyer'
+      }
+    },
     roles: {
       buyer: 'Buyer',
       seller: 'Seller',
@@ -1640,8 +1712,7 @@ const translations = {
           floor: 'Floor (optional)',
           description: 'Listing description',
           keywords: 'Keywords',
-          images: 'Listing photos',
-          propertyCertificate: 'Property certificate proof'
+          images: 'Listing photos'
         },
         placeholders: {
           title: 'Enter listing title',
@@ -1665,30 +1736,24 @@ const translations = {
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
           noImages: 'No images uploaded yet.',
-          propertyCertificate: 'Upload a clear photo or PDF scan of the ownership certificate. Only administrators can access it during review.',
           locationHint: 'Provide coordinates so the location map can highlight this listing precisely.'
         },
         actions: {
           upload: 'Upload images',
           uploading: 'Uploading…',
           removeImage: 'Remove',
-          uploadCertificate: 'Upload certificate',
-          viewCertificate: 'View certificate',
           submitting: 'Submitting…',
           submitCreate: 'Submit for review',
           submitEdit: 'Save changes',
           cancel: 'Cancel'
         },
         imageAlt: 'Listing image {index}',
-        certificateAlt: 'Property certificate preview',
         upload: {
           limit: 'You can upload up to {count} images.',
           extraIgnored: 'Only the first {count} images were kept. Extra files were ignored.',
           invalidType: 'Only image files can be uploaded.',
           tooLarge: 'Each image must be 5 MB or smaller.',
-          failure: 'Image upload failed. Please try again later.',
-          invalidCertificateType: 'Only image or PDF certificate files are supported.',
-          certificateTooLarge: 'The certificate file must be 10 MB or smaller.'
+          failure: 'Image upload failed. Please try again later.'
         },
         validation: {
           required: 'Please complete all required listing information.',
@@ -1700,7 +1765,6 @@ const translations = {
           area: 'Enter a valid floor area.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
           installmentMonths: 'The instalment term must be greater than zero.',
-          propertyCertificate: 'Please upload the property certificate before submitting.',
           coordinatePair: 'Latitude and longitude must both be provided or both left blank.',
           latitudeRange: 'Latitude must stay between -90 and 90 degrees.',
           longitudeRange: 'Longitude must stay between -180 and 180 degrees.'
@@ -1865,6 +1929,7 @@ const translations = {
     },
     errors: {
       loadHouses: 'Failed to load listings. Please check the backend service.',
+      loadLocations: 'Failed to load listing locations.',
       loadRecommendations: 'Failed to load recommended users.',
       loadWallet: 'Failed to load wallet information.',
       loadOrders: 'Failed to load orders.',
@@ -2541,8 +2606,11 @@ watch(
 
 watch(
   () => activeTab.value,
-  () => {
+  (tab) => {
     updateDocumentLanguage();
+    if (tab === 'locations' && !houseLocations.value.length && !locationLoading.value) {
+      fetchHouseLocations({ silent: false });
+    }
   }
 );
 
@@ -2990,6 +3058,36 @@ const assignFilters = (filters = {}) => {
   });
 };
 
+const fetchHouseLocations = async ({ silent = false } = {}) => {
+  if (!silent) {
+    locationLoading.value = true;
+  }
+  try {
+    const params = {};
+    if (currentUser.value?.username) {
+      params.requester = currentUser.value.username;
+    }
+    const { data } = await client.get('/houses/locations', { params });
+    const list = Array.isArray(data) ? data : [];
+    houseLocations.value = list.filter((item) => {
+      const lat = Number(item?.latitude);
+      const lng = Number(item?.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    });
+    houseLocationsUpdatedAt.value = new Date().toISOString();
+  } catch (error) {
+    if (!silent) {
+      messages.error = resolveError(error, 'errors.loadLocations');
+    } else {
+      console.warn('Failed to load house locations', error);
+    }
+  } finally {
+    if (!silent) {
+      locationLoading.value = false;
+    }
+  }
+};
+
 const fetchHouses = async ({ filters, silent = false } = {}) => {
   if (filters) {
     assignFilters(filters);
@@ -3007,6 +3105,13 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     houses.value = data.map(normalizeHouse);
     syncReviewHouseTitles();
     housesUpdatedAt.value = new Date().toISOString();
+    if (silent) {
+      fetchHouseLocations({ silent: true }).catch((error) => {
+        console.warn('Failed to refresh house locations silently', error);
+      });
+    } else {
+      await fetchHouseLocations({ silent: false });
+    }
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadHouses');
   } finally {
@@ -4163,6 +4268,7 @@ const handleLoginSuccess = (user) => {
 const handleLogout = () => {
   currentUser.value = null;
   houses.value = [];
+  houseLocations.value = [];
   selectedHouse.value = null;
   wallet.value = null;
   orders.value = [];
@@ -4174,6 +4280,9 @@ const handleLogout = () => {
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
+  locationLoading.value = false;
+  housesUpdatedAt.value = '';
+  houseLocationsUpdatedAt.value = '';
   messages.error = '';
   messages.success = '';
   activeTab.value = 'home';

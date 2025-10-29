@@ -38,7 +38,7 @@ public record SecondHandHouseRequest(
         @PositiveOrZero(message = "楼层不能为负数") Integer floor,
         List<String> keywords,
         List<String> imageUrls,
-        @NotBlank(message = "请上传房产证件照片或扫描件") @Size(max = 500, message = "证件链接长度不能超过500个字符") String propertyCertificateUrl
+        @Size(max = 500, message = "证件链接长度不能超过500个字符") String propertyCertificateUrl
 ) {
     private static final BigDecimal PREMIUM_RATE = BigDecimal.valueOf(1.2);
 

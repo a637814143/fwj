@@ -4,24 +4,24 @@
       <div class="conversation-panel">
         <header class="panel-header">
           <div>
-            <h2>Message center</h2>
-            <p>Chat with sellers in real time to confirm details and schedule transactions.</p>
+            <h2>{{ t('conversation.title') }}</h2>
+            <p>{{ t('conversation.subtitle') }}</p>
           </div>
           <div class="header-actions">
             <button type="button" class="secondary" @click.stop="emit('refresh-conversations')" :disabled="loadingConversations">
-              {{ loadingConversations ? 'Refreshing…' : 'Refresh list' }}
+              {{ loadingConversations ? t('conversation.actions.refreshing') : t('conversation.actions.refresh') }}
             </button>
-            <button type="button" class="ghost" @click.stop="emit('close')">Close</button>
+            <button type="button" class="ghost" @click.stop="emit('close')">{{ t('conversation.actions.close') }}</button>
           </div>
         </header>
         <div class="panel-body">
           <aside class="conversation-list">
             <div class="list-header">
-              <h3>Conversations</h3>
-              <span class="count">{{ conversations.length }}</span>
+              <h3>{{ t('conversation.list.title') }}</h3>
+              <span class="count">{{ t('conversation.list.count', { count: conversations.length }) }}</span>
             </div>
-            <div v-if="loadingConversations" class="list-loading">Loading conversations…</div>
-            <div v-else-if="conversations.length === 0" class="list-empty">No conversations yet.</div>
+            <div v-if="loadingConversations" class="list-loading">{{ t('conversation.list.loading') }}</div>
+            <div v-else-if="conversations.length === 0" class="list-empty">{{ t('conversation.list.empty') }}</div>
             <ul v-else>
               <li
                 v-for="conversation in conversations"
@@ -31,24 +31,24 @@
               >
                 <strong>{{ otherParticipantName(conversation) }}</strong>
                 <p class="preview" v-if="conversation.lastMessage">
-                  <span class="sender">{{ conversation.lastMessage.senderUsername === currentUser?.username ? 'You' : conversation.lastMessage.senderDisplayName }}:</span>
+                  <span class="sender">{{ messageSender(conversation.lastMessage) }}:</span>
                   <span>{{ conversation.lastMessage.content }}</span>
                 </p>
-                <p class="preview muted" v-else>No messages yet</p>
+                <p class="preview muted" v-else>{{ t('conversation.preview.empty') }}</p>
               </li>
             </ul>
           </aside>
           <section class="message-area">
             <div v-if="error" class="alert">{{ error }}</div>
             <div v-if="!activeConversation" class="empty-state">
-              <h3>Select a conversation to begin</h3>
-              <p>Choose a seller on the left to browse history and send a new message.</p>
+              <h3>{{ t('conversation.empty.title') }}</h3>
+              <p>{{ t('conversation.empty.description') }}</p>
             </div>
             <template v-else>
               <header class="chat-header">
                 <div>
                   <h3>{{ activeConversationTitle }}</h3>
-                  <p>Coordinate viewing, payments, and other details with the seller.</p>
+                  <p>{{ t('conversation.chat.subtitle') }}</p>
                 </div>
                 <button
                   type="button"
@@ -56,11 +56,11 @@
                   @click="emit('select-conversation', null)"
                   v-if="messages.length === 0"
                 >
-                  Back to list
+                  {{ t('conversation.actions.back') }}
                 </button>
               </header>
               <div class="messages" ref="messageListRef">
-                <div v-if="loadingMessages" class="messages-loading">Loading messages…</div>
+                <div v-if="loadingMessages" class="messages-loading">{{ t('conversation.chat.loading') }}</div>
                 <template v-else-if="messages.length > 0">
                   <article
                     v-for="message in messages"
@@ -68,23 +68,23 @@
                     :class="['message', message.senderUsername === currentUser?.username ? 'outgoing' : 'incoming']"
                   >
                     <header>
-                      <span class="sender">{{ message.senderUsername === currentUser?.username ? 'You' : message.senderDisplayName }}</span>
+                      <span class="sender">{{ messageSender(message) }}</span>
                       <time>{{ formatDateTime(message.createdAt) }}</time>
                     </header>
                     <p>{{ message.content }}</p>
                   </article>
                 </template>
-                <div v-else class="messages-empty">No messages yet. Start the conversation with the seller.</div>
+                <div v-else class="messages-empty">{{ t('conversation.chat.none') }}</div>
               </div>
               <form class="composer" @submit.prevent="submitMessage">
                 <textarea
                   v-model="draft"
-                  placeholder="Type a message (max 2000 characters)"
+                  :placeholder="t('conversation.chat.placeholder')"
                   :maxlength="2000"
                   rows="3"
                 ></textarea>
                 <button type="submit" :disabled="!canSend" class="primary">
-                  {{ sendingMessage ? 'Sending…' : 'Send' }}
+                  {{ sendingMessage ? t('conversation.actions.sending') : t('conversation.actions.send') }}
                 </button>
               </form>
             </template>
@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, watch } from 'vue';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -123,13 +123,19 @@ const draft = ref('');
 const messageListRef = ref(null);
 const lastMessageCount = ref(0);
 
+const translate = inject('translate', (key, vars) => key);
+const settings = inject('appSettings', { language: 'zh' });
+const t = (key, vars) => translate(key, vars);
+
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+
 const activeConversation = computed(() =>
   props.conversations.find((item) => item.id === props.activeConversationId) ?? null
 );
 
 const activeConversationTitle = computed(() => {
   if (!activeConversation.value) {
-    return 'Conversation details';
+    return t('conversation.chat.headerFallback');
   }
   return otherParticipantName(activeConversation.value);
 });
@@ -140,6 +146,47 @@ const canSend = computed(() => {
   }
   return draft.value.trim().length > 0 && draft.value.trim().length <= 2000;
 });
+
+const fallbackParticipant = (role) =>
+  role === 'seller' ? t('conversation.participant.seller') : t('conversation.participant.buyer');
+
+const isSelf = (username) =>
+  typeof username === 'string' && username === props.currentUser?.username;
+
+const otherParticipantName = (conversation) => {
+  if (!conversation) {
+    return '';
+  }
+  const buyer = conversation.buyer;
+  const seller = conversation.seller;
+  if (isSelf(buyer?.username)) {
+    return seller?.displayName ?? seller?.username ?? fallbackParticipant('seller');
+  }
+  if (isSelf(seller?.username)) {
+    return buyer?.displayName ?? buyer?.username ?? fallbackParticipant('buyer');
+  }
+  return (
+    seller?.displayName ??
+    seller?.username ??
+    buyer?.displayName ??
+    buyer?.username ??
+    fallbackParticipant('seller')
+  );
+};
+
+const messageSender = (message) => {
+  if (!message) {
+    return '';
+  }
+  if (isSelf(message.senderUsername)) {
+    return t('conversation.preview.you');
+  }
+  return (
+    message.senderDisplayName ??
+    message.senderUsername ??
+    t('conversation.preview.partner')
+  );
+};
 
 watch(
   () => props.visible,
@@ -204,16 +251,6 @@ const submitMessage = () => {
   });
 };
 
-const otherParticipantName = (conversation) => {
-  if (!conversation) {
-    return '';
-  }
-  if (conversation.buyer?.username === props.currentUser?.username) {
-    return conversation.seller?.displayName ?? conversation.seller?.username ?? 'Seller';
-  }
-  return conversation.buyer?.displayName ?? conversation.buyer?.username ?? 'Buyer';
-};
-
 const formatDateTime = (value) => {
   if (!value) {
     return '';
@@ -222,7 +259,7 @@ const formatDateTime = (value) => {
   if (Number.isNaN(date.getTime())) {
     return '';
   }
-  return date.toLocaleString('en-US', { hour12: false });
+  return date.toLocaleString(locale.value, { hour12: false });
 };
 </script>
 

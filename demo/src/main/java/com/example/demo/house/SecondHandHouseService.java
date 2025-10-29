@@ -143,7 +143,7 @@ public class SecondHandHouseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "删除房源时必须提供操作用户。");
         }
         SecondHandHouse house = findById(id);
-        UserAccount requester = userAccountRepository.findByUsername(requesterUsername)
+        UserAccount requester = userAccountRepository.findByUsernameIgnoreCase(requesterUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "操作用户不存在"));
 
         if (requester.getRole() == UserRole.ADMIN) {
@@ -253,7 +253,7 @@ public class SecondHandHouseService {
         if (username == null || username.isBlank()) {
             return null;
         }
-        return userAccountRepository.findByUsername(username).orElse(null);
+        return userAccountRepository.findByUsernameIgnoreCase(username).orElse(null);
     }
 
     private boolean shouldMaskSensitive(SecondHandHouse house, UserAccount requester) {
@@ -330,7 +330,7 @@ public class SecondHandHouseService {
         if (sellerUsername == null || sellerUsername.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家账号不能为空");
         }
-        UserAccount seller = userAccountRepository.findByUsername(sellerUsername)
+        UserAccount seller = userAccountRepository.findByUsernameIgnoreCase(sellerUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "卖家账号不存在"));
         if (!seller.getRole().isSellerRole() && seller.getRole() != UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "指定账号不是合法的卖家角色");
@@ -363,11 +363,13 @@ public class SecondHandHouseService {
     private void ensureCertificateProvided(SecondHandHouse house) {
         String certificateUrl = house.getPropertyCertificateUrl();
         if (certificateUrl == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先上传房产证件凭证");
+            house.setPropertyCertificateUrl(null);
+            return;
         }
         String trimmed = certificateUrl.trim();
         if (trimmed.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先上传房产证件凭证");
+            house.setPropertyCertificateUrl(null);
+            return;
         }
         if (trimmed.length() > 500) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房产证件链接长度超出限制");

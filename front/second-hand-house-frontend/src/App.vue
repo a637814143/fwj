@@ -82,6 +82,7 @@
           @reserve="handleReserve"
           @purchase="handlePurchase"
           @contact-seller="handleContactSeller"
+          @show-on-map="handleShowOnMap"
         />
 
         <HouseLocationViewer
@@ -89,6 +90,7 @@
           :houses="houseLocations.length ? houseLocations : houses"
           :loading="loading || locationLoading"
           :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
+          :focus-key="locationFocusId"
           @refresh="fetchHouses({ silent: false })"
         />
 
@@ -269,6 +271,7 @@ const houses = ref([]);
 const houseLocations = ref([]);
 const housesUpdatedAt = ref('');
 const houseLocationsUpdatedAt = ref('');
+const locationFocusId = ref('');
 const loading = ref(false);
 const locationLoading = ref(false);
 const selectedHouse = ref(null);
@@ -1001,6 +1004,7 @@ const translations = {
         search: '搜索房源',
         applyFilters: '应用筛选',
         reset: '重置',
+        viewMap: '查看地图',
         contactSeller: '联系卖家',
         reserve: '预定（定金 ￥{deposit}）',
         reserving: '预定中…',
@@ -2018,6 +2022,7 @@ const translations = {
         search: 'Search listings',
         applyFilters: 'Apply filters',
         reset: 'Reset',
+        viewMap: 'View on map',
         contactSeller: 'Contact seller',
         reserve: 'Reserve (deposit ¥{deposit})',
         reserving: 'Reserving…',
@@ -3989,6 +3994,21 @@ const handleRequestReturn = async ({ orderId, reason }) => {
 
 const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
+};
+
+const handleShowOnMap = (house) => {
+  if (!house) {
+    return;
+  }
+  const key = house.id != null ? String(house.id) : '';
+  locationFocusId.value = key;
+  activeTab.value = 'locations';
+  const hasListing = key
+    ? houseLocations.value.some((item) => String(item?.id ?? '') === key)
+    : false;
+  if (!hasListing) {
+    fetchHouseLocations({ silent: false });
+  }
 };
 
 const handleToggleBlacklist = async ({ username, blacklisted }) => {

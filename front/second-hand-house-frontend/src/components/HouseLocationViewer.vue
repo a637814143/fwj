@@ -86,6 +86,10 @@ const props = defineProps({
   updatedAt: {
     type: String,
     default: ''
+  },
+  focusKey: {
+    type: [String, Number],
+    default: ''
   }
 });
 
@@ -105,8 +109,7 @@ const geocodeWarnings = ref([]);
 const isMounted = ref(false);
 const activeMapProvider = ref('');
 
-const defaultMapKey = 'YZFBZ-RGPC5-6XLIX-ID5GC-3V336-M5BYA';
-const mapKey = import.meta.env.VITE_TENCENT_MAP_KEY || defaultMapKey;
+const mapKey = (import.meta.env.VITE_TENCENT_MAP_KEY || '').toString().trim();
 
 const normalizedHouses = computed(() =>
   Array.isArray(props.houses)
@@ -114,8 +117,8 @@ const normalizedHouses = computed(() =>
     : []
 );
 
-const activeHouseId = ref(null);
-const pendingNavigationKey = ref(null);
+const activeHouseId = ref('');
+const pendingFocusKey = ref('');
 
 const formatPrice = (value) => {
   const num = Number(value);
@@ -163,23 +166,39 @@ watch(
   locationItems,
   (items) => {
     if (!items.length) {
-      activeHouseId.value = null;
-      pendingNavigationKey.value = null;
+      activeHouseId.value = '';
+      pendingFocusKey.value = '';
+      return;
+    }
+    const hasPending = pendingFocusKey.value
+      ? items.some((item) => item.key === pendingFocusKey.value)
+      : false;
+    if (hasPending) {
+      activeHouseId.value = pendingFocusKey.value;
       return;
     }
     const hasActive = items.some((item) => item.key === activeHouseId.value);
     if (!hasActive) {
       activeHouseId.value = items[0].key;
     }
-    if (
-      pendingNavigationKey.value &&
-      !items.some((item) => item.key === pendingNavigationKey.value)
-    ) {
-      pendingNavigationKey.value = null;
-    }
   },
   { immediate: true }
 );
+
+watch(normalizedFocusKey, (value) => {
+  if (!value) {
+    return;
+  }
+  pendingFocusKey.value = value;
+  if (locationItems.value.some((item) => item.key === value)) {
+    if (activeHouseId.value !== value) {
+      activeHouseId.value = value;
+    }
+    nextTick(() => {
+      focusOnActiveGeometry();
+    });
+  }
+});
 
 const updatedTime = computed(() => {
   if (!props.updatedAt) {
@@ -192,9 +211,25 @@ const updatedTime = computed(() => {
   return date.toLocaleString(locale.value, { hour12: false });
 });
 
+const normalizedFocusKey = computed(() => {
+  const raw = props.focusKey;
+  if (raw === undefined || raw === null) {
+    return '';
+  }
+  const value = String(raw).trim();
+  return value;
+});
+
 const selectHouse = (key) => {
-  activeHouseId.value = key;
-  pendingNavigationKey.value = key;
+  if (key == null) {
+    return;
+  }
+  const normalized = String(key);
+  activeHouseId.value = normalized;
+  pendingFocusKey.value = normalized;
+  nextTick(() => {
+    focusOnActiveGeometry();
+  });
 };
 
 const showLoadingOverlay = computed(() => props.loading || mapBusy.value || !mapReady.value);
@@ -565,12 +600,27 @@ const focusOnActiveGeometry = () => {
   if (!latestGeometries.length) {
     return;
   }
-  const active =
-    latestGeometries.find((geometry) => geometry.id === activeHouseId.value) ||
-    latestGeometries[0];
+  let active = latestGeometries.find((geometry) => geometry.id === activeHouseId.value);
+  if (!active && pendingFocusKey.value) {
+    const pending = latestGeometries.find(
+      (geometry) => geometry.id === pendingFocusKey.value
+    );
+    if (pending) {
+      activeHouseId.value = pending.id;
+      active = pending;
+      pendingFocusKey.value = '';
+    }
+  }
+  if (!active && latestGeometries.length) {
+    active = latestGeometries[0];
+    if (active) {
+      activeHouseId.value = active.id;
+    }
+  }
   if (!active) {
     return;
   }
+  pendingFocusKey.value = '';
   try {
     if (activeMapProvider.value === 'tencent' && mapInstance && tencentNamespace) {
       const position = new tencentNamespace.LatLng(active.coords.lat, active.coords.lng);
@@ -589,34 +639,6 @@ const focusOnActiveGeometry = () => {
   } catch (error) {
     console.warn('Failed to focus map marker', error);
   }
-};
-
-const openExternalMap = (geometry) => {
-  if (typeof window === 'undefined' || !geometry?.coords) {
-    return;
-  }
-  const { coords, title, address } = geometry;
-  let url = '';
-  if (activeMapProvider.value === 'tencent' && mapKey) {
-    const marker = `coord:${coords.lat},${coords.lng};title:${encodeURIComponent(title ?? '')};addr:${encodeURIComponent(address ?? '')}`;
-    url = `https://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&marker=${marker}&zoom=18`;
-  } else {
-    url = `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=18/${coords.lat}/${coords.lng}`;
-  }
-  window.open(url, '_blank', 'noopener');
-};
-
-const openExternalMapIfReady = () => {
-  if (!pendingNavigationKey.value) {
-    return;
-  }
-  const key = pendingNavigationKey.value;
-  const geometry = latestGeometries.find((item) => item.id === key);
-  if (!geometry || !geometry.coords) {
-    return;
-  }
-  pendingNavigationKey.value = null;
-  openExternalMap(geometry);
 };
 
 const renderMarkers = (provider) => {
@@ -663,7 +685,6 @@ const renderMarkers = (provider) => {
     });
   }
   focusOnActiveGeometry();
-  openExternalMapIfReady();
 };
 
 const updateMapMarkers = async () => {
@@ -731,6 +752,18 @@ const updateMapMarkers = async () => {
         ? t('locationViewer.errors.geocode')
         : t('locationViewer.errors.mapInit');
       return;
+    }
+    let hasActiveGeometry = geometries.some((geometry) => geometry.id === activeHouseId.value);
+    if (pendingFocusKey.value) {
+      const pendingMatch = geometries.find((geometry) => geometry.id === pendingFocusKey.value);
+      if (pendingMatch) {
+        activeHouseId.value = pendingMatch.id;
+        hasActiveGeometry = true;
+      }
+    }
+    if (!hasActiveGeometry && geometries.length) {
+      activeHouseId.value = geometries[0].id;
+      hasActiveGeometry = true;
     }
     renderMarkers(provider);
     ensureMapResized();

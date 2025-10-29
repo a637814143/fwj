@@ -136,6 +136,16 @@
           @delete-house="handleAdminDeleteRequest"
         />
 
+        <AdminHouseManager
+          v-else-if="activeTab === 'admin-houses'"
+          :houses="houses"
+          :loading="loading || adminLoading"
+          :status-labels="listingStatusLabels"
+          @refresh="fetchHouses({ silent: false })"
+          @unlist="handleAdminUnlist"
+          @delete="handleAdminDeleteRequest"
+        />
+
         <UrgentTasks
           v-else-if="activeTab === 'urgent'"
           :tasks="urgentTasks"
@@ -246,6 +256,7 @@ import HouseReviews from './components/HouseReviews.vue';
 import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import AdminOrderReview from './components/AdminOrderReview.vue';
+import AdminHouseManager from './components/AdminHouseManager.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
@@ -433,6 +444,7 @@ const translations = {
       account: '个人中心',
       review: '房源审核',
       reviewWithCount: '房源审核（{count}）',
+      adminHouses: '管理员房源',
       admin: '管理员面板',
       reputation: '信誉面板'
     },
@@ -485,6 +497,37 @@ const translations = {
         reject: '驳回',
         delete: '删除房源'
       }
+    },
+    adminManage: {
+      title: '房源管理工作台',
+      subtitle: '当前共 {count} 套房源，可按状态筛选、下架或删除。',
+      refresh: '同步房源',
+      refreshing: '同步中…',
+      loading: '正在加载房源列表…',
+      empty: '暂未找到匹配的房源。',
+      filters: {
+        query: '关键字筛选',
+        queryPlaceholder: '输入标题、地址或卖家信息',
+        status: '状态筛选',
+        statusAll: '全部状态'
+      },
+      table: {
+        listing: '房源',
+        status: '状态',
+        seller: '卖家/联系方式',
+        updated: '最近更新',
+        actions: '操作'
+      },
+      actions: {
+        view: '详情',
+        unlist: '下架',
+        unlistDisabled: '不可下架',
+        delete: '删除'
+      },
+      unknownTitle: '未命名房源',
+      unknownAddress: '地址待补充',
+      unknownSeller: '未知卖家',
+      unknownStatus: '未知状态'
     },
     adminOrders: {
       title: '资金托管审核',
@@ -808,6 +851,7 @@ const translations = {
     success: {
       verificationUpdated: '实名认证信息已更新。',
       deleteHouse: '已删除房源《{title}》。',
+      unlistHouse: '已手动下架房源《{title}》，当前状态：{status}，备注：{reason}。',
       houseUpdatedApproved: '房源《{title}》已更新并重新上架。',
       houseUpdatedPending: '房源《{title}》已更新，当前状态：{status}。',
       houseCreatedApproved: '已新增房源《{title}》，已通过审核并上架。',
@@ -855,6 +899,7 @@ const translations = {
       editOwnHouse: '卖家只能编辑自己发布的房源。',
       deleteOwnHouse: '卖家只能删除自己发布的房源。',
       deleteHouse: '删除房源失败。',
+      unlistHouse: '下架房源失败。',
       purchaseBuyerOnly: '只有买家角色可以发起购买。',
       purchaseVerifyFirst: '购买前请先完成实名认证。',
       purchaseNotApproved: '房源尚未通过审核，暂不可购买。',
@@ -895,7 +940,9 @@ const translations = {
       reviewDefaultRemark: '审核通过',
       reviewFallbackReason: '未填写',
       deleteHouseConfirm: '确定要删除房源《{title}》吗？',
-      deleteAccountConfirm: '确定要删除账号 {username} 吗？该操作不可撤销。'
+      deleteAccountConfirm: '确定要删除账号 {username} 吗？该操作不可撤销。',
+      unlistReason: '请输入下架原因（房源：{title}）',
+      unlistDefaultReason: '管理员手动下架'
     },
     payments: {
       installment: '分期',
@@ -1023,11 +1070,11 @@ const translations = {
     },
     locationViewer: {
       title: '房源地段地图',
-      subtitle: '接入腾讯地图实时查看房源位置，可随时刷新同步最新房源。',
+      subtitle: '优先加载腾讯地图，若无法访问将自动切换至开源地图服务。',
       refresh: '刷新房源数据',
       refreshing: '刷新中…',
       loading: '房源数据同步中…',
-      mapLoading: '腾讯地图加载中…',
+      mapLoading: '地图加载中…',
       updatedAt: '数据更新：{time}',
       listTitle: '房源列表',
       empty: '暂无可展示的房源位置，请先在首页检索或发布房源。',
@@ -1045,7 +1092,7 @@ const translations = {
         partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
       },
       aria: {
-        map: '腾讯地图房源分布图'
+        map: '房源位置分布地图'
       }
     },
     prediction: {
@@ -1126,6 +1173,20 @@ const translations = {
         pointsUnsupported: '当前暂不支持扣减积分。',
         consumeFailed: '扣减积分失败，请稍后再试。',
         pointsInsufficient: '积分不足，请先充值获取更多积分。'
+      },
+      trend: {
+        title: '近两年房价走势',
+        subtitle: '综合相似房源的历史均价与预测结果，展示最近两年的变化趋势。',
+        loading: '正在加载房价走势…',
+        unavailable: '暂时无法获取历史房价，已根据预测结果生成参考走势。',
+        generated: '已根据当前预测生成参考走势。',
+        change: '两年涨幅',
+        ariaLabel: '近两年房价走势折线图',
+        source: {
+          payload: '已使用模型返回的相似房价数据。',
+          api: '已使用后端提供的历史均价数据。',
+          synthetic: '已根据本次预测生成模拟走势。'
+        }
       }
     },
     accountCenter: {
@@ -1368,6 +1429,7 @@ const translations = {
       account: 'Personal hub',
       review: 'Listing review',
       reviewWithCount: 'Listing review ({count})',
+      adminHouses: 'Listings admin',
       admin: 'Admin dashboard',
       reputation: 'Reputation board'
     },
@@ -1420,6 +1482,37 @@ const translations = {
         reject: 'Reject',
         delete: 'Delete listing'
       }
+    },
+    adminManage: {
+      title: 'Listing maintenance',
+      subtitle: '{count} listings available for filtering, unlisting, or removal.',
+      refresh: 'Sync listings',
+      refreshing: 'Syncing…',
+      loading: 'Loading listing overview…',
+      empty: 'No listings matched your filters.',
+      filters: {
+        query: 'Search keywords',
+        queryPlaceholder: 'Filter by title, address, or seller',
+        status: 'Status filter',
+        statusAll: 'All statuses'
+      },
+      table: {
+        listing: 'Listing',
+        status: 'Status',
+        seller: 'Seller / contact',
+        updated: 'Last updated',
+        actions: 'Actions'
+      },
+      actions: {
+        view: 'View',
+        unlist: 'Unlist',
+        unlistDisabled: 'Cannot unlist',
+        delete: 'Delete'
+      },
+      unknownTitle: 'Untitled listing',
+      unknownAddress: 'Address pending',
+      unknownSeller: 'Unknown seller',
+      unknownStatus: 'Unknown status'
     },
     adminOrders: {
       title: 'Escrow review',
@@ -1744,6 +1837,7 @@ const translations = {
     success: {
       verificationUpdated: 'Real-name verification updated successfully.',
       deleteHouse: 'Listing “{title}” has been removed.',
+      unlistHouse: 'Listing “{title}” has been manually unlisted. Current status: {status}. Note: {reason}.',
       houseUpdatedApproved: 'Listing “{title}” has been updated and republished.',
       houseUpdatedPending: 'Listing “{title}” has been updated. Current status: {status}.',
       houseCreatedApproved: 'Listing “{title}” has been created and approved.',
@@ -1791,6 +1885,7 @@ const translations = {
       editOwnHouse: 'Sellers can only edit their own listings.',
       deleteOwnHouse: 'Sellers can only delete their own listings.',
       deleteHouse: 'Failed to delete listing.',
+      unlistHouse: 'Failed to unlist the listing.',
       purchaseBuyerOnly: 'Only buyers can make purchases.',
       purchaseVerifyFirst: 'Please complete real-name verification before purchasing.',
       purchaseNotApproved: 'The listing has not been approved yet.',
@@ -1831,7 +1926,9 @@ const translations = {
       reviewDefaultRemark: 'Approved',
       reviewFallbackReason: 'Not provided',
       deleteHouseConfirm: 'Are you sure you want to delete listing “{title}”?',
-      deleteAccountConfirm: 'Delete account {username}? This action cannot be undone.'
+      deleteAccountConfirm: 'Delete account {username}? This action cannot be undone.',
+      unlistReason: 'Enter a note for unlisting (listing: “{title}”)',
+      unlistDefaultReason: 'Admin manual unlisting'
     },
     payments: {
       installment: 'instalments',
@@ -1955,11 +2052,11 @@ const translations = {
     },
     locationViewer: {
       title: 'Listing map overview',
-      subtitle: 'Inspect listing areas on Tencent Maps and refresh to keep coordinates up to date.',
+      subtitle: 'We try Tencent Maps first and gracefully fall back to open-source tiles when access is limited.',
       refresh: 'Refresh listings',
       refreshing: 'Refreshing…',
       loading: 'Synchronising listing data…',
-      mapLoading: 'Loading Tencent Map…',
+      mapLoading: 'Loading map view…',
       updatedAt: 'Data updated: {time}',
       listTitle: 'Listings',
       empty: 'No listing locations are available yet. Try searching or publishing first.',
@@ -1977,7 +2074,7 @@ const translations = {
         partial: '{count} listing(s) could not be located. Their addresses are listed below.'
       },
       aria: {
-        map: 'Tencent map showing listing locations'
+        map: 'Map showing listing locations'
       }
     },
     prediction: {
@@ -2058,6 +2155,20 @@ const translations = {
         pointsUnsupported: 'Point deduction is currently unavailable.',
         consumeFailed: 'Failed to deduct points. Please try again later.',
         pointsInsufficient: 'Insufficient points. Please top up to continue.'
+      },
+      trend: {
+        title: 'Two-year price trend',
+        subtitle: 'Combines similar listing history with the predicted outcome to show the latest two-year movement.',
+        loading: 'Loading price trend…',
+        unavailable: 'Historic prices are unavailable. A synthetic trend has been generated from the prediction.',
+        generated: 'A synthetic trend has been generated from the current prediction.',
+        change: 'Two-year change',
+        ariaLabel: 'Line chart showing the two-year price trend',
+        source: {
+          payload: 'Using trend data returned by the prediction service.',
+          api: 'Using historical averages provided by the backend.',
+          synthetic: 'A synthetic trend has been generated from this prediction.'
+        }
       }
     },
     accountCenter: {
@@ -2659,6 +2770,7 @@ const navigationTabs = computed(() => {
       ? t('nav.reviewWithCount', { count: pendingReviewHouses.value.length })
       : t('nav.review');
     tabs.push({ value: 'review', label: pendingLabel });
+    tabs.push({ value: 'admin-houses', label: t('nav.adminHouses') });
     tabs.push({ value: 'admin', label: t('nav.admin') });
     tabs.push({ value: 'reputation', label: t('nav.reputation') });
   }
@@ -3419,6 +3531,77 @@ const handleAdminDeleteRequest = (house) => {
     return;
   }
   handleRemove(house);
+};
+
+const handleAdminUnlist = async (house) => {
+  if (!isAdmin.value || !house?.id || !currentUser.value) {
+    return;
+  }
+  const defaultReason = t('prompts.unlistDefaultReason');
+  const promptLabel = t('prompts.unlistReason', { title: house.title ?? '' });
+  const input = window.prompt(promptLabel, defaultReason);
+  if (input === null) {
+    return;
+  }
+  const reason = (input.trim() || defaultReason).slice(0, 200);
+
+  adminLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+
+  const attempts = [
+    () =>
+      client.patch(`/houses/${house.id}/status`, {
+        status: 'SOLD',
+        operator: currentUser.value.username,
+        reason
+      }),
+    () =>
+      client.patch(`/houses/${house.id}/review`, {
+        reviewerUsername: currentUser.value.username,
+        status: 'REJECTED',
+        message: reason
+      })
+  ];
+
+  try {
+    let response = null;
+    for (const attempt of attempts) {
+      try {
+        response = await attempt();
+        if (response?.data) {
+          break;
+        }
+      } catch (error) {
+        if (attempt === attempts[attempts.length - 1]) {
+          throw error;
+        }
+        console.warn('Primary unlist request failed, retrying with fallback endpoint', error);
+      }
+    }
+
+    if (!response?.data) {
+      throw new Error('empty-response');
+    }
+
+    const data = response.data;
+    const statusLabel = listingStatusLabels.value[data.status] ?? data.status ?? '';
+    messages.success = t('success.unlistHouse', {
+      title: data.title ?? house.title ?? '',
+      status: statusLabel,
+      reason
+    });
+
+    await Promise.all([
+      fetchHouses({ silent: true }),
+      loadRecommendations(),
+      loadAdminData()
+    ]);
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.unlistHouse');
+  } finally {
+    adminLoading.value = false;
+  }
 };
 
 const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {

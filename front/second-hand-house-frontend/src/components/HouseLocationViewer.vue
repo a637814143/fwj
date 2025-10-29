@@ -72,6 +72,7 @@
 
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import 'leaflet/dist/leaflet.css';
 
 const props = defineProps({
   houses: {
@@ -102,6 +103,7 @@ const mapBusy = ref(false);
 const mapError = ref('');
 const geocodeWarnings = ref([]);
 const isMounted = ref(false);
+const activeMapProvider = ref('');
 
 const defaultMapKey = 'YZFBZ-RGPC5-6XLIX-ID5GC-3V336-M5BYA';
 const mapKey = import.meta.env.VITE_TENCENT_MAP_KEY || defaultMapKey;
@@ -200,6 +202,8 @@ const showLoadingOverlay = computed(() => props.loading || mapBusy.value || !map
 const geocodeCache = new Map();
 const pendingGeocodes = new Map();
 
+const cacheKey = (address, provider) => `${provider ?? 'auto'}::${address}`;
+
 const extractRegion = (address) => {
   if (!address || typeof address !== 'string') {
     return '';
@@ -220,6 +224,140 @@ const extractRegion = (address) => {
   return '';
 };
 
+const geocodeWithTencent = async (address) => {
+  if (!mapKey) {
+    return null;
+  }
+  const params = new URLSearchParams({
+    address,
+    key: mapKey,
+    output: 'json',
+    get_poi: '0'
+  });
+  const region = extractRegion(address);
+  if (region) {
+    params.set('region', region);
+  }
+  try {
+    const response = await fetch(`https://apis.map.qq.com/ws/geocoder/v1/?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('geocoder-http');
+    }
+    const payload = await response.json();
+    const location = payload?.result?.location;
+    if (payload?.status === 0 && location) {
+      const coords = {
+        lat: Number(location.lat),
+        lng: Number(location.lng)
+      };
+      if (Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
+        return coords;
+      }
+    }
+  } catch (error) {
+    console.warn('Tencent geocoder failed', error);
+  }
+  return null;
+};
+
+const geocodeWithOsm = async (address) => {
+  const params = new URLSearchParams({
+    q: address,
+    format: 'json',
+    limit: '1',
+    addressdetails: '0'
+  });
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: {
+        Accept: 'application/json',
+        'Accept-Language': settings?.language === 'en' ? 'en' : 'zh-CN'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('osm-geocoder-http');
+    }
+    const payload = await response.json();
+    if (Array.isArray(payload) && payload.length > 0) {
+      const first = payload[0];
+      const coords = {
+        lat: Number(first.lat),
+        lng: Number(first.lon)
+      };
+      if (Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
+        return coords;
+      }
+    }
+  } catch (error) {
+    console.warn('OpenStreetMap geocoder failed', error);
+  }
+  return null;
+};
+
+const geocodeHouse = async (house, providerHint = '') => {
+  if (!house) {
+    return null;
+  }
+  const latitudeFields = ['latitude', 'lat'];
+  const longitudeFields = ['longitude', 'lng'];
+  let lat = null;
+  let lng = null;
+  for (const field of latitudeFields) {
+    const value = Number(house?.[field]);
+    if (Number.isFinite(value)) {
+      lat = value;
+      break;
+    }
+  }
+  for (const field of longitudeFields) {
+    const value = Number(house?.[field]);
+    if (Number.isFinite(value)) {
+      lng = value;
+      break;
+    }
+  }
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return { lat, lng };
+  }
+  const address = house?.address?.trim();
+  if (!address) {
+    return null;
+  }
+  const provider = providerHint || (mapKey ? 'tencent' : 'osm');
+  const key = cacheKey(address, provider);
+  if (geocodeCache.has(key)) {
+    return geocodeCache.get(key);
+  }
+  if (pendingGeocodes.has(key)) {
+    return pendingGeocodes.get(key);
+  }
+
+  const perform = async () => {
+    let coords = null;
+    if (provider === 'tencent') {
+      coords = await geocodeWithTencent(address);
+      if (!coords) {
+        coords = await geocodeWithOsm(address);
+      }
+    } else {
+      coords = await geocodeWithOsm(address);
+      if (!coords && mapKey) {
+        coords = await geocodeWithTencent(address);
+      }
+    }
+    if (coords) {
+      geocodeCache.set(key, coords);
+    }
+    return coords;
+  };
+
+  const request = perform().finally(() => {
+    pendingGeocodes.delete(key);
+  });
+  pendingGeocodes.set(key, request);
+  return request;
+};
+
 const markerIcon = (fill, stroke) => {
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
   <svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
@@ -229,11 +367,38 @@ const markerIcon = (fill, stroke) => {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 };
 
+let tencentNamespace = null;
+let scriptPromise = null;
 let mapInstance = null;
 let markerLayer = null;
-let latestGeometries = [];
-let scriptPromise = null;
+let leafletModule = null;
+let leafletMap = null;
+let leafletMarkerLayer = null;
 let updateToken = 0;
+let latestGeometries = [];
+
+const resetTencentMap = () => {
+  if (markerLayer && typeof markerLayer.setGeometries === 'function') {
+    markerLayer.setGeometries([]);
+  }
+  markerLayer = null;
+  if (mapInstance && typeof mapInstance.destroy === 'function') {
+    mapInstance.destroy();
+  }
+  mapInstance = null;
+  tencentNamespace = null;
+};
+
+const resetLeafletMap = () => {
+  if (leafletMarkerLayer && typeof leafletMarkerLayer.clearLayers === 'function') {
+    leafletMarkerLayer.clearLayers();
+  }
+  leafletMarkerLayer = null;
+  if (leafletMap && typeof leafletMap.remove === 'function') {
+    leafletMap.remove();
+  }
+  leafletMap = null;
+};
 
 const loadTencentMapScript = () => {
   if (typeof window === 'undefined') {
@@ -268,15 +433,15 @@ const loadTencentMapScript = () => {
   return scriptPromise;
 };
 
-const ensureMap = async () => {
+const ensureTencentMap = async () => {
+  const TMap = await loadTencentMapScript();
   if (!mapContainer.value) {
     throw new Error('container-missing');
   }
-  const TMap = await loadTencentMapScript();
   if (!mapInstance) {
     mapInstance = new TMap.Map(mapContainer.value, {
       center: new TMap.LatLng(39.908823, 116.39747),
-      zoom: 11,
+      zoom: 12,
       pitch: 0
     });
   }
@@ -300,89 +465,60 @@ const ensureMap = async () => {
       geometries: []
     });
   }
+  tencentNamespace = TMap;
   mapReady.value = true;
-  return TMap;
+  activeMapProvider.value = 'tencent';
+  return 'tencent';
 };
 
-const geocodeHouse = async (house) => {
-  if (!house) {
-    return null;
+const ensureLeafletMap = async () => {
+  if (!mapContainer.value) {
+    throw new Error('container-missing');
   }
-  const candidates = ['latitude', 'lat'];
-  const longitudeFields = ['longitude', 'lng'];
-  let lat = null;
-  let lng = null;
-  for (const field of candidates) {
-    const value = Number(house?.[field]);
-    if (Number.isFinite(value)) {
-      lat = value;
-      break;
-    }
+  if (!leafletModule) {
+    leafletModule = await import('leaflet');
   }
-  for (const field of longitudeFields) {
-    const value = Number(house?.[field]);
-    if (Number.isFinite(value)) {
-      lng = value;
-      break;
-    }
-  }
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    return { lat, lng };
-  }
-  const address = house?.address?.trim();
-  if (!address) {
-    return null;
-  }
-  if (geocodeCache.has(address)) {
-    return geocodeCache.get(address);
-  }
-  if (pendingGeocodes.has(address)) {
-    return pendingGeocodes.get(address);
-  }
-  const params = new URLSearchParams({
-    address,
-    key: mapKey,
-    output: 'json',
-    get_poi: '0'
-  });
-  const region = extractRegion(address);
-  if (region) {
-    params.set('region', region);
-  }
-  const request = fetch(`https://apis.map.qq.com/ws/geocoder/v1/?${params.toString()}`)
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error('geocoder-http');
-      }
-      return response.json();
-    })
-    .then((payload) => {
-      if (payload?.status === 0 && payload?.result?.location) {
-        const location = payload.result.location;
-        const resolved = {
-          lat: Number(location.lat),
-          lng: Number(location.lng)
-        };
-        if (Number.isFinite(resolved.lat) && Number.isFinite(resolved.lng)) {
-          geocodeCache.set(address, resolved);
-          return resolved;
-        }
-      }
-      throw new Error('geocoder-empty');
-    })
-    .catch((error) => {
-      console.warn('Failed to geocode address', address, error);
-      return null;
-    })
-    .finally(() => {
-      pendingGeocodes.delete(address);
+  const { default: L } = leafletModule;
+  if (!leafletMap) {
+    mapContainer.value.innerHTML = '';
+    leafletMap = L.map(mapContainer.value, {
+      center: [39.908823, 116.39747],
+      zoom: 12,
+      zoomControl: true
     });
-  pendingGeocodes.set(address, request);
-  return request;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(leafletMap);
+    leafletMarkerLayer = L.layerGroup().addTo(leafletMap);
+  }
+  mapReady.value = true;
+  activeMapProvider.value = 'leaflet';
+  return 'leaflet';
+};
+
+const ensureMap = async () => {
+  if (!mapContainer.value) {
+    throw new Error('container-missing');
+  }
+  if (activeMapProvider.value === 'tencent' && mapInstance) {
+    return 'tencent';
+  }
+  if (activeMapProvider.value === 'leaflet' && leafletMap) {
+    return 'leaflet';
+  }
+  if (mapKey) {
+    try {
+      return await ensureTencentMap();
+    } catch (error) {
+      console.warn('Tencent map unavailable, switching to Leaflet fallback', error);
+      resetTencentMap();
+    }
+  }
+  return ensureLeafletMap();
 };
 
 const focusOnActiveGeometry = () => {
-  if (!mapInstance || !latestGeometries.length) {
+  if (!latestGeometries.length) {
     return;
   }
   const active =
@@ -392,43 +528,37 @@ const focusOnActiveGeometry = () => {
     return;
   }
   try {
-    if (typeof mapInstance.setCenter === 'function') {
-      mapInstance.setCenter(active.position);
-    }
-    if (typeof mapInstance.getZoom === 'function' && typeof mapInstance.setZoom === 'function') {
-      const currentZoom = mapInstance.getZoom();
-      if (!currentZoom || currentZoom < 16) {
-        mapInstance.setZoom(16);
+    if (activeMapProvider.value === 'tencent' && mapInstance && tencentNamespace) {
+      const position = new tencentNamespace.LatLng(active.coords.lat, active.coords.lng);
+      mapInstance.setCenter(position);
+      if (typeof mapInstance.getZoom === 'function' && typeof mapInstance.setZoom === 'function') {
+        const currentZoom = mapInstance.getZoom();
+        if (!currentZoom || currentZoom < 15) {
+          mapInstance.setZoom(15);
+        }
       }
+    } else if (activeMapProvider.value === 'leaflet' && leafletMap && leafletModule) {
+      leafletMap.setView([active.coords.lat, active.coords.lng], Math.max(leafletMap.getZoom() ?? 13, 15), {
+        animate: true
+      });
     }
   } catch (error) {
     console.warn('Failed to focus map marker', error);
   }
 };
 
-const highlightActiveMarker = () => {
-  if (!markerLayer || !latestGeometries.length) {
-    return;
-  }
-  const geometries = latestGeometries.map((geometry) => ({
-    ...geometry,
-    styleId: geometry.id === activeHouseId.value ? 'active' : 'default'
-  }));
-  latestGeometries = geometries;
-  markerLayer.setGeometries(geometries);
-  focusOnActiveGeometry();
-  openExternalMapIfReady();
-};
-
 const openExternalMap = (geometry) => {
-  if (typeof window === 'undefined' || !geometry?.properties?.coords) {
+  if (typeof window === 'undefined' || !geometry?.coords) {
     return;
   }
-  const coords = geometry.properties.coords;
-  const title = geometry.properties?.title ?? '';
-  const address = geometry.properties?.address ?? '';
-  const marker = `coord:${coords.lat},${coords.lng};title:${encodeURIComponent(title)};addr:${encodeURIComponent(address)}`;
-  const url = `https://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&marker=${marker}&zoom=18`;
+  const { coords, title, address } = geometry;
+  let url = '';
+  if (activeMapProvider.value === 'tencent' && mapKey) {
+    const marker = `coord:${coords.lat},${coords.lng};title:${encodeURIComponent(title ?? '')};addr:${encodeURIComponent(address ?? '')}`;
+    url = `https://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&marker=${marker}&zoom=18`;
+  } else {
+    url = `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=18/${coords.lat}/${coords.lng}`;
+  }
   window.open(url, '_blank', 'noopener');
 };
 
@@ -438,19 +568,62 @@ const openExternalMapIfReady = () => {
   }
   const key = pendingNavigationKey.value;
   const geometry = latestGeometries.find((item) => item.id === key);
-  if (!geometry || !geometry.properties?.coords) {
+  if (!geometry || !geometry.coords) {
     return;
   }
   pendingNavigationKey.value = null;
   openExternalMap(geometry);
 };
 
-const updateMapMarkers = async () => {
-  if (!isMounted.value || props.loading) {
+const renderMarkers = (provider) => {
+  if (!latestGeometries.length) {
     return;
   }
-  if (!mapKey) {
-    mapError.value = t('locationViewer.errors.missingKey');
+  if (provider === 'tencent' && markerLayer && tencentNamespace) {
+    const geometries = latestGeometries.map((geometry) => ({
+      id: geometry.id,
+      position: new tencentNamespace.LatLng(geometry.coords.lat, geometry.coords.lng),
+      styleId: geometry.id === activeHouseId.value ? 'active' : 'default',
+      properties: {
+        title: geometry.title,
+        address: geometry.address,
+        price: geometry.price,
+        coords: geometry.coords
+      }
+    }));
+    markerLayer.setGeometries(geometries);
+  } else if (provider === 'leaflet' && leafletMarkerLayer && leafletModule) {
+    const { default: L } = leafletModule;
+    leafletMarkerLayer.clearLayers();
+    latestGeometries.forEach((geometry) => {
+      const isActive = geometry.id === activeHouseId.value;
+      const marker = L.circleMarker([geometry.coords.lat, geometry.coords.lng], {
+        radius: isActive ? 8 : 6,
+        color: isActive ? '#d28a7c' : '#47506c',
+        weight: 2,
+        fillColor: isActive ? '#f1b6a9' : '#7c88aa',
+        fillOpacity: 0.85
+      });
+      marker.bindPopup(
+        `<strong>${geometry.title}</strong><br />${geometry.address}${
+          geometry.price ? `<br />${geometry.price}` : ''
+        }`
+      );
+      marker.on('click', () => {
+        selectHouse(geometry.id);
+      });
+      marker.addTo(leafletMarkerLayer);
+      if (isActive) {
+        marker.openPopup();
+      }
+    });
+  }
+  focusOnActiveGeometry();
+  openExternalMapIfReady();
+};
+
+const updateMapMarkers = async () => {
+  if (!isMounted.value || props.loading) {
     return;
   }
   if (!locationItems.value.length) {
@@ -458,6 +631,9 @@ const updateMapMarkers = async () => {
     geocodeWarnings.value = [];
     if (markerLayer) {
       markerLayer.setGeometries([]);
+    }
+    if (leafletMarkerLayer) {
+      leafletMarkerLayer.clearLayers();
     }
     return;
   }
@@ -467,54 +643,87 @@ const updateMapMarkers = async () => {
   mapBusy.value = true;
   mapError.value = '';
   const token = ++updateToken;
+  let provider = activeMapProvider.value;
   try {
-    const TMap = await ensureMap();
+    provider = await ensureMap();
+  } catch (error) {
+    console.warn('Map initialisation failed, attempting Leaflet fallback', error);
+    try {
+      provider = await ensureLeafletMap();
+    } catch (leafletError) {
+      console.error('Failed to initialise any map provider', leafletError);
+      mapError.value = t('locationViewer.errors.mapInit');
+      return;
+    }
+  }
+
+  try {
     const results = await Promise.all(
-      locationItems.value.map((item) => geocodeHouse(item.house))
+      locationItems.value.map((item) => geocodeHouse(item.house, provider))
     );
     if (token !== updateToken) {
       return;
     }
-    const geometries = [];
     const warnings = [];
+    const geometries = [];
     results.forEach((coords, index) => {
       const item = locationItems.value[index];
       if (!coords) {
         warnings.push(item);
         return;
       }
-      const position = new TMap.LatLng(coords.lat, coords.lng);
       geometries.push({
         id: item.key,
-        position,
-        styleId: item.key === activeHouseId.value ? 'active' : 'default',
-        properties: {
-          title: item.title,
-          address: item.address,
-          price: item.priceLabel,
-          coords
-        }
+        title: item.title,
+        address: item.address,
+        price: item.priceLabel,
+        coords
       });
     });
     latestGeometries = geometries;
     geocodeWarnings.value = warnings;
-    if (markerLayer) {
-      markerLayer.setGeometries(geometries);
-    }
     if (!geometries.length) {
       mapError.value = warnings.length
         ? t('locationViewer.errors.geocode')
         : t('locationViewer.errors.mapInit');
-    } else {
-      focusOnActiveGeometry();
-      openExternalMapIfReady();
+      return;
     }
+    renderMarkers(provider);
   } catch (error) {
-    console.error('Failed to update Tencent Map', error);
-    mapError.value = mapError.value || t('locationViewer.errors.mapInit');
+    console.error('Failed to update map markers', error);
+    if (provider === 'tencent') {
+      try {
+        await ensureLeafletMap();
+        renderMarkers('leaflet');
+        mapError.value = '';
+      } catch (fallbackError) {
+        console.error('Leaflet fallback failed', fallbackError);
+        mapError.value = t('locationViewer.errors.mapInit');
+      }
+    } else {
+      mapError.value = t('locationViewer.errors.mapInit');
+    }
   } finally {
     if (token === updateToken) {
       mapBusy.value = false;
+    }
+  }
+};
+
+const highlightActiveMarker = () => {
+  if (!mapReady.value || !latestGeometries.length) {
+    return;
+  }
+  try {
+    renderMarkers(activeMapProvider.value);
+  } catch (error) {
+    console.warn('Failed to highlight marker on current provider', error);
+    if (activeMapProvider.value === 'tencent') {
+      ensureLeafletMap()
+        .then(() => renderMarkers('leaflet'))
+        .catch((fallbackError) => {
+          console.error('Leaflet highlight fallback failed', fallbackError);
+        });
     }
   }
 };
@@ -540,14 +749,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   latestGeometries = [];
-  if (markerLayer && typeof markerLayer.setGeometries === 'function') {
-    markerLayer.setGeometries([]);
-  }
-  markerLayer = null;
-  if (mapInstance && typeof mapInstance.destroy === 'function') {
-    mapInstance.destroy();
-  }
-  mapInstance = null;
+  resetTencentMap();
+  resetLeafletMap();
 });
 </script>
 

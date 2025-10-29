@@ -141,6 +141,61 @@
             </li>
           </ul>
         </div>
+
+        <div class="trend-section">
+          <h4>{{ t('prediction.trend.title') }}</h4>
+          <p class="trend-subtitle">{{ t('prediction.trend.subtitle') }}</p>
+          <p v-if="trendLoading" class="trend-message">{{ t('prediction.trend.loading') }}</p>
+          <p v-else-if="trendError" class="trend-message notice">{{ trendError }}</p>
+          <div
+            v-if="hasTrend"
+            class="trend-panel"
+            role="img"
+            :aria-label="t('prediction.trend.ariaLabel')"
+          >
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#d28a7c" stop-opacity="0.5" />
+                  <stop offset="100%" stop-color="#d28a7c" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path v-if="trendAreaPath" class="trend-area" :d="trendAreaPath" />
+              <path v-if="trendPath" class="trend-line" :d="trendPath" />
+              <g class="trend-dots">
+                <circle
+                  v-for="point in trendPoints"
+                  :key="`${point.label}-${point.x}`"
+                  :cx="point.x"
+                  :cy="point.y"
+                  r="1.6"
+                />
+              </g>
+            </svg>
+            <div class="trend-axis">
+              <span>{{ trendAxisLabels.start }}</span>
+              <span>{{ trendAxisLabels.mid }}</span>
+              <span>{{ trendAxisLabels.end }}</span>
+            </div>
+          </div>
+          <div v-if="hasTrend && trendSummary.start && trendSummary.end" class="trend-summary">
+            <div>
+              <span>{{ trendSummary.start.label }}</span>
+              <strong>¥{{ formatNumber(trendSummary.start.value) }} ×10k</strong>
+            </div>
+            <div>
+              <span>{{ trendSummary.end.label }}</span>
+              <strong>¥{{ formatNumber(trendSummary.end.value) }} ×10k</strong>
+            </div>
+            <div :class="['change', trendSummary.change >= 0 ? 'up' : 'down']">
+              <span>{{ t('prediction.trend.change') }}</span>
+              <strong>
+                {{ trendSummary.change >= 0 ? '+' : '' }}{{ trendSummary.change.toFixed(1) }}%
+              </strong>
+            </div>
+          </div>
+          <p v-if="trendSourceMessage" class="trend-source">{{ trendSourceMessage }}</p>
+        </div>
       </div>
     </transition>
   </section>
@@ -188,6 +243,10 @@ const form = reactive({
 const loading = ref(false);
 const error = ref('');
 const result = ref(null);
+const trendSeries = ref([]);
+const trendLoading = ref(false);
+const trendError = ref('');
+const trendSource = ref('none');
 
 const usage = reactive({ date: '', freeUses: 0, paidUses: 0 });
 
@@ -200,6 +259,21 @@ watch(
   () => props.apiBaseUrl,
   (value) => {
     client.defaults.baseURL = value;
+  }
+);
+
+watch(
+  result,
+  (value) => {
+    if (value) {
+      loadTrend(value);
+    } else {
+      trendRequestToken += 1;
+      trendSeries.value = [];
+      trendError.value = '';
+      trendSource.value = 'none';
+      trendLoading.value = false;
+    }
   }
 );
 
@@ -378,6 +452,234 @@ const formattedContributions = computed(() => {
   });
 });
 
+let trendRequestToken = 0;
+
+const computeTimeValue = (label, fallback) => {
+  if (typeof label === 'string' && label.trim()) {
+    const normalized = label.trim().length === 7 ? `${label.trim()}-01` : label.trim();
+    const timestamp = Date.parse(normalized);
+    if (!Number.isNaN(timestamp)) {
+      return timestamp;
+    }
+  }
+  return fallback;
+};
+
+const normaliseTrendEntry = (entry, index) => {
+  if (entry == null) {
+    return null;
+  }
+  if (Array.isArray(entry)) {
+    const label = String(entry[0] ?? '');
+    const value = Number(entry[1]);
+    if (Number.isFinite(value)) {
+      return { label, value, timeValue: computeTimeValue(label, index) };
+    }
+    return null;
+  }
+  if (typeof entry === 'object') {
+    const label = String(
+      entry.label ?? entry.month ?? entry.date ?? entry.period ?? entry.time ?? ''
+    );
+    const value = Number(
+      entry.value ?? entry.price ?? entry.amount ?? entry.average ?? entry.mean ?? entry.total
+    );
+    if (Number.isFinite(value)) {
+      return { label, value, timeValue: computeTimeValue(label, index) };
+    }
+    if (Number.isFinite(Number(entry))) {
+      const numeric = Number(entry);
+      return { label, value: numeric, timeValue: computeTimeValue(label, index) };
+    }
+    return null;
+  }
+  if (typeof entry === 'number') {
+    return { label: '', value: entry, timeValue: index };
+  }
+  return null;
+};
+
+const extractTrendSeries = (payload) => {
+  if (!payload) {
+    return [];
+  }
+  const candidates = [
+    payload.trend?.monthly,
+    payload.trend,
+    payload.priceTrend,
+    payload.historicalPrices,
+    payload.history,
+    payload.series,
+    Array.isArray(payload) ? payload : null
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (Array.isArray(candidate)) {
+      const mapped = candidate
+        .map((item, index) => normaliseTrendEntry(item, index))
+        .filter(Boolean)
+        .sort((a, b) => a.timeValue - b.timeValue)
+        .map((item) => ({ label: item.label, value: item.value }));
+      if (mapped.length >= 2) {
+        return mapped;
+      }
+    } else if (typeof candidate === 'object') {
+      const mapped = Object.entries(candidate)
+        .map(([key, value], index) => normaliseTrendEntry({ label: key, value }, index))
+        .filter(Boolean)
+        .sort((a, b) => a.timeValue - b.timeValue)
+        .map((item) => ({ label: item.label, value: item.value }));
+      if (mapped.length >= 2) {
+        return mapped;
+      }
+    }
+  }
+  return [];
+};
+
+const buildSyntheticTrend = (basePrice = 100) => {
+  const now = new Date();
+  const base = Number(basePrice);
+  const safeBase = Number.isFinite(base) && base > 0 ? base : 100;
+  const series = [];
+  for (let i = 23; i >= 0; i -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const seasonal = Math.sin((i / 6) * Math.PI) * 0.04;
+    const drift = (12 - i) * 0.004;
+    const value = Math.max(0.1, safeBase * (1 + drift + seasonal));
+    series.push({ label, value: Number(value.toFixed(2)) });
+  }
+  return series;
+};
+
+const trendPoints = computed(() => {
+  if (!Array.isArray(trendSeries.value) || trendSeries.value.length === 0) {
+    return [];
+  }
+  const values = trendSeries.value.map((item) => Number(item.value)).filter(Number.isFinite);
+  if (!values.length) {
+    return [];
+  }
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const count = trendSeries.value.length;
+  return trendSeries.value.map((item, index) => ({
+    label: item.label,
+    value: Number(item.value),
+    x: count === 1 ? 0 : (index / (count - 1)) * 100,
+    y: 100 - ((Number(item.value) - min) / range) * 100
+  }));
+});
+
+const trendPath = computed(() => {
+  if (trendPoints.value.length < 2) {
+    return '';
+  }
+  const segments = trendPoints.value.map((point) => `${point.x},${point.y}`);
+  return `M ${segments.join(' L ')}`;
+});
+
+const trendAreaPath = computed(() => {
+  if (trendPoints.value.length < 2) {
+    return '';
+  }
+  const first = trendPoints.value[0];
+  const last = trendPoints.value[trendPoints.value.length - 1];
+  const segments = trendPoints.value.map((point) => `${point.x},${point.y}`);
+  return `M ${first.x},100 L ${segments.join(' L ')} L ${last.x},100 Z`;
+});
+
+const trendAxisLabels = computed(() => {
+  if (!trendSeries.value.length) {
+    return { start: '', mid: '', end: '' };
+  }
+  const start = trendSeries.value[0]?.label ?? '';
+  const end = trendSeries.value[trendSeries.value.length - 1]?.label ?? '';
+  const mid = trendSeries.value[Math.floor(trendSeries.value.length / 2)]?.label ?? '';
+  return { start, mid, end };
+});
+
+const trendSummary = computed(() => {
+  if (trendSeries.value.length < 2) {
+    return { start: null, end: null, change: 0 };
+  }
+  const start = trendSeries.value[0];
+  const end = trendSeries.value[trendSeries.value.length - 1];
+  const base = Number(start.value);
+  const target = Number(end.value);
+  const change = Number.isFinite(base) && base !== 0 ? ((target - base) / base) * 100 : 0;
+  return { start, end, change };
+});
+
+const trendSourceMessage = computed(() => {
+  if (!trendSeries.value.length) {
+    return '';
+  }
+  switch (trendSource.value) {
+    case 'payload':
+      return t('prediction.trend.source.payload');
+    case 'api':
+      return t('prediction.trend.source.api');
+    case 'synthetic':
+      return t('prediction.trend.source.synthetic');
+    default:
+      return '';
+  }
+});
+
+const hasTrend = computed(() => trendSeries.value.length >= 2);
+
+const loadTrend = async (payload) => {
+  const token = ++trendRequestToken;
+  trendError.value = '';
+  const initialSeries = extractTrendSeries(payload);
+  if (initialSeries.length >= 2) {
+    if (token === trendRequestToken) {
+      trendSeries.value = initialSeries;
+      trendSource.value = 'payload';
+    }
+    return;
+  }
+  trendLoading.value = true;
+  try {
+    const { data } = await client.get('/analytics/price-trend', {
+      params: {
+        area: form.area,
+        rooms: form.averageRooms,
+        age: form.propertyAge
+      }
+    });
+    if (token !== trendRequestToken) {
+      return;
+    }
+    const fromApi = extractTrendSeries(data);
+    if (fromApi.length >= 2) {
+      trendSeries.value = fromApi;
+      trendSource.value = 'api';
+      return;
+    }
+    trendSeries.value = buildSyntheticTrend(payload?.predictedPrice ?? form.area / 10);
+    trendSource.value = 'synthetic';
+    trendError.value = '';
+  } catch (err) {
+    if (token !== trendRequestToken) {
+      return;
+    }
+    console.warn('Failed to load trend data', err);
+    trendSeries.value = buildSyntheticTrend(payload?.predictedPrice ?? form.area / 10);
+    trendSource.value = 'synthetic';
+    trendError.value = t('prediction.trend.unavailable');
+  } finally {
+    if (token === trendRequestToken) {
+      trendLoading.value = false;
+    }
+  }
+};
+
 const formatNumber = (value) => {
   if (value == null || value === '') {
     return '0.00';
@@ -445,6 +747,10 @@ const reset = () => {
   });
   result.value = null;
   error.value = '';
+  trendSeries.value = [];
+  trendError.value = '';
+  trendSource.value = 'none';
+  trendLoading.value = false;
 };
 </script>
 
@@ -594,6 +900,97 @@ const reset = () => {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+}
+
+.trend-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.trend-subtitle {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.9rem;
+}
+
+.trend-message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.trend-message.notice {
+  color: #8c6a5d;
+}
+
+.trend-panel {
+  position: relative;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.trend-panel svg {
+  width: 100%;
+  height: 160px;
+}
+
+.trend-area {
+  fill: url(#trendGradient);
+}
+
+.trend-line {
+  fill: none;
+  stroke: #d28a7c;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trend-dots circle {
+  fill: #d28a7c;
+}
+
+.trend-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.trend-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.trend-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.trend-summary strong {
+  font-size: 1rem;
+}
+
+.trend-summary .change.up strong {
+  color: #2f855a;
+}
+
+.trend-summary .change.down strong {
+  color: #c05621;
+}
+
+.trend-source {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .main-value {

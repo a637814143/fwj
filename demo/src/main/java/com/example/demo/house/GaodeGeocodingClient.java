@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -19,19 +18,19 @@ public class GaodeGeocodingClient {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final String apiKey;
+    private final GaodeMapSettings settings;
     private final Map<String, Optional<Coordinate>> cache = new ConcurrentHashMap<>();
 
     public GaodeGeocodingClient(RestClient.Builder restClientBuilder,
                                 ObjectMapper objectMapper,
-                                @Value("${gaode.api.key:46dff0d2a8f9204d4642f8dd91e10daf}") String apiKey) {
+                                GaodeMapSettings settings) {
         this.restClient = restClientBuilder.baseUrl("https://restapi.amap.com/v3").build();
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
+        this.settings = settings;
     }
 
     public boolean isEnabled() {
-        return apiKey != null && !apiKey.isBlank();
+        return settings != null && settings.hasApiKey();
     }
 
     public Optional<Coordinate> geocode(String address, String cityHint) {
@@ -50,7 +49,7 @@ public class GaodeGeocodingClient {
         try {
             RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
                 uriBuilder.path("/geocode/geo")
-                        .queryParam("key", apiKey)
+                        .queryParam("key", settings.apiKey())
                         .queryParam("address", address)
                         .queryParam("output", "JSON")
                         .queryParam("extensions", "base");

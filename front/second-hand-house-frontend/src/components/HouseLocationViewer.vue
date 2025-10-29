@@ -59,6 +59,20 @@
         <p v-if="focusSummary" class="focus-summary">{{ focusSummary }}</p>
         <p v-if="viewportSummary" class="viewport-summary">{{ viewportSummary }}</p>
 
+        <section v-if="showPoiPanel" class="poi-panel">
+          <h4>{{ t('locationViewer.pois.title') }}</h4>
+          <p v-if="poiLoading" class="poi-status">{{ t('locationViewer.pois.loading') }}</p>
+          <p v-else-if="poiError" class="poi-status error">{{ poiError }}</p>
+          <p v-else-if="!poiListItems.length" class="poi-status">{{ t('locationViewer.pois.empty') }}</p>
+          <ul v-else class="poi-list">
+            <li v-for="poi in poiListItems" :key="poi.id" class="poi-item">
+              <span class="poi-name">{{ poi.name }}</span>
+              <span v-if="poi.typeName" class="poi-type">{{ poi.typeName }}</span>
+              <span v-if="poi.distanceLabel" class="poi-distance">{{ poi.distanceLabel }}</span>
+            </li>
+          </ul>
+        </section>
+
         <p v-if="geocodeWarnings.length" class="map-warning">
           {{ t('locationViewer.errors.partial', { count: geocodeWarnings.length }) }}
         </p>
@@ -113,6 +127,10 @@ const props = defineProps({
   focusKey: {
     type: [String, Number],
     default: ''
+  },
+  mapConfig: {
+    type: Object,
+    default: () => ({})
   }
 });
 
@@ -133,11 +151,59 @@ const isMounted = ref(false);
 const mapStyle = ref('street');
 const activeMapProvider = ref('');
 
-const mapKey = (
-  import.meta.env.VITE_GAODE_MAP_KEY ||
-  import.meta.env.VITE_AMAP_KEY ||
+const mapKey = ref('');
+const mapSecurityCode = ref('');
+
+const envMapCandidates = [
+  import.meta.env.VITE_GAODE_MAP_KEY,
+  import.meta.env.VITE_AMAP_KEY,
   '46dff0d2a8f9204d4642f8dd91e10daf'
-).toString().trim();
+];
+
+const envSecurityCandidates = [
+  import.meta.env.VITE_GAODE_SECURITY_CODE,
+  import.meta.env.VITE_AMAP_SECURITY_CODE
+];
+
+const pickFirstValidString = (candidates) => {
+  for (const value of candidates) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return '';
+};
+
+const ensureSecurityConfig = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (mapSecurityCode.value) {
+    window._AMapSecurityConfig = {
+      ...(window._AMapSecurityConfig || {}),
+      securityJsCode: mapSecurityCode.value
+    };
+  }
+};
+
+const syncMapConfiguration = () => {
+  const config = props.mapConfig ?? {};
+  const keyCandidates = [config.apiKey, config.key, config.mapKey, ...envMapCandidates];
+  mapKey.value = pickFirstValidString(keyCandidates);
+  const securityCandidates = [
+    config.jsSecurityCode,
+    config.securityCode,
+    config.jsSecurity,
+    ...envSecurityCandidates
+  ];
+  mapSecurityCode.value = pickFirstValidString(securityCandidates);
+  ensureSecurityConfig();
+};
+
+syncMapConfiguration();
 
 const mapStyleOptions = computed(() => [
   {
@@ -305,7 +371,7 @@ const showLoadingOverlay = computed(() => props.loading || mapBusy.value || !map
 const geocodeCache = new Map();
 const pendingGeocodes = new Map();
 
-const cacheKey = (address) => `gaode::${address}`;
+const cacheKey = (address) => `gaode::${mapKey.value || 'default'}::${address}`;
 
 const extractRegion = (address) => {
   if (!address || typeof address !== 'string') {
@@ -342,11 +408,11 @@ const haversineDistanceKm = (lat1, lng1, lat2, lng2) => {
 };
 
 const geocodeWithGaode = async (address) => {
-  if (!mapKey) {
+  if (!mapKey.value) {
     return null;
   }
   const params = new URLSearchParams({
-    key: mapKey,
+    key: mapKey.value,
     address,
     output: 'JSON'
   });
@@ -460,6 +526,25 @@ const circleStyles = {
 };
 
 const markerMap = new Map();
+const poiMarkers = new Map();
+const nearbyPois = ref([]);
+const poiLoading = ref(false);
+const poiError = ref('');
+let placeSearchInstance = null;
+let poiSearchToken = 0;
+
+const removeGaodeScripts = () => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  document.querySelectorAll('script[data-gaode-loader]').forEach((script) => {
+    if (script.parentNode) {
+      script.parentNode.removeChild(script);
+    } else {
+      script.remove();
+    }
+  });
+};
 
 const loadGaodeMapScript = () => {
   if (typeof window === 'undefined') {
@@ -468,16 +553,19 @@ const loadGaodeMapScript = () => {
   if (window.AMap) {
     return Promise.resolve(window.AMap);
   }
-  if (!mapKey) {
+  if (!mapKey.value) {
     return Promise.reject(new Error('missing-key'));
   }
   if (scriptPromise) {
     return scriptPromise;
   }
+  ensureSecurityConfig();
+  removeGaodeScripts();
   scriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${mapKey}&plugin=AMap.ToolBar,AMap.Scale`;
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${mapKey.value}&plugin=AMap.ToolBar,AMap.Scale`;
     script.async = true;
+    script.dataset.gaodeLoader = 'gaode-map';
     script.onload = () => {
       if (window.AMap) {
         resolve(window.AMap);
@@ -492,6 +580,245 @@ const loadGaodeMapScript = () => {
     throw error;
   });
   return scriptPromise;
+};
+
+const clearPoiMarkers = () => {
+  poiMarkers.forEach((marker) => {
+    if (marker && typeof marker.setMap === 'function') {
+      marker.setMap(null);
+    }
+  });
+  poiMarkers.clear();
+};
+
+const clearNearbyPois = () => {
+  nearbyPois.value = [];
+  poiError.value = '';
+  poiLoading.value = false;
+  clearPoiMarkers();
+};
+
+const parsePoiLocation = (location) => {
+  if (!location) {
+    return null;
+  }
+  if (typeof location === 'string') {
+    const parts = location.split(',');
+    if (parts.length >= 2) {
+      const [lng, lat] = parts.map((value) => Number(value));
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { lat, lng };
+      }
+    }
+  } else if (Array.isArray(location) && location.length >= 2) {
+    const [lng, lat] = location.map((value) => Number(value));
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  } else if (
+    typeof location === 'object' &&
+    location !== null &&
+    Number.isFinite(Number(location.lng)) &&
+    Number.isFinite(Number(location.lat))
+  ) {
+    return { lat: Number(location.lat), lng: Number(location.lng) };
+  }
+  return null;
+};
+
+const formatPoiDistance = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '';
+  }
+  if (numeric >= 1000) {
+    return t('locationViewer.pois.distanceKm', { value: (numeric / 1000).toFixed(1) });
+  }
+  return t('locationViewer.pois.distanceM', { value: Math.round(numeric) });
+};
+
+const poiListItems = computed(() =>
+  nearbyPois.value.map((poi) => ({
+    ...poi,
+    distanceLabel: formatPoiDistance(poi.distance)
+  }))
+);
+
+const showPoiPanel = computed(
+  () =>
+    mapReady.value ||
+    poiLoading.value ||
+    Boolean(poiError.value) ||
+    nearbyPois.value.length > 0
+);
+
+const buildPoiPopup = (poi) => {
+  const distance = formatPoiDistance(poi.distance);
+  const type = poi.typeName ? `<div class="type">${poi.typeName}</div>` : '';
+  const distanceLabel = distance ? `<div class="distance">${distance}</div>` : '';
+  const address = poi.address ? `<div class="address">${poi.address}</div>` : '';
+  return `
+    <div class="poi-popup">
+      <strong>${poi.name ?? ''}</strong>
+      ${type}
+      ${address}
+      ${distanceLabel}
+    </div>
+  `;
+};
+
+const buildPoiMarkerContent = (poi) => {
+  const label = poi.shortName || poi.name || '';
+  return `<div class="poi-marker">${label}</div>`;
+};
+
+const ensurePlaceSearch = () => {
+  if (!AMapNamespace) {
+    return Promise.reject(new Error('gaode-unavailable'));
+  }
+  if (placeSearchInstance) {
+    return Promise.resolve(placeSearchInstance);
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      AMapNamespace.plugin(['AMap.PlaceSearch'], () => {
+        placeSearchInstance = new AMapNamespace.PlaceSearch({
+          pageSize: 20,
+          extensions: 'base'
+        });
+        resolve(placeSearchInstance);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+const runNearbySearch = (placeSearch, center) =>
+  new Promise((resolve, reject) => {
+    try {
+      placeSearch.searchNearBy('', center, 2000, (status, result) => {
+        if (status === 'complete' && result?.poiList?.pois) {
+          resolve(result.poiList.pois);
+          return;
+        }
+        if (status === 'no_data') {
+          resolve([]);
+          return;
+        }
+        reject(new Error(status || 'poi-failed'));
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+const normalizePoi = (poi) => {
+  if (!poi) {
+    return null;
+  }
+  const coords = parsePoiLocation(poi.location);
+  if (!coords) {
+    return null;
+  }
+  const rawDistance = Number(poi.distance);
+  const typeName = typeof poi.type === 'string' && poi.type.includes(';')
+    ? poi.type.split(';')[0]
+    : poi.typeName || poi.type || '';
+  const name = typeof poi.name === 'string' ? poi.name.trim() : '';
+  const shortName = name && name.length > 8 ? `${name.slice(0, 8)}…` : name;
+  const idSource = poi.id ?? `${coords.lng},${coords.lat}`;
+  return {
+    id: String(idSource),
+    name,
+    shortName,
+    address: poi.address || poi.adname || '',
+    typeName: typeName,
+    distance: Number.isFinite(rawDistance) ? rawDistance : null,
+    coords
+  };
+};
+
+const updatePoiMarkers = (pois) => {
+  if (!gaodeMap || !AMapNamespace) {
+    return;
+  }
+  const nextIds = new Set(pois.map((poi) => poi.id));
+  poiMarkers.forEach((marker, id) => {
+    if (!nextIds.has(id)) {
+      if (marker && typeof marker.setMap === 'function') {
+        marker.setMap(null);
+      }
+      poiMarkers.delete(id);
+    }
+  });
+  pois.forEach((poi) => {
+    if (!poi.coords) {
+      return;
+    }
+    const position = [poi.coords.lng, poi.coords.lat];
+    let marker = poiMarkers.get(poi.id);
+    if (!marker) {
+      marker = new AMapNamespace.Marker({
+        position,
+        anchor: 'bottom-center',
+        offset: new AMapNamespace.Pixel(0, -12),
+        bubble: true,
+        zIndex: 45,
+        content: buildPoiMarkerContent(poi)
+      });
+      marker.on('click', () => {
+        if (infoWindow) {
+          infoWindow.setContent(buildPoiPopup(poi));
+          infoWindow.open(gaodeMap, position);
+        }
+      });
+      marker.setMap(gaodeMap);
+      poiMarkers.set(poi.id, marker);
+    } else {
+      marker.setPosition(position);
+      if (typeof marker.setContent === 'function') {
+        marker.setContent(buildPoiMarkerContent(poi));
+      }
+    }
+  });
+};
+
+const refreshNearbyPois = async (geometry) => {
+  if (!gaodeMap || !geometry) {
+    clearNearbyPois();
+    return;
+  }
+  const token = ++poiSearchToken;
+  poiLoading.value = true;
+  poiError.value = '';
+  try {
+    const placeSearch = await ensurePlaceSearch();
+    if (token !== poiSearchToken) {
+      return;
+    }
+    const center = new AMapNamespace.LngLat(geometry.coords.lng, geometry.coords.lat);
+    const results = await runNearbySearch(placeSearch, center);
+    if (token !== poiSearchToken) {
+      return;
+    }
+    const normalized = results
+      .map(normalizePoi)
+      .filter(Boolean)
+      .slice(0, 12);
+    nearbyPois.value = normalized;
+    updatePoiMarkers(normalized);
+  } catch (error) {
+    if (token === poiSearchToken) {
+      nearbyPois.value = [];
+      poiError.value = t('locationViewer.pois.error');
+      clearPoiMarkers();
+    }
+  } finally {
+    if (token === poiSearchToken) {
+      poiLoading.value = false;
+    }
+  }
 };
 
 const ensureMapResized = () => {
@@ -581,6 +908,12 @@ const ensureMap = async () => {
 };
 
 const destroyMap = () => {
+  clearPoiMarkers();
+  nearbyPois.value = [];
+  poiError.value = '';
+  poiLoading.value = false;
+  placeSearchInstance = null;
+  poiSearchToken = 0;
   markerMap.forEach((marker) => {
     if (marker && typeof marker.setMap === 'function') {
       marker.setMap(null);
@@ -664,6 +997,7 @@ const focusOnActiveGeometry = () => {
   } catch (error) {
     console.warn('Failed to focus Gaode marker', error);
   }
+  refreshNearbyPois(active);
   emitViewportChange('focus');
 };
 
@@ -790,12 +1124,13 @@ const updateMapMarkers = async () => {
     });
     markerMap.clear();
     lastViewportPayload = null;
+    clearNearbyPois();
     return;
   }
   mapBusy.value = true;
   mapError.value = '';
   const token = ++updateToken;
-  if (!mapKey) {
+  if (!mapKey.value) {
     mapError.value = t('locationViewer.errors.missingKey');
     mapBusy.value = false;
     return;
@@ -835,6 +1170,7 @@ const updateMapMarkers = async () => {
       mapError.value = warnings.length
         ? t('locationViewer.errors.geocode')
         : t('locationViewer.errors.mapInit');
+      clearNearbyPois();
       return;
     }
     renderMarkers();
@@ -848,6 +1184,47 @@ const updateMapMarkers = async () => {
     }
   }
 };
+
+const resetMapForConfig = () => {
+  destroyMap();
+  if (typeof window !== 'undefined' && window.AMap) {
+    try {
+      delete window.AMap;
+    } catch (error) {
+      window.AMap = null;
+    }
+  }
+  scriptPromise = null;
+  removeGaodeScripts();
+  geocodeCache.clear();
+  pendingGeocodes.clear();
+  if (isMounted.value) {
+    nextTick(() => {
+      updateMapMarkers();
+    });
+  }
+};
+
+watch(
+  () => [
+    props.mapConfig?.apiKey,
+    props.mapConfig?.key,
+    props.mapConfig?.mapKey,
+    props.mapConfig?.jsSecurityCode,
+    props.mapConfig?.securityCode,
+    props.mapConfig?.jsSecurity
+  ],
+  () => {
+    const previousKey = mapKey.value;
+    const previousSecurity = mapSecurityCode.value;
+    syncMapConfiguration();
+    if (mapKey.value !== previousKey) {
+      resetMapForConfig();
+    } else if (mapSecurityCode.value !== previousSecurity) {
+      ensureSecurityConfig();
+    }
+  }
+);
 
 watch(activeHouseId, () => {
   highlightActiveMarker();
@@ -1089,6 +1466,111 @@ onBeforeUnmount(() => {
 
 .viewport-summary {
   color: color-mix(in srgb, var(--color-text-soft) 70%, var(--color-accent) 30%);
+}
+
+.poi-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  box-shadow: var(--shadow-xs);
+}
+
+.poi-panel h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-strong);
+}
+
+.poi-status {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.poi-status.error {
+  color: var(--color-danger-strong);
+}
+
+.poi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.poi-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.8rem;
+  padding: 0.3rem 0;
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 65%, transparent);
+}
+
+.poi-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.poi-name {
+  font-weight: 600;
+  color: var(--color-text-strong);
+  flex: 1 1 auto;
+}
+
+.poi-type {
+  color: color-mix(in srgb, var(--color-accent) 75%, var(--color-text-soft) 25%);
+  font-size: 0.82rem;
+}
+
+.poi-distance {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.poi-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 80%, transparent);
+  color: var(--color-text-on-emphasis);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.poi-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 200px;
+  color: var(--color-text-strong);
+}
+
+.poi-popup .type {
+  color: color-mix(in srgb, var(--color-accent) 75%, var(--color-text-soft) 25%);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.poi-popup .distance {
+  color: var(--color-text-soft);
+  font-size: 0.85rem;
+}
+
+.poi-popup .address {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
 }
 
 .map-warning {

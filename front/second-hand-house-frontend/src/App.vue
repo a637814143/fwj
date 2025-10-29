@@ -91,6 +91,7 @@
           :loading="loading || locationLoading"
           :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
           :focus-key="locationFocusId"
+          :map-config="mapConfig"
           @refresh="fetchHouses({ silent: false })"
           @viewport-change="handleLocationViewportChange"
         />
@@ -279,6 +280,19 @@ const locationViewport = reactive({
   radiusKm: null
 });
 let locationViewportTimer = null;
+const normalizeMapEnv = (value) => (typeof value === 'string' ? value.trim() : '');
+const defaultMapKey =
+  normalizeMapEnv(import.meta.env.VITE_GAODE_MAP_KEY) ||
+  normalizeMapEnv(import.meta.env.VITE_AMAP_KEY) ||
+  '46dff0d2a8f9204d4642f8dd91e10daf';
+const defaultMapSecurityCode =
+  normalizeMapEnv(import.meta.env.VITE_GAODE_SECURITY_CODE) ||
+  normalizeMapEnv(import.meta.env.VITE_AMAP_SECURITY_CODE) ||
+  '';
+const mapConfig = reactive({
+  apiKey: defaultMapKey,
+  jsSecurityCode: defaultMapSecurityCode
+});
 const loading = ref(false);
 const locationLoading = ref(false);
 const selectedHouse = ref(null);
@@ -1153,6 +1167,14 @@ const translations = {
         geocode: '暂时无法定位房源，请检查地址信息。',
         missingKey: '缺少高德地图密钥，无法加载地图。',
         partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
+      },
+      pois: {
+        title: '周边实况',
+        loading: '正在获取周边环境…',
+        empty: '未检索到周边实况点，可尝试放大地图或调整位置。',
+        error: '周边实况暂时不可用，请稍后重试。',
+        distanceM: '{value} 米',
+        distanceKm: '{value} 公里'
       },
       aria: {
         map: '房源位置分布地图'
@@ -2176,6 +2198,14 @@ const translations = {
         missingKey: 'The Gaode Maps key is missing, so the map cannot be displayed.',
         partial: '{count} listing(s) could not be located. Their addresses are listed below.'
       },
+      pois: {
+        title: 'Live surroundings',
+        loading: 'Fetching nearby points of interest…',
+        empty: 'No surroundings found yet. Try zooming out or moving the map.',
+        error: 'Nearby surroundings are temporarily unavailable. Please try again soon.',
+        distanceM: '{value} m',
+        distanceKm: '{value} km'
+      },
       aria: {
         map: 'Map showing listing locations'
       }
@@ -3161,6 +3191,25 @@ const fetchHouseLocations = async ({ silent = false } = {}) => {
     if (!silent) {
       locationLoading.value = false;
     }
+  }
+};
+
+const loadMapConfig = async () => {
+  try {
+    const { data } = await client.get('/houses/map-config');
+    if (data && typeof data === 'object') {
+      const nextKey = normalizeMapEnv(data.apiKey ?? data.key);
+      if (nextKey) {
+        mapConfig.apiKey = nextKey;
+      }
+      if ('jsSecurityCode' in data || 'securityCode' in data) {
+        mapConfig.jsSecurityCode = normalizeMapEnv(
+          data.jsSecurityCode ?? data.securityCode ?? ''
+        );
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load map configuration', error);
   }
 };
 
@@ -4461,6 +4510,8 @@ const handleLogout = () => {
   messages.success = '';
   activeTab.value = 'home';
   localStorage.removeItem(storageKey);
+  mapConfig.apiKey = defaultMapKey;
+  mapConfig.jsSecurityCode = defaultMapSecurityCode;
   resetConversationState();
   fetchHouses();
   loadRecommendations();
@@ -4486,6 +4537,7 @@ watch(
 );
 
 onMounted(() => {
+  loadMapConfig();
   try {
     const cached = localStorage.getItem(storageKey);
     if (cached) {

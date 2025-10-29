@@ -1110,6 +1110,17 @@ const translations = {
       noAddress: '地址信息待补充',
       priceLabel: '参考价：￥{price}',
       noSelection: '请选择左侧的房源以查看详情。',
+      search: {
+        label: '地址搜索',
+        placeholder: '输入房源地址或周边地标',
+        action: '搜索位置',
+        searching: '搜索中…',
+        hint: '可补充城市、区域等信息以提升定位准确度。',
+        success: '已为您定位：{name}',
+        failure: '暂未找到对应位置，请尝试调整输入。',
+        error: '搜索失败，请稍后重试。',
+        required: '请输入要搜索的房源地址。'
+      },
       actions: {
         copyAddress: '复制地址',
         locate: '重新定位'
@@ -2123,6 +2134,17 @@ const translations = {
       noAddress: 'Address pending',
       priceLabel: 'Price: ￥{price}',
       noSelection: 'Select a listing on the left to view its details.',
+      search: {
+        label: 'Address search',
+        placeholder: 'Enter a property address or nearby landmark',
+        action: 'Search',
+        searching: 'Searching…',
+        hint: 'Add city or district names to improve accuracy.',
+        success: 'Showing location for {name}.',
+        failure: 'No matching location was found. Try another address.',
+        error: 'Search failed. Please try again later.',
+        required: 'Enter an address before searching.'
+      },
       actions: {
         copyAddress: 'Copy address',
         locate: 'Locate again'

@@ -31,6 +31,11 @@ public class SecondHandHouseService {
 
     private static final Logger log = LoggerFactory.getLogger(SecondHandHouseService.class);
 
+    private static final double CHINA_LAT_MIN = 17.0d;
+    private static final double CHINA_LAT_MAX = 54.5d;
+    private static final double CHINA_LNG_MIN = 73.0d;
+    private static final double CHINA_LNG_MAX = 136.5d;
+
     private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
     private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
     private static final Pattern COUNTY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}(?:县|区|旗))");
@@ -143,8 +148,8 @@ public class SecondHandHouseService {
                                                  Double radiusKm,
                                                  String requesterUsername) {
         UserAccount requester = resolveRequester(requesterUsername);
-        Double sanitizedLat = sanitizeCoordinate(centerLat, -90d, 90d);
-        Double sanitizedLng = sanitizeCoordinate(centerLng, -180d, 180d);
+        Double sanitizedLat = sanitizeCoordinate(centerLat, CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double sanitizedLng = sanitizeCoordinate(centerLng, CHINA_LNG_MIN, CHINA_LNG_MAX);
         Double sanitizedRadius = radiusKm != null && Double.isFinite(radiusKm) && radiusKm > 0
                 ? radiusKm
                 : null;
@@ -319,11 +324,16 @@ public class SecondHandHouseService {
     }
 
     private boolean hasCoordinates(SecondHandHouse house) {
-        return house != null
-                && house.getLatitude() != null
-                && house.getLongitude() != null
-                && Double.isFinite(house.getLatitude())
-                && Double.isFinite(house.getLongitude());
+        if (house == null) {
+            return false;
+        }
+        Double latitude = house.getLatitude();
+        Double longitude = house.getLongitude();
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && isCoordinateWithinChina(latitude, longitude);
     }
 
     private boolean hasMappableAddress(SecondHandHouse house) {
@@ -365,9 +375,9 @@ public class SecondHandHouseService {
             }
             return;
         }
-        Double latitude = sanitizeCoordinate(coordinate.get().latitude(), -90d, 90d);
-        Double longitude = sanitizeCoordinate(coordinate.get().longitude(), -180d, 180d);
-        if (latitude == null || longitude == null) {
+        Double latitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double longitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
             if (requireFreshLookup) {
                 house.setLatitude(null);
                 house.setLongitude(null);
@@ -382,15 +392,24 @@ public class SecondHandHouseService {
         if (house == null) {
             return null;
         }
-        Double latitude = sanitizeCoordinate(house.getLatitude(), -90d, 90d);
-        Double longitude = sanitizeCoordinate(house.getLongitude(), -180d, 180d);
+        Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
         if ((latitude == null || longitude == null) && hasMappableAddress(house) && geocodingClient.isEnabled()) {
             Optional<GaodeGeocodingClient.Coordinate> coordinate =
                     geocodingClient.geocode(house.getAddress(), resolveCityHint(house.getAddress()));
             if (coordinate.isPresent()) {
-                latitude = sanitizeCoordinate(coordinate.get().latitude(), -90d, 90d);
-                longitude = sanitizeCoordinate(coordinate.get().longitude(), -180d, 180d);
+                Double lookedUpLatitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+                Double lookedUpLongitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+                if (lookedUpLatitude != null && lookedUpLongitude != null
+                        && isCoordinateWithinChina(lookedUpLatitude, lookedUpLongitude)) {
+                    latitude = lookedUpLatitude;
+                    longitude = lookedUpLongitude;
+                }
             }
+        }
+        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+            latitude = null;
+            longitude = null;
         }
         return new HouseLocationView(
                 house.getId(),
@@ -410,15 +429,21 @@ public class SecondHandHouseService {
         }
         String candidate = (cityHint == null || cityHint.isBlank()) ? resolveCityHint(query) : cityHint.trim();
         String effectiveCity = candidate == null ? null : sanitizeAdministrativeName(candidate);
-        return geocodingClient.searchPlace(query, effectiveCity);
+        return geocodingClient.searchPlace(query, effectiveCity)
+                .filter(place -> isCoordinateWithinChina(place.latitude(), place.longitude()));
     }
 
     private boolean hasCoordinates(HouseLocationView view) {
-        return view != null
-                && view.latitude() != null
-                && view.longitude() != null
-                && Double.isFinite(view.latitude())
-                && Double.isFinite(view.longitude());
+        if (view == null) {
+            return false;
+        }
+        Double latitude = view.latitude();
+        Double longitude = view.longitude();
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && isCoordinateWithinChina(latitude, longitude);
     }
 
     private boolean isWithinRadius(HouseLocationView view,
@@ -489,6 +514,13 @@ public class SecondHandHouseService {
             return Double.POSITIVE_INFINITY;
         }
         return haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
+    }
+
+    private boolean isCoordinateWithinChina(double latitude, double longitude) {
+        return latitude >= CHINA_LAT_MIN
+                && latitude <= CHINA_LAT_MAX
+                && longitude >= CHINA_LNG_MIN
+                && longitude <= CHINA_LNG_MAX;
     }
 
     private Double sanitizeCoordinate(Double value, double min, double max) {

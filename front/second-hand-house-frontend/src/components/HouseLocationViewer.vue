@@ -173,6 +173,14 @@ const normalizeSignature = (value) => {
   return value.replace(/\s+/g, '').toLowerCase();
 };
 
+const isWithinChina = (lat, lng) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  lat >= CHINA_BOUNDS.south &&
+  lat <= CHINA_BOUNDS.north &&
+  lng >= CHINA_BOUNDS.west &&
+  lng <= CHINA_BOUNDS.east;
+
 const items = computed(() => {
   if (!Array.isArray(props.houses)) {
     return [];
@@ -185,8 +193,8 @@ const items = computed(() => {
       address: normalizeAddress(house?.address),
       rawAddress: typeof house?.address === 'string' ? house.address : '',
       priceLabel: formatPriceLabel(house?.price),
-      latitude: sanitizeCoordinate(house?.latitude, -90, 90),
-      longitude: sanitizeCoordinate(house?.longitude, -180, 180)
+      latitude: sanitizeCoordinate(house?.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north),
+      longitude: sanitizeCoordinate(house?.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east)
     }))
     .filter((item) => item.key);
 });
@@ -200,13 +208,26 @@ const mapLoading = ref(false);
 const mapError = ref('');
 const activeLocation = ref(null);
 
+const CHINA_BOUNDS = Object.freeze({
+  south: 17.0,
+  west: 73.0,
+  north: 54.5,
+  east: 136.5
+});
+
+const chinaBounds = L.latLngBounds(
+  [CHINA_BOUNDS.south, CHINA_BOUNDS.west],
+  [CHINA_BOUNDS.north, CHINA_BOUNDS.east]
+);
+
 let mapInstance = null;
 let tileLayer = null;
 let markerLayer = null;
 let locateSequence = 0;
 
-const defaultCenter = [35.8617, 104.1954];
-const defaultZoom = 4;
+const defaultCenterPoint = chinaBounds.getCenter();
+const defaultCenter = [defaultCenterPoint.lat, defaultCenterPoint.lng];
+const defaultZoom = 5;
 const focusZoom = 16;
 
 const updatedTime = computed(() => {
@@ -285,13 +306,27 @@ const ensureMapReady = async () => {
   if (mapInstance || !mapContainerRef.value) {
     return;
   }
-  mapInstance = L.map(mapContainerRef.value, { zoomControl: true, attributionControl: true });
-  tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors'
+  mapInstance = L.map(mapContainerRef.value, {
+    zoomControl: true,
+    attributionControl: true,
+    minZoom: 4,
+    maxBounds: chinaBounds,
+    maxBoundsViscosity: 1.0,
+    worldCopyJump: false
   });
+  tileLayer = L.tileLayer(
+    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+    {
+      subdomains: ['1', '2', '3', '4'],
+      minZoom: 4,
+      maxZoom: 18,
+      noWrap: true,
+      attribution: '© 高德地图'
+    }
+  );
   tileLayer.addTo(mapInstance);
   mapInstance.setView(defaultCenter, defaultZoom);
+  mapInstance.panInsideBounds(chinaBounds, { animate: false });
 };
 
 const resetMapView = async () => {
@@ -308,6 +343,7 @@ const resetMapView = async () => {
     markerLayer = null;
   }
   mapInstance.setView(defaultCenter, defaultZoom);
+  mapInstance.panInsideBounds(chinaBounds, { animate: false });
   mapInstance.invalidateSize();
 };
 
@@ -335,6 +371,7 @@ const setMapToCoordinates = async (entry) => {
   }
   const position = [entry.lat, entry.lng];
   mapInstance.setView(position, focusZoom);
+  mapInstance.panInsideBounds(chinaBounds, { animate: false });
   if (!markerLayer) {
     markerLayer = L.marker(position);
     markerLayer.addTo(mapInstance);
@@ -362,17 +399,24 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   const signature = normalizeSignature(house.rawAddress);
   const cached = coordinateCache.get(house.key);
   if (cached && cached.sourceAddress === signature) {
-    activeLocation.value = cached;
-    await setMapToCoordinates(cached);
-    return;
+    if (isWithinChina(cached.lat, cached.lng)) {
+      activeLocation.value = cached;
+      await setMapToCoordinates(cached);
+      return;
+    }
+    coordinateCache.delete(house.key);
   }
 
   if (house.latitude != null && house.longitude != null) {
-    const entry = buildLocationEntry(house, house.latitude, house.longitude, house.rawTitle, house.rawAddress);
-    coordinateCache.set(house.key, entry);
-    activeLocation.value = entry;
-    await setMapToCoordinates(entry);
-    return;
+    const lat = sanitizeCoordinate(house.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+    const lng = sanitizeCoordinate(house.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+    if (lat != null && lng != null && isWithinChina(lat, lng)) {
+      const entry = buildLocationEntry(house, lat, lng, house.rawTitle, house.rawAddress);
+      coordinateCache.set(house.key, entry);
+      activeLocation.value = entry;
+      await setMapToCoordinates(entry);
+      return;
+    }
   }
 
   const address = house.rawAddress?.trim();
@@ -403,24 +447,21 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
       return;
     }
     if (payload?.found && Number.isFinite(payload.latitude) && Number.isFinite(payload.longitude)) {
-      const lat = sanitizeCoordinate(payload.latitude, -90, 90);
-      const lng = sanitizeCoordinate(payload.longitude, -180, 180);
-      if (lat == null || lng == null) {
-        mapError.value = t('locationViewer.map.noResult');
-        await resetMapView();
+      const lat = sanitizeCoordinate(payload.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+      const lng = sanitizeCoordinate(payload.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+      if (lat != null && lng != null && isWithinChina(lat, lng)) {
+        const entry = buildLocationEntry(
+          house,
+          lat,
+          lng,
+          payload.name,
+          payload.address
+        );
+        coordinateCache.set(house.key, entry);
+        activeLocation.value = entry;
+        await setMapToCoordinates(entry);
         return;
       }
-      const entry = buildLocationEntry(
-        house,
-        lat,
-        lng,
-        payload.name,
-        payload.address
-      );
-      coordinateCache.set(house.key, entry);
-      activeLocation.value = entry;
-      await setMapToCoordinates(entry);
-      return;
     }
     mapError.value = t('locationViewer.map.noResult');
     await resetMapView();

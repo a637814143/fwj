@@ -16,6 +16,11 @@ public class GaodeGeocodingClient {
 
     private static final Logger log = LoggerFactory.getLogger(GaodeGeocodingClient.class);
 
+    private static final double CHINA_LAT_MIN = 17.0d;
+    private static final double CHINA_LAT_MAX = 54.5d;
+    private static final double CHINA_LNG_MIN = 73.0d;
+    private static final double CHINA_LNG_MAX = 136.5d;
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final GaodeMapSettings settings;
@@ -87,6 +92,10 @@ public class GaodeGeocodingClient {
             if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
                 return Optional.empty();
             }
+            if (!isWithinChina(lat, lng)) {
+                log.debug("Gaode geocode returned coordinate outside China bounds lat {} lng {} for {}", lat, lng, address);
+                return Optional.empty();
+            }
             return Optional.of(new Coordinate(lat, lng));
         } catch (Exception ex) {
             log.warn("Gaode geocode request failed for address {}: {}", address, ex.getMessage());
@@ -150,6 +159,10 @@ public class GaodeGeocodingClient {
             if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
                 return Optional.empty();
             }
+            if (!isWithinChina(lat, lng)) {
+                log.debug("Gaode place search returned coordinate outside China bounds lat {} lng {} for keyword {}", lat, lng, keyword);
+                return Optional.empty();
+            }
             String name = first.path("name").asText(null);
             String address = first.path("address").asText(null);
             if (address == null || address.isBlank()) {
@@ -176,6 +189,13 @@ public class GaodeGeocodingClient {
             sanitized = sanitized.substring(0, sanitized.length() - 1);
         }
         return sanitized;
+    }
+
+    private boolean isWithinChina(double latitude, double longitude) {
+        return latitude >= CHINA_LAT_MIN
+                && latitude <= CHINA_LAT_MAX
+                && longitude >= CHINA_LNG_MIN
+                && longitude <= CHINA_LNG_MAX;
     }
 
     public record Coordinate(double latitude, double longitude) {

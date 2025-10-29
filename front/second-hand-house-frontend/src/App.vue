@@ -92,6 +92,7 @@
           :updated-at="houseLocations.length ? houseLocationsUpdatedAt : housesUpdatedAt"
           :focus-key="locationFocusId"
           :map-config="mapConfig"
+          :search-query="locationSearchQuery"
           @refresh="fetchHouses({ silent: false })"
           @viewport-change="handleLocationViewportChange"
         />
@@ -274,6 +275,7 @@ const houseLocations = ref([]);
 const housesUpdatedAt = ref('');
 const houseLocationsUpdatedAt = ref('');
 const locationFocusId = ref('');
+const locationSearchQuery = ref('');
 const locationViewport = reactive({
   centerLat: null,
   centerLng: null,
@@ -942,7 +944,8 @@ const translations = {
       reviewModeratedRejected: '已驳回该评价。',
       login: '登录成功。',
       loginReputationSuffix: ' 当前信誉分：{score}。',
-      restoredSession: '已恢复上次的登录状态。'
+      restoredSession: '已恢复上次的登录状态。',
+      mapAddressCopied: '已复制房源地址，可在地图中搜索。'
     },
     errors: {
       loadHouses: '加载房源数据失败，请检查后端服务。',
@@ -978,6 +981,7 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
+      mapAddressMissing: '该房源尚未提供地址，暂无法在地图中搜索。',
       installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
@@ -1167,6 +1171,12 @@ const translations = {
         geocode: '暂时无法定位房源，请检查地址信息。',
         missingKey: '缺少高德地图密钥，无法加载地图。',
         partial: '有 {count} 套房源暂未定位，地址已在下方列出。'
+      },
+      search: {
+        searching: '正在搜索「{query}」的地图位置…',
+        success: '已根据搜索结果定位至「{name}」。',
+        empty: '未找到与「{query}」匹配的位置，请尝试调整关键词。',
+        error: '地图搜索失败，请稍后重试。'
       },
       pois: {
         title: '周边实况',
@@ -1976,7 +1986,8 @@ const translations = {
       reviewModeratedRejected: 'The review has been rejected.',
       login: 'Signed in successfully.',
       loginReputationSuffix: ' Current reputation score: {score}.',
-      restoredSession: 'Previous session restored.'
+      restoredSession: 'Previous session restored.',
+      mapAddressCopied: 'Listing address copied. Opening the map…'
     },
     errors: {
       loadHouses: 'Failed to load listings. Please check the backend service.',
@@ -2012,6 +2023,7 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
+      mapAddressMissing: 'This listing is missing an address, so the map search cannot run yet.',
       installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
@@ -2197,6 +2209,12 @@ const translations = {
         geocode: 'Some listings could not be located on the map.',
         missingKey: 'The Gaode Maps key is missing, so the map cannot be displayed.',
         partial: '{count} listing(s) could not be located. Their addresses are listed below.'
+      },
+      search: {
+        searching: 'Searching the map for “{query}”…',
+        success: 'Centered the map on “{name}” from the search results.',
+        empty: 'No results found for “{query}”. Try adjusting the keywords.',
+        error: 'Map search failed. Please try again later.'
       },
       pois: {
         title: 'Live surroundings',
@@ -4169,21 +4187,29 @@ const handleLocationViewportChange = (payload = {}) => {
   scheduleViewportFetch({ silent, immediate });
 };
 
-const handleShowOnMap = (house) => {
+const handleShowOnMap = async (house) => {
   if (!house) {
     return;
   }
   const key = house.id != null ? String(house.id) : '';
-  const lat = normalizeViewportValue(house.latitude, 6);
-  const lng = normalizeViewportValue(house.longitude, 6);
-  if (lat !== null && lng !== null) {
-    locationViewport.centerLat = lat;
-    locationViewport.centerLng = lng;
-    const radius = locationViewport.radiusKm != null ? Math.max(locationViewport.radiusKm, 3) : 3;
-    locationViewport.radiusKm = normalizeViewportValue(radius, 3);
+  const address = typeof house.address === 'string' ? house.address.trim() : '';
+  messages.error = '';
+  if (!address) {
+    messages.error = t('errors.mapAddressMissing');
+    return;
   }
-  const navigateToMap = () => {
+
+  const syncSearchQuery = async () => {
+    if (locationSearchQuery.value === address) {
+      locationSearchQuery.value = '';
+      await nextTick();
+    }
+    locationSearchQuery.value = address;
+  };
+
+  const navigateToMap = async () => {
     locationFocusId.value = key;
+    await syncSearchQuery();
     activeTab.value = 'locations';
     const hasListing = key
       ? houseLocations.value.some((item) => String(item?.id ?? '') === key)
@@ -4193,14 +4219,24 @@ const handleShowOnMap = (house) => {
     }
   };
 
-  if (key && locationFocusId.value === key) {
-    locationFocusId.value = '';
-    nextTick(() => {
-      navigateToMap();
-    });
-  } else {
-    navigateToMap();
+  if (address && typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(address);
+      messages.success = t('success.mapAddressCopied');
+    } catch (error) {
+      console.warn('Failed to copy address to clipboard', error);
+    }
   }
+
+  if (!key || locationFocusId.value !== key) {
+    await navigateToMap();
+    return;
+  }
+
+  locationFocusId.value = '';
+  nextTick(async () => {
+    await navigateToMap();
+  });
 };
 
 const handleToggleBlacklist = async ({ username, blacklisted }) => {
@@ -4475,6 +4511,7 @@ const handleLoginSuccess = (user) => {
   messages.error = '';
   persistUser(user);
   activeTab.value = 'home';
+  locationSearchQuery.value = '';
   fetchHouses();
   fetchWallet();
   fetchOrders();
@@ -4512,6 +4549,7 @@ const handleLogout = () => {
   localStorage.removeItem(storageKey);
   mapConfig.apiKey = defaultMapKey;
   mapConfig.jsSecurityCode = defaultMapSecurityCode;
+  locationSearchQuery.value = '';
   resetConversationState();
   fetchHouses();
   loadRecommendations();

@@ -58,6 +58,20 @@
 
         <p v-if="focusSummary" class="focus-summary">{{ focusSummary }}</p>
         <p v-if="viewportSummary" class="viewport-summary">{{ viewportSummary }}</p>
+        <p
+          v-if="searchStatusMessage"
+          class="search-status"
+          :class="{ loading: searchLoading }"
+        >
+          {{ searchStatusMessage }}
+        </p>
+        <p
+          v-if="activeSearchResult && activeSearchResult.address && !searchErrorMessage"
+          class="search-status result"
+        >
+          {{ activeSearchResult.address }}
+        </p>
+        <p v-if="searchErrorMessage" class="search-status error">{{ searchErrorMessage }}</p>
 
         <section v-if="showPoiPanel" class="poi-panel">
           <h4>{{ t('locationViewer.pois.title') }}</h4>
@@ -131,6 +145,10 @@ const props = defineProps({
   mapConfig: {
     type: Object,
     default: () => ({})
+  },
+  searchQuery: {
+    type: String,
+    default: ''
   }
 });
 
@@ -249,6 +267,15 @@ const normalizedHouses = computed(() =>
 
 const activeHouseId = ref('');
 const pendingFocusKey = ref('');
+const searchKeyword = computed(() =>
+  typeof props.searchQuery === 'string' ? props.searchQuery.trim() : ''
+);
+const activeSearchQuery = ref('');
+const searchStatusMessage = ref('');
+const searchErrorMessage = ref('');
+const searchLoading = ref(false);
+const activeSearchResult = ref(null);
+const hasActiveSearch = computed(() => Boolean(activeSearchQuery.value));
 
 const normalizedFocusKey = computed(() => {
   const raw = props.focusKey;
@@ -301,6 +328,9 @@ const activeSummary = computed(() => {
 });
 
 const focusSummary = computed(() => {
+  if (hasActiveSearch.value) {
+    return '';
+  }
   if (!activeSummary.value || !activeSummary.value.title) {
     return '';
   }
@@ -326,6 +356,11 @@ watch(
     if (!hasActive) {
       activeHouseId.value = items[0].key;
     }
+    if (!hasActiveSearch.value) {
+      nextTick(() => {
+        focusOnActiveGeometry();
+      });
+    }
   },
   { immediate: true }
 );
@@ -340,7 +375,9 @@ watch(normalizedFocusKey, (value) => {
       activeHouseId.value = value;
     }
     nextTick(() => {
-      focusOnActiveGeometry();
+      if (!hasActiveSearch.value) {
+        focusOnActiveGeometry();
+      }
     });
   }
 });
@@ -363,6 +400,10 @@ const selectHouse = (key) => {
   const normalized = String(key);
   activeHouseId.value = normalized;
   pendingFocusKey.value = normalized;
+  if (hasActiveSearch.value) {
+    addressSearchToken += 1;
+    resetSearchState({ resetQuery: true });
+  }
   nextTick(() => {
     focusOnActiveGeometry();
   });
@@ -557,6 +598,9 @@ const poiLoading = ref(false);
 const poiError = ref('');
 let placeSearchInstance = null;
 let poiSearchToken = 0;
+let addressSearchMarker = null;
+let addressSearchToken = 0;
+let stopSearchWatcher = null;
 
 const removeGaodeScripts = () => {
   if (typeof document === 'undefined') {
@@ -738,6 +782,25 @@ const runNearbySearch = (placeSearch, center) =>
     }
   });
 
+const runKeywordSearch = (placeSearch, keyword) =>
+  new Promise((resolve, reject) => {
+    try {
+      placeSearch.search(keyword, (status, result) => {
+        if (status === 'complete' && result?.poiList?.pois) {
+          resolve(result.poiList.pois);
+          return;
+        }
+        if (status === 'no_data') {
+          resolve([]);
+          return;
+        }
+        reject(new Error(status || 'poi-failed'));
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
 const normalizePoi = (poi) => {
   if (!poi) {
     return null;
@@ -846,6 +909,133 @@ const refreshNearbyPois = async (geometry) => {
   }
 };
 
+const clearAddressSearchMarker = () => {
+  if (addressSearchMarker && typeof addressSearchMarker.setMap === 'function') {
+    addressSearchMarker.setMap(null);
+  }
+  addressSearchMarker = null;
+};
+
+const resetSearchState = ({ resetQuery = false, preservePois = false } = {}) => {
+  clearAddressSearchMarker();
+  if (!preservePois) {
+    clearNearbyPois();
+  }
+  activeSearchResult.value = null;
+  if (resetQuery) {
+    activeSearchQuery.value = '';
+  }
+  searchStatusMessage.value = '';
+  searchErrorMessage.value = '';
+  searchLoading.value = false;
+};
+
+const runAddressSearch = async (keyword) => {
+  const query = typeof keyword === 'string' ? keyword.trim() : '';
+  if (!query) {
+    return;
+  }
+  activeSearchQuery.value = query;
+  const token = ++addressSearchToken;
+  searchLoading.value = true;
+  searchErrorMessage.value = '';
+  searchStatusMessage.value = t('locationViewer.search.searching', { query });
+  try {
+    const map = await ensureMap();
+    const placeSearch = await ensurePlaceSearch();
+    const pois = await runKeywordSearch(placeSearch, query);
+    if (token !== addressSearchToken) {
+      return;
+    }
+    if (!pois.length) {
+      resetSearchState({ preservePois: false });
+      searchErrorMessage.value = t('locationViewer.search.empty', { query });
+      emitViewportChange('search');
+      return;
+    }
+    const poi =
+      pois.find((item) => parsePoiLocation(item.location)) ?? pois[0];
+    const coords = parsePoiLocation(poi.location);
+    if (!coords) {
+      resetSearchState({ preservePois: false });
+      searchErrorMessage.value = t('locationViewer.search.empty', { query });
+      emitViewportChange('search');
+      return;
+    }
+    const name = typeof poi.name === 'string' && poi.name.trim() ? poi.name.trim() : query;
+    const address =
+      typeof poi.address === 'string' && poi.address.trim()
+        ? poi.address.trim()
+        : poi.adname || '';
+    const position = [coords.lng, coords.lat];
+    clearAddressSearchMarker();
+    if (AMapNamespace && map) {
+      try {
+        const shortLabel = name.length > 10 ? `${name.slice(0, 10)}…` : name;
+        addressSearchMarker = new AMapNamespace.Marker({
+          position,
+          anchor: 'bottom-center',
+          offset: new AMapNamespace.Pixel(0, -18),
+          bubble: true,
+          zIndex: 90,
+          content: `<div class="search-marker">${shortLabel}</div>`
+        });
+        addressSearchMarker.on('click', () => {
+          if (infoWindow) {
+            infoWindow.setContent(
+              buildMarkerContent({ title: name, address, price: '' })
+            );
+            infoWindow.open(map, position);
+          }
+        });
+        addressSearchMarker.setMap(map);
+      } catch (error) {
+        console.warn('Failed to render search marker', error);
+      }
+    }
+    try {
+      const currentZoom = map?.getZoom?.();
+      const targetZoom = currentZoom && currentZoom >= 16 ? currentZoom : 16;
+      map?.setZoomAndCenter?.(targetZoom, position, true);
+    } catch (error) {
+      console.warn('Failed to focus search result', error);
+    }
+    if (infoWindow) {
+      infoWindow.setContent(buildMarkerContent({ title: name, address, price: '' }));
+      infoWindow.open(map, position);
+    }
+    activeSearchResult.value = { name, address, coords };
+    searchStatusMessage.value = t('locationViewer.search.success', { name });
+    searchErrorMessage.value = '';
+    refreshNearbyPois({ title: name, address, coords });
+    emitViewportChange('search');
+  } catch (error) {
+    if (token === addressSearchToken) {
+      console.error('Failed to execute Gaode keyword search', error);
+      resetSearchState({ preservePois: false });
+      searchErrorMessage.value = t('locationViewer.search.error');
+      searchStatusMessage.value = '';
+    }
+  } finally {
+    if (token === addressSearchToken) {
+      searchLoading.value = false;
+    }
+  }
+};
+
+const handleSearchKeywordChange = (value) => {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) {
+    addressSearchToken += 1;
+    resetSearchState({ resetQuery: true });
+    nextTick(() => {
+      focusOnActiveGeometry();
+    });
+    return;
+  }
+  runAddressSearch(trimmed);
+};
+
 const ensureMapResized = () => {
   if (typeof window === 'undefined') {
     return;
@@ -933,6 +1123,8 @@ const ensureMap = async () => {
 };
 
 const destroyMap = () => {
+  resetSearchState({ resetQuery: true });
+  addressSearchToken = 0;
   clearPoiMarkers();
   nearbyPois.value = [];
   poiError.value = '';
@@ -991,6 +1183,9 @@ const highlightActiveMarker = () => {
 };
 
 const focusOnActiveGeometry = () => {
+  if (hasActiveSearch.value) {
+    return;
+  }
   if (!gaodeMap || !latestGeometries.value.length) {
     return;
   }
@@ -1058,7 +1253,9 @@ const renderMarkers = () => {
     updateMarkerAppearance(marker, geometry.id === activeId);
   });
   highlightActiveMarker();
-  focusOnActiveGeometry();
+  if (!hasActiveSearch.value) {
+    focusOnActiveGeometry();
+  }
 };
 
 const computeViewportPayload = (source = 'auto') => {
@@ -1293,6 +1490,13 @@ watch(
 
 onMounted(() => {
   isMounted.value = true;
+  stopSearchWatcher = watch(
+    searchKeyword,
+    (value) => {
+      handleSearchKeywordChange(value);
+    },
+    { immediate: true }
+  );
   nextTick(() => {
     startResizeObserver();
     updateMapMarkers();
@@ -1303,6 +1507,10 @@ onBeforeUnmount(() => {
   latestGeometries.value = [];
   destroyMap();
   lastViewportPayload = null;
+  if (typeof stopSearchWatcher === 'function') {
+    stopSearchWatcher();
+    stopSearchWatcher = null;
+  }
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
@@ -1493,6 +1701,26 @@ onBeforeUnmount(() => {
   color: color-mix(in srgb, var(--color-text-soft) 70%, var(--color-accent) 30%);
 }
 
+.search-status {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.search-status.error {
+  color: var(--color-danger-strong);
+  font-weight: 600;
+}
+
+.search-status.loading {
+  color: color-mix(in srgb, var(--color-accent) 65%, var(--color-text-muted) 35%);
+}
+
+.search-status.result {
+  color: color-mix(in srgb, var(--color-text-soft) 80%, var(--color-accent) 20%);
+  font-size: 0.82rem;
+}
+
 .poi-panel {
   display: flex;
   flex-direction: column;
@@ -1572,6 +1800,20 @@ onBeforeUnmount(() => {
   font-weight: 600;
   white-space: nowrap;
   box-shadow: var(--shadow-sm);
+}
+
+.search-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 92%, transparent);
+  color: var(--color-text-on-emphasis);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
 }
 
 .poi-popup {

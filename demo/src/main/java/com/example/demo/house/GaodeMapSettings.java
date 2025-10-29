@@ -1,11 +1,10 @@
 package com.example.demo.house;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.Optional;
 
-@Component
+@ConfigurationProperties(prefix = "gaode.api")
 public class GaodeMapSettings {
 
     private static final String DEFAULT_KEY = "46dff0d2a8f9204d4642f8dd91e10daf";
@@ -13,11 +12,8 @@ public class GaodeMapSettings {
     private final String apiKey;
     private final String jsSecurityCode;
 
-    public GaodeMapSettings(
-            @Value("${gaode.api.key:}") String apiKey,
-            @Value("${gaode.api.js-security-code:}") String jsSecurityCode
-    ) {
-        String resolvedKey = apiKey == null ? "" : apiKey.trim();
+    public GaodeMapSettings(String key, String jsSecurityCode) {
+        String resolvedKey = key == null ? "" : key.trim();
         if (resolvedKey.isBlank()) {
             resolvedKey = DEFAULT_KEY;
         }

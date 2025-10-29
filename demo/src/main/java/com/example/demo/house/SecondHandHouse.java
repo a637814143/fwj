@@ -74,9 +74,6 @@ public class SecondHandHouse {
     @Column(name = "listing_date", nullable = false)
     private LocalDate listingDate;
 
-    @Column(name = "property_certificate_url", nullable = false, length = 500)
-    private String propertyCertificateUrl;
-
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "second_hand_house_images", joinColumns = @JoinColumn(name = "house_id"))
     @Column(name = "image_url", length = 500)
@@ -250,18 +247,6 @@ public class SecondHandHouse {
 
     public void setImageUrls(List<String> imageUrls) {
         this.imageUrls = imageUrls == null ? new ArrayList<>() : new ArrayList<>(imageUrls);
-    }
-
-    public String getPropertyCertificateUrl() {
-        return propertyCertificateUrl;
-    }
-
-    public void setPropertyCertificateUrl(String propertyCertificateUrl) {
-        if (propertyCertificateUrl == null) {
-            this.propertyCertificateUrl = null;
-            return;
-        }
-        this.propertyCertificateUrl = propertyCertificateUrl.trim();
     }
 
     public List<String> getKeywords() {

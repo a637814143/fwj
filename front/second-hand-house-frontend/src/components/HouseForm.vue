@@ -37,33 +37,6 @@
       </label>
 
       <label>
-        {{ t('manage.form.fields.latitude') }}
-        <input
-          v-model="form.latitude"
-          type="number"
-          step="0.000001"
-          min="-90"
-          max="90"
-          :placeholder="t('manage.form.placeholders.latitude')"
-          :disabled="disabled"
-        />
-        <small class="hint">{{ t('manage.form.hints.locationHint') }}</small>
-      </label>
-
-      <label>
-        {{ t('manage.form.fields.longitude') }}
-        <input
-          v-model="form.longitude"
-          type="number"
-          step="0.000001"
-          min="-180"
-          max="180"
-          :placeholder="t('manage.form.placeholders.longitude')"
-          :disabled="disabled"
-        />
-      </label>
-
-      <label>
         {{ t('manage.form.fields.price') }}
         <input
           v-model.number="form.price"
@@ -180,6 +153,7 @@
           :disabled="disabled"
         />
       </label>
+
     </div>
 
     <label class="block">
@@ -244,6 +218,14 @@
     <p v-if="formError" class="error">{{ formError }}</p>
 
     <div class="actions">
+      <button
+        class="btn secondary"
+        type="button"
+        :disabled="disabled"
+        @click="submitForm({ draft: true })"
+      >
+        {{ t('manage.form.actions.saveDraft') }}
+      </button>
       <button class="btn primary" type="submit" :disabled="disabled">
         {{
           loading
@@ -305,6 +287,7 @@ const translate = inject('translate', (key, vars) => {
 const t = (key, vars) => translate(key, vars);
 
 const listingStatusLabels = computed(() => ({
+  DRAFT: t('statuses.draft'),
   PENDING_REVIEW: t('statuses.pending'),
   APPROVED: t('statuses.approved'),
   REJECTED: t('statuses.rejected'),
@@ -387,8 +370,6 @@ const resolveAssetUrl = (raw) => {
 const form = reactive({
   title: '',
   address: '',
-  latitude: '',
-  longitude: '',
   price: '',
   downPayment: '',
   area: '',
@@ -425,6 +406,8 @@ const statusLabel = computed(
 );
 const statusClass = computed(() => {
   switch (props.initialHouse?.status) {
+    case 'DRAFT':
+      return 'status draft';
     case 'APPROVED':
       return 'status approved';
     case 'REJECTED':
@@ -551,8 +534,6 @@ const applyImageUrls = (images = []) => {
 const setFormDefaults = () => {
   form.title = '';
   form.address = '';
-  form.latitude = '';
-  form.longitude = '';
   form.price = '';
   form.downPayment = '';
   form.area = '';
@@ -574,8 +555,6 @@ const setFormDefaults = () => {
 const fillFromHouse = (house) => {
   form.title = house.title ?? '';
   form.address = house.address ?? '';
-  form.latitude = house.latitude ?? '';
-  form.longitude = house.longitude ?? '';
   form.price = house.price ?? '';
   form.downPayment = house.downPayment ?? '';
   form.area = house.area ?? '';
@@ -752,7 +731,7 @@ const removeImage = (index) => {
   form.imageUrls.splice(index, 1);
 };
 
-const validateForm = () => {
+const validateForm = ({ draft = false } = {}) => {
   if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
     formError.value = t('manage.form.validation.required');
     return false;
@@ -794,26 +773,6 @@ const validateForm = () => {
     formError.value = t('manage.form.validation.installmentMonths');
     return false;
   }
-  const hasLatitude = form.latitude !== '' && form.latitude != null;
-  const hasLongitude = form.longitude !== '' && form.longitude != null;
-  if (hasLatitude !== hasLongitude) {
-    formError.value = t('manage.form.validation.coordinatePair');
-    return false;
-  }
-  if (hasLatitude) {
-    const latitude = Number(form.latitude);
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-      formError.value = t('manage.form.validation.latitudeRange');
-      return false;
-    }
-  }
-  if (hasLongitude) {
-    const longitude = Number(form.longitude);
-    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      formError.value = t('manage.form.validation.longitudeRange');
-      return false;
-    }
-  }
   formError.value = '';
   return true;
 };
@@ -826,18 +785,19 @@ const normalizeNumber = (value) => {
   return Number.isFinite(num) ? num : null;
 };
 
-const submitForm = () => {
+const submitForm = (maybeOptions) => {
+  const options =
+    maybeOptions && typeof maybeOptions === 'object' && 'draft' in maybeOptions ? maybeOptions : { draft: false };
+  const draft = Boolean(options.draft);
   if (disabled.value) {
     return;
   }
-  if (!validateForm()) {
+  if (!validateForm({ draft })) {
     return;
   }
   const payload = {
     title: form.title.trim(),
     address: form.address.trim(),
-    latitude: normalizeNumber(form.latitude),
-    longitude: normalizeNumber(form.longitude),
     price: normalizeNumber(form.price),
     downPayment: normalizeNumber(form.downPayment),
     area: normalizeNumber(form.area),
@@ -852,7 +812,7 @@ const submitForm = () => {
     installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
     installmentMonths: normalizeNumber(form.installmentMonths)
   };
-  emit('submit', payload);
+  emit('submit', { payload, draft });
 };
 
 const cancelEdit = () => {
@@ -910,6 +870,11 @@ const cancelEdit = () => {
   color: #166534;
 }
 
+.status-indicator.status.draft {
+  background: rgba(191, 219, 254, 0.3);
+  color: #1d4ed8;
+}
+
 .status-indicator.status.pending {
   background: rgba(250, 204, 21, 0.18);
   color: #92400e;
@@ -928,6 +893,11 @@ const cancelEdit = () => {
 :global(body[data-theme='dark']) :deep(.status-indicator.status.approved) {
   background: rgba(74, 222, 128, 0.18);
   color: #bbf7d0;
+}
+
+:global(body[data-theme='dark']) :deep(.status-indicator.status.draft) {
+  background: rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
 }
 
 :global(body[data-theme='dark']) :deep(.status-indicator.status.pending) {
@@ -1098,6 +1068,12 @@ textarea:focus {
   box-shadow: 0 18px 35px rgba(37, 99, 235, 0.28);
 }
 
+.btn.secondary {
+  background: rgba(219, 234, 254, 0.85);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
 .btn.ghost {
   background: transparent;
   color: var(--color-text-strong);
@@ -1114,6 +1090,12 @@ textarea:focus {
   background: rgba(254, 226, 226, 0.9);
   color: #b91c1c;
   padding: 0.45rem 0.95rem;
+}
+
+:global(body[data-theme='dark']) :deep(.btn.secondary) {
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.6);
 }
 
 .btn:disabled {

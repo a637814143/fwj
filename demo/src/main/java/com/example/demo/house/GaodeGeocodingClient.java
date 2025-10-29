@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,6 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GaodeGeocodingClient {
 
     private static final Logger log = LoggerFactory.getLogger(GaodeGeocodingClient.class);
+
+    private static final double CHINA_LAT_MIN = 17.0d;
+    private static final double CHINA_LAT_MAX = 54.5d;
+    private static final double CHINA_LNG_MIN = 73.0d;
+    private static final double CHINA_LNG_MAX = 136.5d;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -87,6 +94,10 @@ public class GaodeGeocodingClient {
             if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
                 return Optional.empty();
             }
+            if (!isWithinChina(lat, lng)) {
+                log.debug("Gaode geocode returned coordinate outside China bounds lat {} lng {} for {}", lat, lng, address);
+                return Optional.empty();
+            }
             return Optional.of(new Coordinate(lat, lng));
         } catch (Exception ex) {
             log.warn("Gaode geocode request failed for address {}: {}", address, ex.getMessage());
@@ -107,6 +118,52 @@ public class GaodeGeocodingClient {
     }
 
     private Optional<PlaceSuggestion> fetchPlace(String keyword, String cityHint) {
+        List<String> cityCandidates = buildCityCandidates(cityHint);
+
+        for (String candidate : cityCandidates) {
+            Optional<PlaceSuggestion> result = requestPlace(keyword, candidate, true);
+            if (result.isPresent()) {
+                return result;
+            }
+        }
+
+        for (String candidate : cityCandidates) {
+            Optional<PlaceSuggestion> result = requestPlace(keyword, candidate, false);
+            if (result.isPresent()) {
+                return result;
+            }
+        }
+
+        Optional<PlaceSuggestion> nationwideResult = requestPlace(keyword, null, false);
+        if (nationwideResult.isPresent()) {
+            return nationwideResult;
+        }
+
+        return geocodeFallback(keyword, cityCandidates);
+    }
+
+    private List<String> buildCityCandidates(String cityHint) {
+        List<String> candidates = new ArrayList<>();
+        if (cityHint == null) {
+            return candidates;
+        }
+        String trimmed = cityHint.trim();
+        if (trimmed.isEmpty()) {
+            return candidates;
+        }
+        String normalized = normalizeCityQuery(trimmed);
+        if (!normalized.isBlank()) {
+            candidates.add(normalized);
+        }
+        if (!trimmed.equals(normalized)) {
+            candidates.add(trimmed);
+        } else if (!candidates.contains(trimmed)) {
+            candidates.add(trimmed);
+        }
+        return candidates;
+    }
+
+    private Optional<PlaceSuggestion> requestPlace(String keyword, String city, boolean limitToCity) {
         try {
             RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
                 uriBuilder.path("/place/text")
@@ -114,10 +171,13 @@ public class GaodeGeocodingClient {
                         .queryParam("keywords", keyword)
                         .queryParam("page", 1)
                         .queryParam("offset", 20)
-                        .queryParam("output", "JSON");
-                if (cityHint != null && !cityHint.isBlank()) {
-                    uriBuilder.queryParam("city", normalizeCityQuery(cityHint));
-                    uriBuilder.queryParam("citylimit", true);
+                        .queryParam("output", "JSON")
+                        .queryParam("language", "zh_cn");
+                if (city != null && !city.isBlank()) {
+                    uriBuilder.queryParam("city", city);
+                    if (limitToCity) {
+                        uriBuilder.queryParam("citylimit", true);
+                    }
                 }
                 return uriBuilder.build();
             });
@@ -136,37 +196,66 @@ public class GaodeGeocodingClient {
             if (!pois.isArray() || pois.isEmpty()) {
                 return Optional.empty();
             }
-            JsonNode first = pois.get(0);
-            String location = first.path("location").asText();
-            if (location == null || location.isBlank() || !location.contains(",")) {
-                return Optional.empty();
+            for (JsonNode poi : pois) {
+                String location = poi.path("location").asText();
+                if (location == null || location.isBlank() || !location.contains(",")) {
+                    continue;
+                }
+                String[] parts = location.split(",");
+                if (parts.length != 2) {
+                    continue;
+                }
+                double lng = Double.parseDouble(parts[0]);
+                double lat = Double.parseDouble(parts[1]);
+                if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
+                    continue;
+                }
+                if (!isWithinChina(lat, lng)) {
+                    log.debug("Gaode place search returned coordinate outside China bounds lat {} lng {} for keyword {}", lat, lng,
+                            keyword);
+                    continue;
+                }
+                String name = poi.path("name").asText(null);
+                String address = poi.path("address").asText(null);
+                if (address == null || address.isBlank()) {
+                    String province = poi.path("pname").asText("");
+                    String cityName = poi.path("cityname").asText("");
+                    String adName = poi.path("adname").asText("");
+                    address = String.join("",
+                            province == null ? "" : province,
+                            cityName == null ? "" : cityName,
+                            adName == null ? "" : adName,
+                            poi.path("address").asText(""));
+                }
+                if (address == null || address.isBlank()) {
+                    address = keyword;
+                }
+                if (name == null || name.isBlank()) {
+                    name = keyword;
+                }
+                return Optional.of(new PlaceSuggestion(name, address, lat, lng));
             }
-            String[] parts = location.split(",");
-            if (parts.length != 2) {
-                return Optional.empty();
-            }
-            double lng = Double.parseDouble(parts[0]);
-            double lat = Double.parseDouble(parts[1]);
-            if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
-                return Optional.empty();
-            }
-            String name = first.path("name").asText(null);
-            String address = first.path("address").asText(null);
-            if (address == null || address.isBlank()) {
-                String province = first.path("pname").asText("");
-                String city = first.path("cityname").asText("");
-                String adName = first.path("adname").asText("");
-                address = String.join("",
-                        province == null ? "" : province,
-                        city == null ? "" : city,
-                        adName == null ? "" : adName,
-                        first.path("address").asText(""));
-            }
-            return Optional.of(new PlaceSuggestion(name, address, lat, lng));
+            return Optional.empty();
         } catch (Exception ex) {
             log.warn("Gaode place search failed for keyword {}: {}", keyword, ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    private Optional<PlaceSuggestion> geocodeFallback(String keyword, List<String> cityCandidates) {
+        for (String candidate : cityCandidates) {
+            Optional<Coordinate> coordinate = geocode(keyword, candidate);
+            if (coordinate.isPresent()) {
+                Coordinate value = coordinate.get();
+                return Optional.of(new PlaceSuggestion(keyword, keyword, value.latitude(), value.longitude()));
+            }
+        }
+        Optional<Coordinate> fallback = geocode(keyword, null);
+        if (fallback.isPresent()) {
+            Coordinate value = fallback.get();
+            return Optional.of(new PlaceSuggestion(keyword, keyword, value.latitude(), value.longitude()));
+        }
+        return Optional.empty();
     }
 
     private String normalizeCityQuery(String cityHint) {
@@ -176,6 +265,13 @@ public class GaodeGeocodingClient {
             sanitized = sanitized.substring(0, sanitized.length() - 1);
         }
         return sanitized;
+    }
+
+    private boolean isWithinChina(double latitude, double longitude) {
+        return latitude >= CHINA_LAT_MIN
+                && latitude <= CHINA_LAT_MAX
+                && longitude >= CHINA_LNG_MIN
+                && longitude <= CHINA_LNG_MAX;
     }
 
     public record Coordinate(double latitude, double longitude) {

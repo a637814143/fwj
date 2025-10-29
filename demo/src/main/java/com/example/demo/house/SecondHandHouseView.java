@@ -26,7 +26,6 @@ public record SecondHandHouseView(
         LocalDate listingDate,
         List<String> imageUrls,
         List<String> keywords,
-        String propertyCertificateUrl,
         ListingStatus status,
         String reviewedBy,
         String reviewMessage,
@@ -52,7 +51,6 @@ public record SecondHandHouseView(
         String contactNumber = maskSensitive ? MaskingUtils.maskPhoneNumber(house.getContactNumber()) : house.getContactNumber();
         List<String> images = house.getImageUrls() == null ? List.of() : List.copyOf(house.getImageUrls());
         List<String> keywords = house.getKeywords() == null ? List.of() : List.copyOf(house.getKeywords());
-        String certificateUrl = maskSensitive ? null : house.getPropertyCertificateUrl();
         return new SecondHandHouseView(
                 house.getId(),
                 house.getTitle(),
@@ -71,7 +69,6 @@ public record SecondHandHouseView(
                 house.getListingDate(),
                 Collections.unmodifiableList(images),
                 Collections.unmodifiableList(keywords),
-                certificateUrl,
                 house.getStatus(),
                 house.getReviewedBy(),
                 house.getReviewMessage(),

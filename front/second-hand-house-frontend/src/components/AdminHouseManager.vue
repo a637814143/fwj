@@ -25,6 +25,7 @@
         <span>{{ t('adminManage.filters.status') }}</span>
         <select v-model="filters.status">
           <option value="">{{ t('adminManage.filters.statusAll') }}</option>
+          <option value="DRAFT">{{ t('statuses.draft') }}</option>
           <option value="PENDING_REVIEW">{{ t('statuses.pending') }}</option>
           <option value="APPROVED">{{ t('statuses.approved') }}</option>
           <option value="REJECTED">{{ t('statuses.rejected') }}</option>
@@ -349,7 +350,7 @@ const requestDelete = (house) => {
   font-weight: 600;
 }
 
-.status {
+.status { 
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -358,6 +359,11 @@ const requestDelete = (house) => {
   font-size: 0.85rem;
   background: color-mix(in srgb, var(--color-surface) 75%, transparent);
   color: var(--color-text-strong);
+}
+
+.status.DRAFT {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .status.APPROVED {

@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import com.example.demo.house.ListingStatus;
+
 public record SecondHandHouseRequest(
         @NotBlank(message = "标题不能为空") String title,
         @NotBlank(message = "地址不能为空") String address,
@@ -38,7 +40,7 @@ public record SecondHandHouseRequest(
         @PositiveOrZero(message = "楼层不能为负数") Integer floor,
         List<String> keywords,
         List<String> imageUrls,
-        @Size(max = 500, message = "证件链接长度不能超过500个字符") String propertyCertificateUrl
+        Boolean saveAsDraft
 ) {
     private static final BigDecimal PREMIUM_RATE = BigDecimal.valueOf(1.2);
 
@@ -104,7 +106,7 @@ public record SecondHandHouseRequest(
         house.setFloor(floor);
         house.setKeywords(sanitizeKeywords(keywords));
         house.setImageUrls(sanitizeImageUrls(imageUrls));
-        house.setPropertyCertificateUrl(sanitizeCertificateUrl(propertyCertificateUrl));
+        house.setStatus(Boolean.TRUE.equals(saveAsDraft) ? ListingStatus.DRAFT : ListingStatus.PENDING_REVIEW);
         return house;
     }
 
@@ -134,11 +136,4 @@ public record SecondHandHouseRequest(
         return scaled;
     }
 
-    private static String sanitizeCertificateUrl(String certificateUrl) {
-        if (certificateUrl == null) {
-            return null;
-        }
-        String trimmed = certificateUrl.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
 }

@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -30,6 +31,11 @@ import java.util.regex.Pattern;
 public class SecondHandHouseService {
 
     private static final Logger log = LoggerFactory.getLogger(SecondHandHouseService.class);
+
+    private static final double CHINA_LAT_MIN = 17.0d;
+    private static final double CHINA_LAT_MAX = 54.5d;
+    private static final double CHINA_LNG_MIN = 73.0d;
+    private static final double CHINA_LNG_MAX = 136.5d;
 
     private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
     private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
@@ -90,20 +96,30 @@ public class SecondHandHouseService {
 
     public SecondHandHouse create(SecondHandHouse house) {
         validateSellerAccount(house.getSellerUsername());
-        ensureNotDuplicate(house, null);
-        ensureCertificateProvided(house);
+        ListingStatus targetStatus = resolveTargetStatus(house.getStatus());
+        if (targetStatus != ListingStatus.DRAFT) {
+            ensureNotDuplicate(house, null);
+        }
         house.setId(null);
-        house.setStatus(ListingStatus.PENDING_REVIEW);
+        house.setStatus(targetStatus);
         house.setReviewedAt(null);
         house.setReviewedBy(null);
         house.setReviewMessage(null);
+        ensureCoordinates(house, !hasCoordinates(house));
         return repository.save(house);
     }
 
     public SecondHandHouse update(Long id, SecondHandHouse updatedHouse) {
         SecondHandHouse existing = findById(id);
         validateSellerAccount(updatedHouse.getSellerUsername());
-        ensureNotDuplicate(updatedHouse, id);
+        ListingStatus targetStatus = resolveTargetStatus(updatedHouse.getStatus());
+        if (targetStatus != ListingStatus.DRAFT) {
+            ensureNotDuplicate(updatedHouse, id);
+        }
+        String previousAddress = existing.getAddress();
+        String nextAddress = updatedHouse.getAddress();
+        boolean addressChanged = !Objects.equals(normalize(previousAddress), normalize(nextAddress));
+        boolean newCoordinatesProvided = hasCoordinates(updatedHouse);
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
@@ -121,9 +137,9 @@ public class SecondHandHouseService {
         existing.setFloor(updatedHouse.getFloor());
         existing.setKeywords(updatedHouse.getKeywords());
         existing.setImageUrls(updatedHouse.getImageUrls());
-        ensureCertificateProvided(updatedHouse);
-        existing.setPropertyCertificateUrl(updatedHouse.getPropertyCertificateUrl());
-        existing.setStatus(ListingStatus.PENDING_REVIEW);
+        boolean shouldRefreshCoordinates = addressChanged ? !newCoordinatesProvided : !hasCoordinates(existing);
+        ensureCoordinates(existing, shouldRefreshCoordinates);
+        existing.setStatus(targetStatus);
         existing.setReviewedAt(null);
         existing.setReviewedBy(null);
         existing.setReviewMessage(null);
@@ -136,15 +152,15 @@ public class SecondHandHouseService {
                                                  Double radiusKm,
                                                  String requesterUsername) {
         UserAccount requester = resolveRequester(requesterUsername);
-        Double sanitizedLat = sanitizeCoordinate(centerLat, -90d, 90d);
-        Double sanitizedLng = sanitizeCoordinate(centerLng, -180d, 180d);
+        Double sanitizedLat = sanitizeCoordinate(centerLat, CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double sanitizedLng = sanitizeCoordinate(centerLng, CHINA_LNG_MIN, CHINA_LNG_MAX);
         Double sanitizedRadius = radiusKm != null && Double.isFinite(radiusKm) && radiusKm > 0
                 ? radiusKm
                 : null;
         List<HouseLocationView> locations = repository.findAll().stream()
                 .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
                 .filter(house -> isVisibleToRequester(house, requester))
-                .map(HouseLocationView::fromEntity)
+                .map(this::buildLocationView)
                 .filter(Objects::nonNull)
                 .toList();
         if (sanitizedLat != null && sanitizedLng != null) {
@@ -312,11 +328,16 @@ public class SecondHandHouseService {
     }
 
     private boolean hasCoordinates(SecondHandHouse house) {
-        return house != null
-                && house.getLatitude() != null
-                && house.getLongitude() != null
-                && Double.isFinite(house.getLatitude())
-                && Double.isFinite(house.getLongitude());
+        if (house == null) {
+            return false;
+        }
+        Double latitude = house.getLatitude();
+        Double longitude = house.getLongitude();
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && isCoordinateWithinChina(latitude, longitude);
     }
 
     private boolean hasMappableAddress(SecondHandHouse house) {
@@ -327,21 +348,158 @@ public class SecondHandHouseService {
         return address != null && !address.trim().isEmpty();
     }
 
+    private void ensureCoordinates(SecondHandHouse house, boolean requireFreshLookup) {
+        if (house == null) {
+            return;
+        }
+        if (!requireFreshLookup && hasCoordinates(house)) {
+            return;
+        }
+        if (!hasMappableAddress(house)) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        if (!geocodingClient.isEnabled()) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        String address = house.getAddress();
+        String cityHint = resolveCityHint(address);
+        Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, cityHint);
+        if (coordinate.isEmpty()) {
+            coordinate = geocodingClient.searchPlace(address, cityHint)
+                    .map(place -> new GaodeGeocodingClient.Coordinate(place.latitude(), place.longitude()));
+        }
+        if (coordinate.isEmpty()) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        Double latitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double longitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+            if (requireFreshLookup) {
+                house.setLatitude(null);
+                house.setLongitude(null);
+            }
+            return;
+        }
+        house.setLatitude(latitude);
+        house.setLongitude(longitude);
+    }
+
+    private HouseLocationView buildLocationView(SecondHandHouse house) {
+        if (house == null) {
+            return null;
+        }
+        Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+        if ((latitude == null || longitude == null) && hasMappableAddress(house) && geocodingClient.isEnabled()) {
+            Optional<GaodeGeocodingClient.Coordinate> coordinate =
+                    geocodingClient.geocode(house.getAddress(), resolveCityHint(house.getAddress()));
+            if (coordinate.isPresent()) {
+                Double lookedUpLatitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+                Double lookedUpLongitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+                if (lookedUpLatitude != null && lookedUpLongitude != null
+                        && isCoordinateWithinChina(lookedUpLatitude, lookedUpLongitude)) {
+                    latitude = lookedUpLatitude;
+                    longitude = lookedUpLongitude;
+                }
+            }
+        }
+        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+            latitude = null;
+            longitude = null;
+        }
+        return new HouseLocationView(
+                house.getId(),
+                house.getTitle(),
+                house.getAddress(),
+                house.getPrice(),
+                house.getStatus(),
+                latitude,
+                longitude,
+                house.getUpdatedAt()
+        );
+    }
+
     public Optional<GaodeGeocodingClient.PlaceSuggestion> searchMapLocation(String query, String cityHint) {
         if (query == null || query.isBlank()) {
             return Optional.empty();
         }
-        String candidate = (cityHint == null || cityHint.isBlank()) ? resolveCityHint(query) : cityHint.trim();
-        String effectiveCity = candidate == null ? null : sanitizeAdministrativeName(candidate);
-        return geocodingClient.searchPlace(query, effectiveCity);
+        String normalizedQuery = normalize(query);
+        Optional<GaodeGeocodingClient.PlaceSuggestion> storedCoordinate = repository.findAll().stream()
+                .filter(house -> normalize(house.getAddress()).equals(normalizedQuery))
+                .map(house -> {
+                    Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+                    Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+                    if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+                        return null;
+                    }
+                    String name = house.getTitle() == null || house.getTitle().isBlank()
+                            ? query
+                            : house.getTitle();
+                    String address = house.getAddress() == null || house.getAddress().isBlank()
+                            ? query
+                            : house.getAddress();
+                    return new GaodeGeocodingClient.PlaceSuggestion(name, address, latitude, longitude);
+                })
+                .filter(Objects::nonNull)
+                .findFirst();
+        if (storedCoordinate.isPresent()) {
+            return storedCoordinate;
+        }
+
+        List<String> queryCandidates = buildQueryCandidates(query);
+        for (String candidateQuery : queryCandidates) {
+            String effectiveCityCandidate = (cityHint == null || cityHint.isBlank())
+                    ? resolveCityHint(candidateQuery)
+                    : cityHint.trim();
+            String effectiveCity = effectiveCityCandidate == null
+                    ? null
+                    : sanitizeAdministrativeName(effectiveCityCandidate);
+            Optional<GaodeGeocodingClient.PlaceSuggestion> placeSuggestion = geocodingClient.searchPlace(candidateQuery, effectiveCity)
+                    .filter(place -> isCoordinateWithinChina(place.latitude(), place.longitude()));
+            if (placeSuggestion.isPresent()) {
+                return placeSuggestion;
+            }
+            Optional<GaodeGeocodingClient.Coordinate> geocoded = geocodingClient.geocode(candidateQuery, effectiveCity);
+            if (geocoded.isPresent()) {
+                double lat = geocoded.get().latitude();
+                double lng = geocoded.get().longitude();
+                if (isCoordinateWithinChina(lat, lng)) {
+                    return Optional.of(new GaodeGeocodingClient.PlaceSuggestion(
+                            candidateQuery,
+                            candidateQuery,
+                            lat,
+                            lng
+                    ));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
+
     private boolean hasCoordinates(HouseLocationView view) {
-        return view != null
-                && view.latitude() != null
-                && view.longitude() != null
-                && Double.isFinite(view.latitude())
-                && Double.isFinite(view.longitude());
+        if (view == null) {
+            return false;
+        }
+        Double latitude = view.latitude();
+        Double longitude = view.longitude();
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && isCoordinateWithinChina(latitude, longitude);
     }
 
     private boolean isWithinRadius(HouseLocationView view,
@@ -356,6 +514,47 @@ public class SecondHandHouseService {
         }
         double distance = haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
         return distance <= radiusKm;
+    }
+
+    private List<String> buildQueryCandidates(String query) {
+        if (query == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String trimmed = query.trim();
+        addCandidate(candidates, trimmed);
+        addCandidate(candidates, trimmed.replaceAll("\\s+", ""));
+        String withoutParentheses = trimmed.replaceAll("（.*?）", "").replaceAll("\\(.*?\\)", "");
+        addCandidate(candidates, withoutParentheses);
+        for (String delimiter : new String[]{"，", ",", "。", " "}) {
+            int index = trimmed.indexOf(delimiter);
+            if (index > 3) {
+                addCandidate(candidates, trimmed.substring(0, index));
+            }
+        }
+        int haoIndex = trimmed.indexOf('号');
+        if (haoIndex > 3) {
+            addCandidate(candidates, trimmed.substring(0, haoIndex + 1));
+        }
+        int hashIndex = trimmed.indexOf('#');
+        if (hashIndex > 3) {
+            addCandidate(candidates, trimmed.substring(0, hashIndex));
+        }
+        return candidates.stream()
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
+    }
+
+    private void addCandidate(LinkedHashSet<String> candidates, String value) {
+        if (value == null) {
+            return;
+        }
+        String candidate = value.trim();
+        if (candidate.isEmpty()) {
+            return;
+        }
+        candidates.add(candidate);
     }
 
     private String resolveCityHint(String address) {
@@ -414,6 +613,13 @@ public class SecondHandHouseService {
         return haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
     }
 
+    private boolean isCoordinateWithinChina(double latitude, double longitude) {
+        return latitude >= CHINA_LAT_MIN
+                && latitude <= CHINA_LAT_MAX
+                && longitude >= CHINA_LNG_MIN
+                && longitude <= CHINA_LNG_MAX;
+    }
+
     private Double sanitizeCoordinate(Double value, double min, double max) {
         if (value == null) {
             return null;
@@ -446,6 +652,9 @@ public class SecondHandHouseService {
         if (house.getSellerUsername() == null || house.getSellerUsername().isBlank()) {
             return;
         }
+        if (house.getStatus() == ListingStatus.DRAFT) {
+            return;
+        }
         String normalizedTitle = normalize(house.getTitle());
         String normalizedAddress = normalize(house.getAddress());
         if (normalizedTitle.isEmpty() || normalizedAddress.isEmpty()) {
@@ -462,21 +671,11 @@ public class SecondHandHouseService {
         }
     }
 
-    private void ensureCertificateProvided(SecondHandHouse house) {
-        String certificateUrl = house.getPropertyCertificateUrl();
-        if (certificateUrl == null) {
-            house.setPropertyCertificateUrl(null);
-            return;
+    private ListingStatus resolveTargetStatus(ListingStatus requestedStatus) {
+        if (requestedStatus == ListingStatus.DRAFT) {
+            return ListingStatus.DRAFT;
         }
-        String trimmed = certificateUrl.trim();
-        if (trimmed.isEmpty()) {
-            house.setPropertyCertificateUrl(null);
-            return;
-        }
-        if (trimmed.length() > 500) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房产证件链接长度超出限制");
-        }
-        house.setPropertyCertificateUrl(trimmed);
+        return ListingStatus.PENDING_REVIEW;
     }
 
     private String normalize(String value) {

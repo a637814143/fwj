@@ -41,6 +41,60 @@
             <p v-if="activeHouse.priceLabel" class="price">{{ activeHouse.priceLabel }}</p>
           </div>
 
+          <div class="manual-search" role="group" :aria-label="t('locationViewer.search.label')">
+            <label class="manual-search-label" :for="`map-search-input-${activeHouse.key}`">
+              {{ t('locationViewer.search.label') }}
+            </label>
+            <div class="manual-search-controls">
+              <input
+                :id="`map-search-input-${activeHouse.key}`"
+                v-model="manualSearchQuery"
+                type="text"
+                :placeholder="t('locationViewer.search.placeholder')"
+                :disabled="manualSearchLoading"
+                @keyup.enter="handleManualSearch"
+              />
+              <button
+                type="button"
+                :disabled="manualSearchLoading"
+                @click="handleManualSearch"
+              >
+                {{ manualSearchLoading ? t('locationViewer.search.searching') : t('locationViewer.search.action') }}
+              </button>
+            </div>
+            <p class="manual-search-hint">{{ t('locationViewer.search.hint') }}</p>
+            <p
+              v-if="manualSearchMessage"
+              :class="['manual-search-status', manualSearchMessageType]"
+              role="status"
+            >
+              {{ manualSearchMessage }}
+            </p>
+            <div v-if="manualSearchSuggestions.length" class="manual-search-suggestions">
+              <p class="manual-search-suggestions-title">{{ t('locationViewer.search.suggestionsTitle') }}</p>
+              <ul>
+                <li
+                  v-for="suggestion in manualSearchSuggestions"
+                  :key="suggestion.id"
+                  class="manual-search-suggestion"
+                >
+                  <button
+                    type="button"
+                    class="suggestion-action"
+                    :disabled="manualSearchLoading || mapLoading"
+                    @click="applyManualSuggestion(suggestion)"
+                  >
+                    {{ t('locationViewer.search.suggestionsApply') }}
+                  </button>
+                  <div class="suggestion-text">
+                    <p class="name">{{ suggestion.name }}</p>
+                    <p class="address">{{ suggestion.address }}</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <div class="map-wrapper">
             <div ref="mapContainerRef" class="map-container"></div>
             <div v-if="mapLoading" class="map-overlay">
@@ -87,16 +141,6 @@
 
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-const markerIcons = {
-  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).toString(),
-  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).toString(),
-  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).toString()
-};
-
-L.Icon.Default.mergeOptions(markerIcons);
 
 const props = defineProps({
   houses: {
@@ -207,6 +251,11 @@ const mapContainerRef = ref(null);
 const mapLoading = ref(false);
 const mapError = ref('');
 const activeLocation = ref(null);
+const manualSearchQuery = ref('');
+const manualSearchMessage = ref('');
+const manualSearchMessageType = ref('info');
+const manualSearchLoading = ref(false);
+const manualSearchSuggestions = ref([]);
 
 const CHINA_BOUNDS = Object.freeze({
   south: 17.0,
@@ -215,18 +264,16 @@ const CHINA_BOUNDS = Object.freeze({
   east: 136.5
 });
 
-const chinaBounds = L.latLngBounds(
-  [CHINA_BOUNDS.south, CHINA_BOUNDS.west],
-  [CHINA_BOUNDS.north, CHINA_BOUNDS.east]
-);
-
+const mapConfig = ref({ apiKey: '', jsSecurityCode: '' });
+let mapConfigPromise = null;
+let mapConfigFetched = false;
+let mapScriptPromise = null;
 let mapInstance = null;
-let tileLayer = null;
-let markerLayer = null;
+let mapMarker = null;
+let mapBounds = null;
 let locateSequence = 0;
 
-const defaultCenterPoint = chinaBounds.getCenter();
-const defaultCenter = [defaultCenterPoint.lat, defaultCenterPoint.lng];
+const defaultCenter = { lat: 35.86166, lng: 104.195397 };
 const defaultZoom = 5;
 const focusZoom = 16;
 
@@ -302,83 +349,315 @@ const normalizedApiBaseUrl = computed(() => {
   return base.replace(/\/$/, '');
 });
 
-const ensureMapReady = async () => {
-  if (mapInstance || !mapContainerRef.value) {
-    return;
+watch(
+  normalizedApiBaseUrl,
+  () => {
+    mapConfigFetched = false;
+    mapConfigPromise = null;
+    mapConfig.value = { apiKey: '', jsSecurityCode: '' };
+  },
+  { immediate: false }
+);
+
+const ensureMapConfig = async () => {
+  if (mapConfigFetched && mapConfig.value.apiKey) {
+    return mapConfig.value;
   }
-  mapInstance = L.map(mapContainerRef.value, {
-    zoomControl: true,
-    attributionControl: true,
-    minZoom: 4,
-    maxBounds: chinaBounds,
-    maxBoundsViscosity: 1.0,
-    worldCopyJump: false
-  });
-  tileLayer = L.tileLayer(
-    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-    {
-      subdomains: ['1', '2', '3', '4'],
-      minZoom: 4,
-      maxZoom: 18,
-      noWrap: true,
-      attribution: '© 高德地图'
+  if (mapConfigPromise) {
+    return mapConfigPromise;
+  }
+  const base = normalizedApiBaseUrl.value;
+  if (!base) {
+    mapConfigFetched = true;
+    mapConfig.value = { apiKey: '', jsSecurityCode: '' };
+    return mapConfig.value;
+  }
+  mapConfigPromise = (async () => {
+    try {
+      const response = await fetch(`${base}/houses/map-config`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      mapConfig.value = {
+        apiKey: typeof payload?.apiKey === 'string' ? payload.apiKey.trim() : '',
+        jsSecurityCode: typeof payload?.jsSecurityCode === 'string' ? payload.jsSecurityCode.trim() : ''
+      };
+      mapConfigFetched = true;
+    } catch (error) {
+      console.warn('Failed to load Gaode map config', error);
+      mapConfig.value = { apiKey: '', jsSecurityCode: '' };
+      mapConfigFetched = false;
     }
-  );
-  tileLayer.addTo(mapInstance);
-  mapInstance.setView(defaultCenter, defaultZoom);
-  mapInstance.panInsideBounds(chinaBounds, { animate: false });
+    return mapConfig.value;
+  })();
+  try {
+    return await mapConfigPromise;
+  } finally {
+    mapConfigPromise = null;
+  }
+};
+
+const loadGaodeLibrary = async () => {
+  if (typeof window === 'undefined') {
+    throw new Error('Gaode map is unavailable in this environment');
+  }
+  if (window.AMap) {
+    return window.AMap;
+  }
+  const config = await ensureMapConfig();
+  if (!config.apiKey) {
+    throw new Error('Missing Gaode map API key');
+  }
+  if (!mapScriptPromise) {
+    if (config.jsSecurityCode) {
+      window._AMapSecurityConfig = { securityJsCode: config.jsSecurityCode };
+    }
+    mapScriptPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector('script[data-amap-sdk]');
+      const handleLoad = () => {
+        if (window.AMap) {
+          resolve(window.AMap);
+        } else {
+          reject(new Error('Gaode map script loaded without global AMap'));
+        }
+      };
+      const handleError = () => {
+        mapScriptPromise = null;
+        reject(new Error('Failed to load Gaode map script'));
+      };
+      if (existingScript) {
+        existingScript.addEventListener('load', handleLoad, { once: true });
+        existingScript.addEventListener('error', handleError, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.setAttribute('data-amap-sdk', 'true');
+      script.async = true;
+      script.src = `https://webapi.amap.com/maps?v=2.0&key=${config.apiKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.ControlBar,AMap.Geocoder,AMap.PlaceSearch`;
+      script.onload = handleLoad;
+      script.onerror = handleError;
+      document.head.appendChild(script);
+    });
+  }
+  return mapScriptPromise;
+};
+
+const ensureMapReady = async () => {
+  await nextTick();
+  if (mapInstance) {
+    mapInstance.resize?.();
+    return true;
+  }
+  if (!mapContainerRef.value) {
+    return false;
+  }
+  try {
+    const AMap = await loadGaodeLibrary();
+    mapInstance = new AMap.Map(mapContainerRef.value, {
+      viewMode: '2D',
+      zoom: defaultZoom,
+      center: [defaultCenter.lng, defaultCenter.lat],
+      resizeEnable: true,
+      animateEnable: true,
+      mapStyle: 'amap://styles/whitesmoke'
+    });
+    try {
+      mapInstance.setStatus?.({
+        doubleClickZoom: true,
+        dragEnable: true,
+        keyboardEnable: false,
+        scrollWheel: true,
+        touchZoom: true
+      });
+    } catch (error) {
+      console.debug('Failed to configure Gaode map status', error);
+    }
+    try {
+      mapBounds = new AMap.Bounds(
+        [CHINA_BOUNDS.west, CHINA_BOUNDS.south],
+        [CHINA_BOUNDS.east, CHINA_BOUNDS.north]
+      );
+      mapInstance.setLimitBounds?.(mapBounds);
+    } catch (error) {
+      console.debug('Failed to set Gaode map bounds', error);
+    }
+    try {
+      mapInstance.addControl?.(new AMap.Scale());
+      mapInstance.addControl?.(new AMap.ToolBar());
+    } catch (error) {
+      console.debug('Failed to add Gaode map controls', error);
+    }
+    mapInstance.on?.('complete', () => {
+      mapInstance?.resize?.();
+    });
+    return true;
+  } catch (error) {
+    console.warn('Failed to initialise Gaode map', error);
+    mapError.value = t('locationViewer.map.error');
+    return false;
+  }
 };
 
 const resetMapView = async () => {
-  await nextTick();
-  if (!mapContainerRef.value) {
+  const ready = await ensureMapReady();
+  if (!ready || !mapInstance) {
     return;
   }
-  await ensureMapReady();
-  if (!mapInstance) {
-    return;
+  if (mapMarker) {
+    mapMarker.setMap(null);
+    mapMarker = null;
   }
-  if (markerLayer) {
-    markerLayer.remove();
-    markerLayer = null;
-  }
-  mapInstance.setView(defaultCenter, defaultZoom);
-  mapInstance.panInsideBounds(chinaBounds, { animate: false });
-  mapInstance.invalidateSize();
+  mapInstance.setZoomAndCenter?.(defaultZoom, [defaultCenter.lng, defaultCenter.lat]);
+  mapInstance.setCenter?.([defaultCenter.lng, defaultCenter.lat]);
+  mapInstance.resize?.();
 };
 
-const fallbackTitle = (house) => {
+const fallbackTitle = (house, override) => {
+  if (typeof override === 'string' && override.trim()) {
+    return override.trim();
+  }
   const raw = typeof house?.rawTitle === 'string' ? house.rawTitle.trim() : '';
   if (raw) {
     return raw;
   }
-  return house?.title ?? t('locationViewer.noTitle');
+  const normalized = typeof house?.title === 'string' ? house.title.trim() : '';
+  if (normalized) {
+    return normalized;
+  }
+  return t('locationViewer.noTitle');
 };
 
-const buildLocationEntry = (house, lat, lng, name, address) => ({
-  lat,
-  lng,
-  name: name && name.trim() ? name.trim() : fallbackTitle(house),
-  address: address && address.trim() ? address.trim() : house?.rawAddress?.trim() || house?.address || '',
-  sourceAddress: normalizeSignature(house?.rawAddress)
-});
+const fallbackAddress = (house, override) => {
+  if (typeof override === 'string' && override.trim()) {
+    return override.trim();
+  }
+  const raw = typeof house?.rawAddress === 'string' ? house.rawAddress.trim() : '';
+  if (raw) {
+    return raw;
+  }
+  const normalized = typeof house?.address === 'string' ? house.address.trim() : '';
+  if (normalized) {
+    return normalized;
+  }
+  return t('locationViewer.noAddress');
+};
+
+const deriveHouseAddress = (house) => {
+  const raw = typeof house?.rawAddress === 'string' ? house.rawAddress.trim() : '';
+  if (raw) {
+    return raw;
+  }
+  const normalized = typeof house?.address === 'string' ? house.address.trim() : '';
+  return normalized;
+};
+
+const buildLocationEntry = (house, lat, lng, name, address, signatureOverride) => {
+  const resolvedName = fallbackTitle(house, name);
+  const resolvedAddress = fallbackAddress(house, address);
+  const signature = signatureOverride ?? normalizeSignature(house?.rawAddress ?? resolvedAddress ?? resolvedName);
+  return {
+    lat,
+    lng,
+    name: resolvedName,
+    address: resolvedAddress,
+    sourceAddress: signature
+  };
+};
 
 const setMapToCoordinates = async (entry) => {
-  await nextTick();
-  await ensureMapReady();
-  if (!mapInstance) {
+  const ready = await ensureMapReady();
+  if (!ready || !mapInstance || typeof window === 'undefined' || !window.AMap) {
     return;
   }
-  const position = [entry.lat, entry.lng];
-  mapInstance.setView(position, focusZoom);
-  mapInstance.panInsideBounds(chinaBounds, { animate: false });
-  if (!markerLayer) {
-    markerLayer = L.marker(position);
-    markerLayer.addTo(mapInstance);
+  const position = [entry.lng, entry.lat];
+  if (!mapMarker) {
+    mapMarker = new window.AMap.Marker({
+      position,
+      anchor: 'bottom-center'
+    });
   } else {
-    markerLayer.setLatLng(position);
+    mapMarker.setPosition(position);
   }
-  mapInstance.invalidateSize();
+  mapMarker.setMap(mapInstance);
+  mapInstance.setZoomAndCenter?.(focusZoom, position);
+  mapInstance.panTo?.(position);
+  mapInstance.resize?.();
+};
+
+const requestMapLocation = async (query, { house = null, city, signatureOverride, fallbackName } = {}) => {
+  const base = normalizedApiBaseUrl.value;
+  if (!base) {
+    return { status: 'error', suggestions: [] };
+  }
+  const trimmed = typeof query === 'string' ? query.trim() : '';
+  if (!trimmed) {
+    return { status: 'error', suggestions: [] };
+  }
+  const params = new URLSearchParams({ query: trimmed });
+  if (city && city.trim()) {
+    params.append('city', city.trim());
+  }
+  try {
+    const response = await fetch(`${base}/houses/map-search?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    const rawSuggestions = Array.isArray(payload?.suggestions) ? payload.suggestions : [];
+    const seenSuggestionKeys = new Set();
+    const suggestions = rawSuggestions
+      .map((item, index) => {
+        const lat = sanitizeCoordinate(item?.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+        const lng = sanitizeCoordinate(item?.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+        if (lat == null || lng == null || !isWithinChina(lat, lng)) {
+          return null;
+        }
+        const name = typeof item?.name === 'string' && item.name.trim() ? item.name.trim() : fallbackName ?? trimmed;
+        const address =
+          typeof item?.address === 'string' && item.address.trim() ? item.address.trim() : fallbackName ?? trimmed;
+        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        if (seenSuggestionKeys.has(key)) {
+          return null;
+        }
+        seenSuggestionKeys.add(key);
+        const identifier = `${key}::${index.toString(36)}::${normalizeSignature(address) || normalizeSignature(name)}`;
+        return {
+          id: identifier,
+          name,
+          address,
+          lat,
+          lng
+        };
+      })
+      .filter(Boolean);
+    if (
+      payload?.found &&
+      Number.isFinite(payload.latitude) &&
+      Number.isFinite(payload.longitude)
+    ) {
+      const lat = sanitizeCoordinate(payload.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+      const lng = sanitizeCoordinate(payload.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+      if (lat != null && lng != null && isWithinChina(lat, lng)) {
+        const entry = buildLocationEntry(
+          house,
+          lat,
+          lng,
+          payload.name ?? fallbackName ?? trimmed,
+          payload.address ?? fallbackName ?? trimmed,
+          signatureOverride
+        );
+        return { status: 'success', entry, suggestions };
+      }
+    }
+    if (suggestions.length) {
+      return { status: 'suggestions', suggestions };
+    }
+    return { status: 'not-found', suggestions: [] };
+  } catch (error) {
+    console.warn('Failed to request Gaode location', error);
+    return { status: 'error', suggestions: [] };
+  }
 };
 
 const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
@@ -426,44 +705,27 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
     return;
   }
 
-  const base = normalizedApiBaseUrl.value;
-  if (!base) {
-    mapError.value = t('locationViewer.map.error');
-    await resetMapView();
-    return;
-  }
-
   mapLoading.value = true;
   try {
-    const response = await fetch(`${base}/houses/map-search?query=${encodeURIComponent(address)}`);
+    const { status, entry } = await requestMapLocation(address, {
+      house,
+      signatureOverride: signature,
+      fallbackName: address
+    });
     if (token !== locateSequence) {
       return;
     }
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const payload = await response.json();
-    if (token !== locateSequence) {
+    if (status === 'success' && entry) {
+      coordinateCache.set(house.key, entry);
+      activeLocation.value = entry;
+      await setMapToCoordinates(entry);
       return;
     }
-    if (payload?.found && Number.isFinite(payload.latitude) && Number.isFinite(payload.longitude)) {
-      const lat = sanitizeCoordinate(payload.latitude, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
-      const lng = sanitizeCoordinate(payload.longitude, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
-      if (lat != null && lng != null && isWithinChina(lat, lng)) {
-        const entry = buildLocationEntry(
-          house,
-          lat,
-          lng,
-          payload.name,
-          payload.address
-        );
-        coordinateCache.set(house.key, entry);
-        activeLocation.value = entry;
-        await setMapToCoordinates(entry);
-        return;
-      }
+    if (status === 'not-found') {
+      mapError.value = t('locationViewer.map.noResult');
+    } else {
+      mapError.value = t('locationViewer.map.error');
     }
-    mapError.value = t('locationViewer.map.noResult');
     await resetMapView();
   } catch (error) {
     if (token === locateSequence) {
@@ -477,6 +739,17 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
     }
   }
 };
+
+watch(
+  activeHouse,
+  (house) => {
+    manualSearchQuery.value = deriveHouseAddress(house) || '';
+    manualSearchMessage.value = '';
+    manualSearchMessageType.value = 'info';
+    manualSearchSuggestions.value = [];
+  },
+  { immediate: true }
+);
 
 watch(
   activeHouse,
@@ -510,10 +783,143 @@ const selectHouse = (key) => {
   copyStatusType.value = '';
 };
 
+const handleManualSearch = async () => {
+  const query = typeof manualSearchQuery.value === 'string' ? manualSearchQuery.value.trim() : '';
+  manualSearchMessage.value = '';
+  manualSearchMessageType.value = 'info';
+  manualSearchSuggestions.value = [];
+  if (!query) {
+    manualSearchMessage.value = t('locationViewer.search.required');
+    manualSearchMessageType.value = 'error';
+    return;
+  }
+  locateSequence += 1;
+  const token = locateSequence;
+  mapError.value = '';
+  manualSearchLoading.value = true;
+  mapLoading.value = true;
+  try {
+    const house = activeHouse.value ?? null;
+    const houseSignature = normalizeSignature(house?.rawAddress ?? deriveHouseAddress(house) ?? '');
+    const querySignature = normalizeSignature(query);
+    const shouldPersist = Boolean(house) && querySignature && houseSignature && querySignature === houseSignature;
+    const signatureOverride = shouldPersist && houseSignature
+      ? houseSignature
+      : `manual::${querySignature || Date.now().toString(36)}`;
+    const { status, entry, suggestions } = await requestMapLocation(query, {
+      house,
+      signatureOverride,
+      fallbackName: query
+    });
+    if (token !== locateSequence) {
+      return;
+    }
+    manualSearchSuggestions.value = Array.isArray(suggestions) ? suggestions.slice(0, 8) : [];
+    if (status === 'success' && entry) {
+      activeLocation.value = entry;
+      await setMapToCoordinates(entry);
+      if (shouldPersist && house) {
+        coordinateCache.set(house.key, entry);
+      }
+      manualSearchMessage.value = t('locationViewer.search.success', { name: entry.name });
+      manualSearchMessageType.value = 'success';
+      mapError.value = '';
+      return;
+    }
+    if (status === 'suggestions' && manualSearchSuggestions.value.length) {
+      manualSearchMessage.value = t('locationViewer.search.suggestions');
+      manualSearchMessageType.value = 'info';
+      mapError.value = t('locationViewer.map.noResult');
+      await resetMapView();
+      return;
+    }
+    manualSearchMessageType.value = 'error';
+    if (status === 'not-found') {
+      manualSearchMessage.value = t('locationViewer.search.failure');
+      mapError.value = t('locationViewer.map.noResult');
+    } else {
+      manualSearchMessage.value = t('locationViewer.search.error');
+      mapError.value = t('locationViewer.map.error');
+    }
+    await resetMapView();
+  } catch (error) {
+    if (token === locateSequence) {
+      console.warn('Manual map search failed', error);
+      manualSearchMessage.value = t('locationViewer.search.error');
+      manualSearchMessageType.value = 'error';
+      mapError.value = t('locationViewer.map.error');
+      await resetMapView();
+    }
+  } finally {
+    manualSearchLoading.value = false;
+    if (token === locateSequence) {
+      mapLoading.value = false;
+    }
+  }
+};
+
+const applyManualSuggestion = async (suggestion) => {
+  if (!suggestion) {
+    return;
+  }
+  const lat = sanitizeCoordinate(suggestion.lat, CHINA_BOUNDS.south, CHINA_BOUNDS.north);
+  const lng = sanitizeCoordinate(suggestion.lng, CHINA_BOUNDS.west, CHINA_BOUNDS.east);
+  if (lat == null || lng == null || !isWithinChina(lat, lng)) {
+    return;
+  }
+  locateSequence += 1;
+  const token = locateSequence;
+  mapError.value = '';
+  manualSearchMessageType.value = 'info';
+  mapLoading.value = true;
+  try {
+    const house = activeHouse.value ?? null;
+    const houseSignature = normalizeSignature(house?.rawAddress ?? deriveHouseAddress(house) ?? '');
+    const fallbackSignature = normalizeSignature(suggestion.address ?? suggestion.name ?? '');
+    const signatureOverride = houseSignature || (fallbackSignature ? `suggestion::${fallbackSignature}` : undefined);
+    const entry = buildLocationEntry(
+      house,
+      lat,
+      lng,
+      suggestion.name,
+      suggestion.address,
+      signatureOverride
+    );
+    activeLocation.value = entry;
+    await setMapToCoordinates(entry);
+    if (token !== locateSequence) {
+      return;
+    }
+    manualSearchMessage.value = t('locationViewer.search.appliedSuggestion', { name: entry.name });
+    manualSearchMessageType.value = 'success';
+    manualSearchQuery.value = entry.address;
+    mapError.value = '';
+    if (house) {
+      const storedSource = houseSignature || entry.sourceAddress;
+      coordinateCache.set(house.key, { ...entry, sourceAddress: storedSource });
+    }
+  } catch (error) {
+    if (token === locateSequence) {
+      console.warn('Failed to apply manual suggestion', error);
+      manualSearchMessage.value = t('locationViewer.search.error');
+      manualSearchMessageType.value = 'error';
+      mapError.value = t('locationViewer.map.error');
+      await resetMapView();
+    }
+  } finally {
+    if (token === locateSequence) {
+      mapLoading.value = false;
+    }
+  }
+};
+
 const handleRefresh = () => {
   copyStatus.value = '';
   copyStatusType.value = '';
   mapError.value = '';
+  manualSearchMessage.value = '';
+  manualSearchMessageType.value = 'info';
+  manualSearchSuggestions.value = [];
   emit('refresh');
 };
 
@@ -565,12 +971,15 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   coordinateCache.clear();
-  if (mapInstance) {
-    mapInstance.remove();
+  if (mapMarker) {
+    mapMarker.setMap(null);
+    mapMarker = null;
+  }
+  if (mapInstance?.destroy) {
+    mapInstance.destroy();
   }
   mapInstance = null;
-  tileLayer = null;
-  markerLayer = null;
+  mapBounds = null;
 });
 </script>
 
@@ -734,6 +1143,148 @@ onBeforeUnmount(() => {
   margin: 0.1rem 0 0;
   color: var(--color-primary);
   font-weight: 600;
+}
+
+.manual-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  padding: 0.95rem 1.1rem;
+}
+
+.manual-search-label {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.manual-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.manual-search-controls input {
+  flex: 1 1 240px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  color: var(--color-text-strong);
+  min-width: 0;
+  outline: none;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.manual-search-controls input:focus {
+  border-color: color-mix(in srgb, var(--color-primary) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.manual-search-controls button {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.55rem 1.4rem;
+  background: var(--gradient-primary);
+  color: var(--color-text-on-emphasis);
+  font-weight: 600;
+  box-shadow: var(--button-primary-shadow);
+  cursor: pointer;
+}
+
+.manual-search-controls button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.manual-search-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.manual-search-status {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.manual-search-status.success {
+  color: var(--color-success);
+}
+
+.manual-search-status.error {
+  color: var(--color-danger);
+}
+
+.manual-search-suggestions {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent 20%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.manual-search-suggestions-title {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.manual-search-suggestions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-search-suggestion {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.suggestion-action {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent 90%);
+  color: var(--color-primary);
+  font-weight: 600;
+  padding: 0.35rem 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggestion-action:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.manual-search-suggestion .suggestion-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.manual-search-suggestion .name {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.manual-search-suggestion .address {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .map-wrapper {

@@ -57,14 +57,23 @@ public class SecondHandHouseController {
     @GetMapping("/map-search")
     public MapSearchResponse mapSearch(@RequestParam("query") String query,
                                        @RequestParam(value = "city", required = false) String city) {
-        return service.searchMapLocation(query, city)
-                .map(result -> new MapSearchResponse(
+        SecondHandHouseService.MapSearchResult result = service.searchMapLocation(query, city);
+        List<MapSuggestionResponse> suggestions = result.suggestions().stream()
+                .map(place -> new MapSuggestionResponse(
+                        place.name(),
+                        place.address(),
+                        place.latitude(),
+                        place.longitude()))
+                .toList();
+        return result.match()
+                .map(place -> new MapSearchResponse(
                         true,
-                        result.name(),
-                        result.address(),
-                        result.latitude(),
-                        result.longitude()))
-                .orElseGet(() -> new MapSearchResponse(false, null, null, null, null));
+                        place.name(),
+                        place.address(),
+                        place.latitude(),
+                        place.longitude(),
+                        suggestions))
+                .orElseGet(() -> new MapSearchResponse(false, null, null, null, null, suggestions));
     }
 
     @GetMapping("/{id}")
@@ -101,5 +110,13 @@ public class SecondHandHouseController {
 record MapConfigResponse(String apiKey, String jsSecurityCode) {
 }
 
-record MapSearchResponse(boolean found, String name, String address, Double latitude, Double longitude) {
+record MapSearchResponse(boolean found,
+                         String name,
+                         String address,
+                         Double latitude,
+                         Double longitude,
+                         List<MapSuggestionResponse> suggestions) {
+}
+
+record MapSuggestionResponse(String name, String address, Double latitude, Double longitude) {
 }

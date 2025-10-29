@@ -28,6 +28,7 @@ public class GaodeGeocodingClient {
     private final GaodeMapSettings settings;
     private final Map<String, Optional<Coordinate>> cache = new ConcurrentHashMap<>();
     private final Map<String, Optional<PlaceSuggestion>> searchCache = new ConcurrentHashMap<>();
+    private final Map<String, List<PlaceSuggestion>> inputTipsCache = new ConcurrentHashMap<>();
 
     public GaodeGeocodingClient(RestClient.Builder restClientBuilder,
                                 ObjectMapper objectMapper,
@@ -115,6 +116,18 @@ public class GaodeGeocodingClient {
         String normalizedKeyword = keyword.trim();
         String cacheKey = normalizedKeyword + "::" + (cityHint == null ? "" : cityHint.trim());
         return searchCache.computeIfAbsent(cacheKey, key -> fetchPlace(normalizedKeyword, cityHint));
+    }
+
+    public List<PlaceSuggestion> suggestPlaces(String keyword, String cityHint) {
+        if (!isEnabled()) {
+            return List.of();
+        }
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        String normalizedKeyword = keyword.trim();
+        String cacheKey = normalizedKeyword + "::" + (cityHint == null ? "" : cityHint.trim());
+        return inputTipsCache.computeIfAbsent(cacheKey, key -> fetchInputTips(normalizedKeyword, cityHint));
     }
 
     private Optional<PlaceSuggestion> fetchPlace(String keyword, String cityHint) {
@@ -256,6 +269,75 @@ public class GaodeGeocodingClient {
             return Optional.of(new PlaceSuggestion(keyword, keyword, value.latitude(), value.longitude()));
         }
         return Optional.empty();
+    }
+
+    private List<PlaceSuggestion> fetchInputTips(String keyword, String cityHint) {
+        try {
+            RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
+                uriBuilder.path("/assistant/inputtips")
+                        .queryParam("key", settings.apiKey())
+                        .queryParam("keywords", keyword)
+                        .queryParam("output", "JSON")
+                        .queryParam("datatype", "all");
+                if (cityHint != null && !cityHint.isBlank()) {
+                    uriBuilder.queryParam("city", normalizeCityQuery(cityHint));
+                }
+                return uriBuilder.build();
+            });
+
+            String body = request.retrieve().body(String.class);
+            if (body == null || body.isBlank()) {
+                return List.of();
+            }
+            JsonNode root = objectMapper.readTree(body);
+            if (!"1".equals(root.path("status").asText())) {
+                log.debug("Gaode input tips rejected keyword {} with status {} info {}", keyword,
+                        root.path("status").asText(), root.path("info").asText());
+                return List.of();
+            }
+            JsonNode tips = root.path("tips");
+            if (!tips.isArray() || tips.isEmpty()) {
+                return List.of();
+            }
+            List<PlaceSuggestion> results = new ArrayList<>();
+            for (JsonNode tip : tips) {
+                String location = tip.path("location").asText();
+                if (location == null || location.isBlank() || !location.contains(",")) {
+                    continue;
+                }
+                String[] parts = location.split(",");
+                if (parts.length != 2) {
+                    continue;
+                }
+                double lng = Double.parseDouble(parts[0]);
+                double lat = Double.parseDouble(parts[1]);
+                if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
+                    continue;
+                }
+                if (!isWithinChina(lat, lng)) {
+                    log.debug("Gaode input tips returned coordinate outside China bounds lat {} lng {} for keyword {}", lat,
+                            lng, keyword);
+                    continue;
+                }
+                String name = tip.path("name").asText(null);
+                String address = tip.path("address").asText(null);
+                if (address == null || address.isBlank()) {
+                    String district = tip.path("district").asText("");
+                    address = district == null ? "" : district;
+                }
+                if (address == null || address.isBlank()) {
+                    address = keyword;
+                }
+                if (name == null || name.isBlank()) {
+                    name = keyword;
+                }
+                results.add(new PlaceSuggestion(name, address, lat, lng));
+            }
+            return results.isEmpty() ? List.of() : List.copyOf(results);
+        } catch (Exception ex) {
+            log.warn("Gaode input tips failed for keyword {}: {}", keyword, ex.getMessage());
+            return List.of();
+        }
     }
 
     private String normalizeCityQuery(String cityHint) {

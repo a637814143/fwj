@@ -56,8 +56,9 @@ public class SecondHandHouseController {
 
     @GetMapping("/map-search")
     public MapSearchResponse mapSearch(@RequestParam("query") String query,
-                                       @RequestParam(value = "city", required = false) String city) {
-        SecondHandHouseService.MapSearchResult result = service.searchMapLocation(query, city);
+                                       @RequestParam(value = "city", required = false) String city,
+                                       @RequestParam(value = "houseId", required = false) Long houseId) {
+        SecondHandHouseService.MapSearchResult result = service.searchMapLocation(query, city, houseId);
         List<MapSuggestionResponse> suggestions = result.suggestions().stream()
                 .map(place -> new MapSuggestionResponse(
                         place.name(),

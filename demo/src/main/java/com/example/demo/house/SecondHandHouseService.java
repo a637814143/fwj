@@ -433,34 +433,33 @@ public class SecondHandHouseService {
         );
     }
 
-    public MapSearchResult searchMapLocation(String query, String cityHint) {
+    public MapSearchResult searchMapLocation(String query, String cityHint, Long houseId) {
         if (query == null || query.isBlank()) {
             return MapSearchResult.empty();
         }
+        SecondHandHouse targetHouse = houseId == null
+                ? null
+                : repository.findById(houseId).orElse(null);
         LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestionMap = new LinkedHashMap<>();
         String normalizedQuery = normalize(query);
-        GaodeGeocodingClient.PlaceSuggestion bestMatch = repository.findAll().stream()
-                .filter(house -> normalize(house.getAddress()).equals(normalizedQuery))
-                .map(house -> {
-                    Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
-                    Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
-                    if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
-                        return null;
-                    }
-                    String name = house.getTitle() == null || house.getTitle().isBlank()
-                            ? query
-                            : house.getTitle();
-                    String address = house.getAddress() == null || house.getAddress().isBlank()
-                            ? query
-                            : house.getAddress();
-                    return new GaodeGeocodingClient.PlaceSuggestion(name, address, latitude, longitude);
-                })
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-        addSuggestion(suggestionMap, bestMatch);
+        GaodeGeocodingClient.PlaceSuggestion bestMatch = null;
 
-        List<String> queryCandidates = buildQueryCandidates(query);
+        if (targetHouse != null) {
+            bestMatch = buildSuggestionFromHouse(targetHouse).orElse(null);
+            addSuggestion(suggestionMap, bestMatch);
+        }
+
+        if (bestMatch == null && !normalizedQuery.isEmpty()) {
+            bestMatch = repository.findAll().stream()
+                    .filter(house -> addressMatchesQuery(house, normalizedQuery))
+                    .map(this::buildSuggestionFromHouse)
+                    .flatMap(Optional::stream)
+                    .findFirst()
+                    .orElse(null);
+            addSuggestion(suggestionMap, bestMatch);
+        }
+
+        List<String> queryCandidates = buildQueryCandidates(query, targetHouse);
         for (String candidateQuery : queryCandidates) {
             String effectiveCityCandidate = (cityHint == null || cityHint.isBlank())
                     ? resolveCityHint(candidateQuery)
@@ -596,34 +595,74 @@ public class SecondHandHouseService {
         return distance <= radiusKm;
     }
 
-    private List<String> buildQueryCandidates(String query) {
-        if (query == null) {
-            return List.of();
-        }
+    private List<String> buildQueryCandidates(String query, SecondHandHouse targetHouse) {
         LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        String trimmed = query.trim();
-        addCandidate(candidates, trimmed);
-        addCandidate(candidates, trimmed.replaceAll("\\s+", ""));
-        String withoutParentheses = trimmed.replaceAll("（.*?）", "").replaceAll("\\(.*?\\)", "");
-        addCandidate(candidates, withoutParentheses);
-        for (String delimiter : new String[]{"，", ",", "。", " "}) {
-            int index = trimmed.indexOf(delimiter);
-            if (index > 3) {
-                addCandidate(candidates, trimmed.substring(0, index));
+        if (query != null) {
+            String trimmed = query.trim();
+            addCandidate(candidates, trimmed);
+            addCandidate(candidates, trimmed.replaceAll("\\s+", ""));
+            String withoutParentheses = trimmed.replaceAll("（.*?）", "").replaceAll("\\(.*?\\)", "");
+            addCandidate(candidates, withoutParentheses);
+            for (String delimiter : new String[]{"，", ",", "。", " "}) {
+                int index = trimmed.indexOf(delimiter);
+                if (index > 3) {
+                    addCandidate(candidates, trimmed.substring(0, index));
+                }
+            }
+            int haoIndex = trimmed.indexOf('号');
+            if (haoIndex > 3) {
+                addCandidate(candidates, trimmed.substring(0, haoIndex + 1));
+            }
+            int hashIndex = trimmed.indexOf('#');
+            if (hashIndex > 3) {
+                addCandidate(candidates, trimmed.substring(0, hashIndex));
             }
         }
-        int haoIndex = trimmed.indexOf('号');
-        if (haoIndex > 3) {
-            addCandidate(candidates, trimmed.substring(0, haoIndex + 1));
-        }
-        int hashIndex = trimmed.indexOf('#');
-        if (hashIndex > 3) {
-            addCandidate(candidates, trimmed.substring(0, hashIndex));
+        if (targetHouse != null) {
+            addCandidate(candidates, targetHouse.getAddress());
+            addCandidate(candidates, targetHouse.getTitle());
+            String address = targetHouse.getAddress();
+            if (address != null) {
+                addCandidate(candidates, address.replaceAll("\\s+", ""));
+            }
         }
         return candidates.stream()
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .toList();
+    }
+
+    private Optional<GaodeGeocodingClient.PlaceSuggestion> buildSuggestionFromHouse(SecondHandHouse house) {
+        if (house == null) {
+            return Optional.empty();
+        }
+        Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+            return Optional.empty();
+        }
+        String address = house.getAddress();
+        String name = house.getTitle();
+        if (name == null || name.isBlank()) {
+            name = address == null || address.isBlank() ? "房源" : address;
+        }
+        if (address == null || address.isBlank()) {
+            address = name;
+        }
+        return Optional.of(new GaodeGeocodingClient.PlaceSuggestion(name, address, latitude, longitude));
+    }
+
+    private boolean addressMatchesQuery(SecondHandHouse house, String normalizedQuery) {
+        if (house == null || normalizedQuery == null || normalizedQuery.isEmpty()) {
+            return false;
+        }
+        String normalizedAddress = normalize(house.getAddress());
+        if (normalizedAddress.isEmpty()) {
+            return false;
+        }
+        return normalizedAddress.equals(normalizedQuery)
+                || normalizedAddress.contains(normalizedQuery)
+                || normalizedQuery.contains(normalizedAddress);
     }
 
     private void addCandidate(LinkedHashSet<String> candidates, String value) {

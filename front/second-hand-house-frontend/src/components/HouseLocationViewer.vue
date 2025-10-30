@@ -231,6 +231,7 @@ const items = computed(() => {
   }
   return props.houses
     .map((house) => ({
+      id: house?.id ?? null,
       key: house?.id != null ? String(house.id) : String(house?.key ?? ''),
       title: normalizeTitle(house?.title),
       rawTitle: typeof house?.title === 'string' ? house.title : '',
@@ -597,6 +598,9 @@ const requestMapLocation = async (query, { house = null, city, signatureOverride
   const params = new URLSearchParams({ query: trimmed });
   if (city && city.trim()) {
     params.append('city', city.trim());
+  }
+  if (house?.id != null) {
+    params.append('houseId', String(house.id));
   }
   try {
     const response = await fetch(`${base}/houses/map-search?${params.toString()}`);

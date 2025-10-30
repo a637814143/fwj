@@ -111,7 +111,8 @@ import { computed, inject, reactive, ref, watch } from 'vue';
 const props = defineProps({
   houses: { type: Array, default: () => [] },
   reviews: { type: Array, default: () => [] },
-  currentUser: { type: Object, default: null }
+  currentUser: { type: Object, default: null },
+  eligibleHouseIds: { type: Array, default: () => [] }
 });
 
 const emit = defineEmits(['submit']);
@@ -136,8 +137,16 @@ const form = reactive({
 
 const formError = ref('');
 
+const eligibleHouseIdSet = computed(() => new Set((props.eligibleHouseIds ?? []).map((id) => String(id))));
+
 const availableHouses = computed(() =>
-  (props.houses ?? []).filter((house) => house && (house.status === 'APPROVED' || !house.status))
+  (props.houses ?? []).filter((house) => {
+    if (!house) {
+      return false;
+    }
+    const id = String(house.id ?? '');
+    return id && eligibleHouseIdSet.value.has(id);
+  })
 );
 
 watch(
@@ -175,7 +184,7 @@ const canSubmit = computed(
 const fallbackTitle = computed(() => t('reviews.form.houseLabel'));
 
 const noHousesText = computed(() =>
-  availableHouses.value.length ? '' : t('reviews.validation.houseRequired')
+  availableHouses.value.length ? '' : t('reviews.validation.purchaseRequired')
 );
 
 const formattedRating = (rating) => {

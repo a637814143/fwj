@@ -87,7 +87,7 @@
         <h3>{{ t('explorer.recommendations.sellers.title') }}</h3>
         <ul>
           <li v-for="seller in recommendations.sellers" :key="`seller-${seller.username}`">
-            <button type="button" class="seller-link" @click="viewSellerListings(seller)">
+            <div class="seller-card">
               <div class="seller-text">
                 <strong>{{ seller.displayName }}</strong>
                 <span class="username">@{{ seller.username }}</span>
@@ -95,8 +95,7 @@
               <span class="score">
                 {{ t('explorer.recommendations.sellers.score', { score: seller.reputationScore ?? '—' }) }}
               </span>
-              <span class="cta">{{ t('explorer.recommendations.sellers.cta') }}</span>
-            </button>
+            </div>
           </li>
         </ul>
       </div>
@@ -147,7 +146,7 @@
               :title="favoriteButtonLabel(house)"
               @click.stop="toggleFavorite(house)"
             >
-              ⭐
+              {{ isFavorite(house) ? '⭐' : '☆' }}
             </button>
           </header>
           <div class="pricing">
@@ -581,18 +580,6 @@ const submitFilters = () => {
     ? { sellerDisplayName: selectedSeller.value.displayName }
     : { sellerDisplayName: '' };
   emit('search', { ...localFilters, ...extra });
-};
-
-const viewSellerListings = (seller) => {
-  if (!seller?.username) {
-    return;
-  }
-  selectedSeller.value = {
-    username: seller.username,
-    displayName: seller.displayName || seller.username
-  };
-  localFilters.sellerUsername = seller.username;
-  emit('search', { ...localFilters, sellerDisplayName: selectedSeller.value.displayName });
 };
 
 const clearSellerFilter = () => {
@@ -1195,7 +1182,7 @@ const statusClass = (house) => {
   display: block;
 }
 
-.seller-link {
+.seller-card {
   width: 100%;
   display: flex;
   align-items: center;
@@ -1206,12 +1193,7 @@ const statusClass = (house) => {
   border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   background: rgba(255, 255, 255, 0.92);
   text-align: left;
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
-}
-
-.seller-link:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 32px rgba(146, 138, 129, 0.22);
+  cursor: default;
 }
 
 .seller-text {
@@ -1229,13 +1211,8 @@ const statusClass = (house) => {
   color: var(--color-text-soft);
 }
 
-.seller-link .score {
+.seller-card .score {
   color: var(--color-text-muted);
-}
-
-.seller-link .cta {
-  color: var(--color-accent);
-  font-size: 0.9rem;
 }
 
 .active-seller-filter {
@@ -1481,6 +1458,10 @@ const statusClass = (house) => {
   color: color-mix(in srgb, var(--color-text-soft) 70%, var(--color-text-strong));
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
   transition: transform var(--transition-base), color var(--transition-base);
+}
+
+.favorite-toggle:not(.active) {
+  color: color-mix(in srgb, var(--color-text-soft) 35%, transparent);
 }
 
 .favorite-toggle:hover {

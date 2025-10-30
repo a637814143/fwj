@@ -6,34 +6,15 @@
         <p>{{ t('header.subtitle') }}</p>
       </div>
       <div class="header-actions">
+        <button
+          v-if="currentUser && canUseMessaging"
+          type="button"
+          class="messages-trigger"
+          @click="openConversationPanel"
+        >
+          {{ t('header.messages') }}
+        </button>
         <InterfaceSettings />
-        <div v-if="currentUser" class="session">
-          <div class="identity">
-            <span>
-              {{ t('header.currentRoleLabel') }}
-              <strong>{{ roleLabels[currentUser.role] }}</strong>
-              {{ parentheses.left }}{{ currentUser.displayName }}{{ parentheses.right }}
-            </span>
-            <span class="reputation">
-              {{ t('header.reputationLabel') }}{{ currentUser.reputationScore ?? '—' }}
-            </span>
-            <span class="verification-status">
-              {{ t('header.verificationLabel') }}
-              <strong>{{ currentUser.realNameVerified ? t('header.verified') : t('header.pending') }}</strong>
-            </span>
-          </div>
-          <div class="session-actions">
-            <button
-              v-if="canUseMessaging"
-              type="button"
-              class="messages-trigger"
-              @click="openConversationPanel"
-            >
-              {{ t('header.messages') }}
-            </button>
-            <button type="button" class="logout" @click="handleLogout">{{ t('header.logout') }}</button>
-          </div>
-        </div>
       </div>
       <p v-if="messages.success" class="success">{{ messages.success }}</p>
     </header>
@@ -338,6 +319,7 @@ import UrgentTasks from './components/UrgentTasks.vue';
 import ReviewModeration from './components/ReviewModeration.vue';
 import AccountCenter from './components/AccountCenter.vue';
 import AIAssistant from './components/AIAssistant.vue';
+import PricePredictor from './components/PricePredictor.vue';
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
 const loading = ref(false);
@@ -2766,12 +2748,6 @@ watch(
   { deep: true }
 );
 
-const parentheses = computed(() =>
-  currentLocale.value === 'en'
-    ? { left: '(', right: ')' }
-    : { left: '（', right: '）' }
-);
-
 const formatCurrencyYuan = (value) => {
   const numeric = Number(value ?? 0);
   if (!Number.isFinite(numeric)) {
@@ -4636,15 +4612,12 @@ onBeforeUnmount(() => {
 
 .header-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: flex-end;
   gap: 1rem;
+  flex-wrap: wrap;
   position: relative;
   z-index: 1;
-}
-
-.header-actions :deep(.interface-settings) {
-  align-self: flex-end;
 }
 
 .header-actions :deep(.settings-toggle) {
@@ -4659,44 +4632,6 @@ onBeforeUnmount(() => {
   color: var(--color-text-on-emphasis);
 }
 
-.session {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  position: relative;
-  z-index: 1;
-}
-
-.session-actions {
-  display: flex;
-  gap: 0.85rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.identity {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  font-size: 1rem;
-}
-
-.identity strong {
-  font-weight: 700;
-}
-
-.reputation {
-  font-weight: 600;
-}
-
-.verification-status {
-  font-size: 0.92rem;
-  opacity: 0.9;
-}
-
-.logout,
 .messages-trigger {
   background: linear-gradient(135deg, rgba(180, 140, 110, 0.28), rgba(154, 161, 168, 0.32));
   border: 1px solid rgba(255, 255, 255, 0.45);
@@ -4709,7 +4644,6 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(8px);
 }
 
-.logout:hover,
 .messages-trigger:hover {
   background: linear-gradient(135deg, rgba(180, 140, 110, 0.38), rgba(154, 161, 168, 0.42));
   transform: translateY(-1px);

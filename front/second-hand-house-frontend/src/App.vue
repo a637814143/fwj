@@ -84,6 +84,11 @@
           @contact-seller="handleContactSeller"
         />
 
+        <AIAssistant
+          v-else-if="activeTab === 'assistant'"
+          :api-base-url="apiBaseUrl"
+        />
+
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
           <HouseForm
             :initial-house="selectedHouse"
@@ -254,6 +259,7 @@ import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
 import ReviewModeration from './components/ReviewModeration.vue';
 import AccountCenter from './components/AccountCenter.vue';
+import AIAssistant from './components/AIAssistant.vue';
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
 const loading = ref(false);
@@ -425,6 +431,7 @@ const translations = {
     },
     nav: {
       home: '购买首页',
+      aiAssistant: 'AI 智能助手',
       manage: '房源管理',
       feedback: '房源评价',
       urgent: '紧急待办',
@@ -441,6 +448,26 @@ const translations = {
     },
     alerts: {
       errorPrefix: '提示：'
+    },
+    aiAssistant: {
+      title: '智能购房顾问',
+      description: '向 AI 咨询二手房购置流程、风险提示与政策信息。',
+      modelLabel: '当前模型：{model}',
+      refresh: '换一批问题',
+      relatedTitle: '相关问题',
+      relatedDescription: '直接点击以下问题，快速获得针对二手房交易的建议。',
+      inputLabel: '向 AI 提问',
+      inputPlaceholder: '请输入关于购置二手房的疑问，例如贷款流程、交易风险等…',
+      missingKey: 'AI 服务尚未配置，请联系管理员在后端填写密钥。',
+      ask: '提交问题',
+      asking: '正在回答…',
+      conversationTitle: '对话记录',
+      emptyState: '尚未开始对话，尝试向 AI 提一个问题吧。',
+      questionLabel: '我的提问',
+      answerLabel: 'AI 的建议',
+      pendingAnswer: '正在生成回答…',
+      genericError: '暂时无法获取 AI 回答，请稍后再试。',
+      fallbackAnswer: '抱歉，未能生成有效的回答，请换个问题试试。'
     },
     conversation: {
       title: '消息中心',
@@ -1405,6 +1432,7 @@ const translations = {
     },
     nav: {
       home: 'Home',
+      aiAssistant: 'AI assistant',
       manage: 'Listing management',
       feedback: 'Listing feedback',
       urgent: 'Urgent tasks',
@@ -1421,6 +1449,26 @@ const translations = {
     },
     alerts: {
       errorPrefix: 'Notice:'
+    },
+    aiAssistant: {
+      title: 'Smart buying assistant',
+      description: 'Ask the AI about second-hand purchases, risk checks, and policy guidance.',
+      modelLabel: 'Model: {model}',
+      refresh: 'Refresh suggestions',
+      relatedTitle: 'Related questions',
+      relatedDescription: 'Click a question to quickly consult the assistant about second-hand deals.',
+      inputLabel: 'Ask the AI',
+      inputPlaceholder: 'Type your second-hand housing question, such as mortgage steps or risk reminders…',
+      missingKey: 'The AI assistant is disabled. Ask an administrator to configure the backend key.',
+      ask: 'Ask now',
+      asking: 'Generating answer…',
+      conversationTitle: 'Conversation history',
+      emptyState: 'No conversation yet. Start by asking the AI about buying a home.',
+      questionLabel: 'Your question',
+      answerLabel: 'AI response',
+      pendingAnswer: 'Preparing a response…',
+      genericError: 'Unable to fetch the AI response right now. Please try again later.',
+      fallbackAnswer: 'Sorry, the assistant could not generate a helpful answer. Please try another question.'
     },
     conversation: {
       title: 'Message center',
@@ -2732,7 +2780,10 @@ const pendingHouseReviews = computed(() =>
 );
 
 const navigationTabs = computed(() => {
-  const tabs = [{ value: 'home', label: t('nav.home') }];
+  const tabs = [
+    { value: 'home', label: t('nav.home') },
+    { value: 'assistant', label: t('nav.aiAssistant') }
+  ];
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: t('nav.manage') });
   }

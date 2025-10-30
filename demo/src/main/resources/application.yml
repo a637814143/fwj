@@ -18,3 +18,8 @@ spring:
     default-property-inclusion: non_null
 server:
   port: 8080
+assistant:
+  ai:
+    base-url: "https://api.moonshot.cn/v1"
+    api-key: sk-i38TXYv1Zv6Qnd3jE3Zq3X6mr6gu7YE4nmerjKJtgIESekZn
+    model: "kimi-k2-turbo-preview"

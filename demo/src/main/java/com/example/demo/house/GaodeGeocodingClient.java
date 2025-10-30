@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 @Component
 public class GaodeGeocodingClient {
@@ -22,10 +24,15 @@ public class GaodeGeocodingClient {
     private static final double CHINA_LAT_MAX = 54.5d;
     private static final double CHINA_LNG_MIN = 73.0d;
     private static final double CHINA_LNG_MAX = 136.5d;
+    private static final String DEFAULT_CLIENT_IP = "114.114.114.114";
+    private static final Pattern IPV4_PATTERN = Pattern.compile(
+            "^(25[0-5]|2[0-4]\\d|1?\\d{1,2})(\\.(25[0-5]|2[0-4]\\d|1?\\d{1,2})){3}$"
+    );
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final GaodeMapSettings settings;
+    private final String outboundClientIp;
     private final Map<String, Optional<Coordinate>> cache = new ConcurrentHashMap<>();
     private final Map<String, Optional<PlaceSuggestion>> searchCache = new ConcurrentHashMap<>();
     private final Map<String, List<PlaceSuggestion>> inputTipsCache = new ConcurrentHashMap<>();
@@ -33,9 +40,19 @@ public class GaodeGeocodingClient {
     public GaodeGeocodingClient(RestClient.Builder restClientBuilder,
                                 ObjectMapper objectMapper,
                                 GaodeMapSettings settings) {
-        this.restClient = restClientBuilder.baseUrl("https://restapi.amap.com/v3").build();
         this.objectMapper = objectMapper;
         this.settings = settings;
+        this.outboundClientIp = resolveClientIp(settings.clientIp().orElse(null));
+        RestClient.Builder builder = restClientBuilder
+                .baseUrl("https://restapi.amap.com/v3")
+                .defaultHeader(HttpHeaders.ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9")
+                .defaultHeader(HttpHeaders.USER_AGENT, "FWJ-SecondHandHouse/1.0");
+        if (!outboundClientIp.isBlank()) {
+            builder = builder
+                    .defaultHeader("X-Forwarded-For", outboundClientIp)
+                    .defaultHeader("X-Real-IP", outboundClientIp);
+        }
+        this.restClient = builder.build();
     }
 
     public boolean isEnabled() {
@@ -347,6 +364,18 @@ public class GaodeGeocodingClient {
             sanitized = sanitized.substring(0, sanitized.length() - 1);
         }
         return sanitized;
+    }
+
+    private String resolveClientIp(String configuredIp) {
+        String candidate = configuredIp == null ? "" : configuredIp.trim();
+        if (candidate.isEmpty()) {
+            return DEFAULT_CLIENT_IP;
+        }
+        if (IPV4_PATTERN.matcher(candidate).matches()) {
+            return candidate;
+        }
+        log.warn("Configured Gaode client IP {} is invalid, falling back to default {}", candidate, DEFAULT_CLIENT_IP);
+        return DEFAULT_CLIENT_IP;
     }
 
     private boolean isWithinChina(double latitude, double longitude) {

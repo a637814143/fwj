@@ -461,9 +461,11 @@ public class SecondHandHouseService {
 
         List<String> queryCandidates = buildQueryCandidates(query, targetHouse);
         for (String candidateQuery : queryCandidates) {
-            String effectiveCityCandidate = (cityHint == null || cityHint.isBlank())
-                    ? resolveCityHint(candidateQuery)
-                    : cityHint.trim();
+            String effectiveCityCandidate = firstNonBlank(
+                    cityHint,
+                    resolveCityHint(candidateQuery),
+                    targetHouse == null ? null : resolveCityHint(targetHouse.getAddress())
+            );
             String effectiveCity = effectiveCityCandidate == null
                     ? null
                     : sanitizeAdministrativeName(effectiveCityCandidate);
@@ -529,6 +531,22 @@ public class SecondHandHouseService {
                 .toList();
 
         return new MapSearchResult(Optional.ofNullable(bestMatch), limitedSuggestions);
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            String trimmed = value.trim();
+            if (!trimmed.isEmpty()) {
+                return trimmed;
+            }
+        }
+        return null;
     }
 
     private void addSuggestion(LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestions,

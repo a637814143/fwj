@@ -265,6 +265,54 @@ const CHINA_BOUNDS = Object.freeze({
   east: 136.5
 });
 
+const MUNICIPALITY_PATTERN = /(北京|上海|天津|重庆)/gu;
+const CITY_PATTERN = /([\p{Script=Han}]{2,6}市)/gu;
+const COUNTY_PATTERN = /([\p{Script=Han}]{2,6}(?:县|区|旗))/gu;
+
+const findLastMatch = (pattern, input) => {
+  if (!(pattern instanceof RegExp) || typeof input !== 'string') {
+    return '';
+  }
+  let match;
+  let last = '';
+  pattern.lastIndex = 0;
+  while ((match = pattern.exec(input)) !== null) {
+    last = typeof match[1] === 'string' && match[1] ? match[1] : match[0] ?? '';
+  }
+  pattern.lastIndex = 0;
+  return last;
+};
+
+const sanitizeAdministrativeNameHint = (value) => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/(自治州|地区|盟)/gu, '').trim();
+};
+
+const resolveCityHintFromText = (text) => {
+  if (typeof text !== 'string') {
+    return '';
+  }
+  const normalized = text.replace(/\s+/gu, '').trim();
+  if (!normalized) {
+    return '';
+  }
+  const municipality = findLastMatch(MUNICIPALITY_PATTERN, normalized);
+  if (municipality) {
+    return `${municipality}市`;
+  }
+  const city = findLastMatch(CITY_PATTERN, normalized);
+  if (city) {
+    return sanitizeAdministrativeNameHint(city);
+  }
+  const county = findLastMatch(COUNTY_PATTERN, normalized);
+  if (county) {
+    return sanitizeAdministrativeNameHint(county);
+  }
+  return '';
+};
+
 const mapConfig = ref({ apiKey: '', jsSecurityCode: '' });
 let mapConfigPromise = null;
 let mapConfigFetched = false;
@@ -553,6 +601,19 @@ const deriveHouseAddress = (house) => {
   return normalized;
 };
 
+const resolveCityHintForHouse = (house) => {
+  const address = deriveHouseAddress(house);
+  return resolveCityHintFromText(address);
+};
+
+const resolveCityHintForQuery = (query, house) => {
+  const queryHint = resolveCityHintFromText(query);
+  if (queryHint) {
+    return queryHint;
+  }
+  return resolveCityHintForHouse(house);
+};
+
 const buildLocationEntry = (house, lat, lng, name, address, signatureOverride) => {
   const resolvedName = fallbackTitle(house, name);
   const resolvedAddress = fallbackAddress(house, address);
@@ -596,8 +657,10 @@ const requestMapLocation = async (query, { house = null, city, signatureOverride
     return { status: 'error', suggestions: [] };
   }
   const params = new URLSearchParams({ query: trimmed });
-  if (city && city.trim()) {
-    params.append('city', city.trim());
+  const explicitCity = typeof city === 'string' ? city.trim() : '';
+  const fallbackCity = explicitCity || resolveCityHintForHouse(house);
+  if (fallbackCity) {
+    params.append('city', fallbackCity);
   }
   if (house?.id != null) {
     params.append('houseId', String(house.id));
@@ -713,6 +776,7 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   try {
     const { status, entry } = await requestMapLocation(address, {
       house,
+      city: resolveCityHintForHouse(house),
       signatureOverride: signature,
       fallbackName: address
     });
@@ -812,6 +876,7 @@ const handleManualSearch = async () => {
       : `manual::${querySignature || Date.now().toString(36)}`;
     const { status, entry, suggestions } = await requestMapLocation(query, {
       house,
+      city: resolveCityHintForQuery(query, house),
       signatureOverride,
       fallbackName: query
     });

@@ -86,9 +86,7 @@
 
         <AIAssistant
           v-else-if="activeTab === 'assistant'"
-          :api-key="aiApiKey"
-          :base-url="aiApiBaseUrl"
-          :model="aiModel"
+          :api-base-url="apiBaseUrl"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -263,9 +261,6 @@ import ReviewModeration from './components/ReviewModeration.vue';
 import AccountCenter from './components/AccountCenter.vue';
 import AIAssistant from './components/AIAssistant.vue';
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
-const aiApiBaseUrl = import.meta.env.VITE_OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
-const aiApiKey = import.meta.env.VITE_OPENAI_API_KEY ?? '';
-const aiModel = import.meta.env.VITE_OPENAI_MODEL ?? 'gpt-4o-mini';
 const houses = ref([]);
 const loading = ref(false);
 const selectedHouse = ref(null);
@@ -463,7 +458,7 @@ const translations = {
       relatedDescription: '直接点击以下问题，快速获得针对二手房交易的建议。',
       inputLabel: '向 AI 提问',
       inputPlaceholder: '请输入关于购置二手房的疑问，例如贷款流程、交易风险等…',
-      missingKey: '尚未配置 AI 密钥，请在环境变量 VITE_OPENAI_API_KEY 中填写。',
+      missingKey: 'AI 服务尚未配置，请联系管理员在后端填写密钥。',
       ask: '提交问题',
       asking: '正在回答…',
       conversationTitle: '对话记录',
@@ -1464,7 +1459,7 @@ const translations = {
       relatedDescription: 'Click a question to quickly consult the assistant about second-hand deals.',
       inputLabel: 'Ask the AI',
       inputPlaceholder: 'Type your second-hand housing question, such as mortgage steps or risk reminders…',
-      missingKey: 'AI key missing. Set VITE_OPENAI_API_KEY before using the assistant.',
+      missingKey: 'The AI assistant is disabled. Ask an administrator to configure the backend key.',
       ask: 'Ask now',
       asking: 'Generating answer…',
       conversationTitle: 'Conversation history',

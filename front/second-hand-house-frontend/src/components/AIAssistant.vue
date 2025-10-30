@@ -73,12 +73,10 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, ref } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
-  apiKey: { type: String, default: '' },
-  baseUrl: { type: String, default: 'https://api.openai.com/v1' },
-  model: { type: String, default: 'gpt-4o-mini' }
+  apiBaseUrl: { type: String, default: 'http://localhost:8080/api' }
 });
 
 const translate = inject('translate', (key) => key);
@@ -89,9 +87,17 @@ const error = ref('');
 const loading = ref(false);
 const exchanges = ref([]);
 const relatedQuestions = ref([]);
+const status = ref({ ready: false, model: '' });
 
-const hasKey = computed(() => typeof props.apiKey === 'string' && props.apiKey.trim().length > 0);
-const model = computed(() => props.model);
+const normalizedApiBaseUrl = computed(() => {
+  const base = typeof props.apiBaseUrl === 'string' && props.apiBaseUrl.trim().length > 0
+    ? props.apiBaseUrl.trim()
+    : 'http://localhost:8080/api';
+  return base.replace(/\/$/, '');
+});
+
+const hasKey = computed(() => Boolean(status.value?.ready));
+const model = computed(() => status.value?.model ?? '');
 const canSubmit = computed(() => hasKey.value && !loading.value && prompt.value.trim().length > 0);
 
 const suggestionPool = [
@@ -108,18 +114,6 @@ const suggestionPool = [
   '买二手房时如何查询房屋是否有抵押？',
   '在限购城市购买二手房需要满足哪些条件？'
 ];
-
-const normalizedBaseUrl = computed(() => {
-  const base = typeof props.baseUrl === 'string' && props.baseUrl.trim().length > 0
-    ? props.baseUrl.trim()
-    : 'https://api.openai.com/v1';
-  return base.replace(/\/$/, '');
-});
-
-const systemPrompt =
-  'You are a helpful AI assistant who specializes in the Chinese second-hand housing market. '
-  + 'Provide concise, practical advice tailored for prospective home buyers in mainland China. '
-  + 'Answer in the same language as the question.';
 
 const pickRelatedQuestions = () => {
   const pool = [...suggestionPool];
@@ -149,32 +143,33 @@ const askAssistant = async (question) => {
   loading.value = true;
   error.value = '';
   try {
-    const response = await fetch(`${normalizedBaseUrl.value}/chat/completions`, {
+    const response = await fetch(`${normalizedApiBaseUrl.value}/assistant/ask`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${props.apiKey}`
       },
       body: JSON.stringify({
-        model: props.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: trimmed }
-        ]
+        question: trimmed
       })
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const message =
-        payload?.error?.message ||
         payload?.message ||
+        payload?.error ||
         t('aiAssistant.genericError');
       throw new Error(message);
     }
-    const content = payload?.choices?.[0]?.message?.content;
+    const content = typeof payload?.answer === 'string' ? payload.answer : '';
     entry.answer = typeof content === 'string' && content.trim().length > 0
       ? content.trim()
       : t('aiAssistant.fallbackAnswer');
+    if (typeof payload?.model === 'string') {
+      status.value = {
+        ready: hasKey.value,
+        model: payload.model
+      };
+    }
     exchanges.value = [...exchanges.value];
   } catch (err) {
     entry.answer = '';
@@ -205,8 +200,30 @@ const handleRelated = async (question) => {
   await submitQuestion();
 };
 
+const loadStatus = async () => {
+  try {
+    const response = await fetch(`${normalizedApiBaseUrl.value}/assistant/status`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = await response.json().catch(() => null);
+    status.value = {
+      ready: Boolean(payload?.ready),
+      model: typeof payload?.model === 'string' ? payload.model : ''
+    };
+  } catch (loadError) {
+    console.warn('Failed to load AI assistant status', loadError);
+    status.value = { ready: false, model: '' };
+  }
+};
+
 onMounted(() => {
   pickRelatedQuestions();
+  loadStatus();
+});
+
+watch(() => normalizedApiBaseUrl.value, () => {
+  loadStatus();
 });
 </script>
 

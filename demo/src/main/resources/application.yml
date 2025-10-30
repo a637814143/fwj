@@ -18,3 +18,8 @@ spring:
     default-property-inclusion: non_null
 server:
   port: 8080
+assistant:
+  ai:
+    base-url: ${ASSISTANT_AI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${ASSISTANT_AI_API_KEY:}
+    model: ${ASSISTANT_AI_MODEL:gpt-4o-mini}

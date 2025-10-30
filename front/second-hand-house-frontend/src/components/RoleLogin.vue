@@ -1,13 +1,14 @@
 <template>
   <div class="auth-layout">
     <aside class="brand-showcase">
-      <p>科技赋能的二手房交易平台，为家庭量身打造舒心的安居旅程。</p>
-      <ul>
-        <li>• AI 房价洞察，精准掌握社区走势</li>
-        <li>• 严选优质经纪人，提供一对一陪伴服务</li>
-        <li>• 资产安全托管与积分体系，守护每一笔心动交易</li>
-      </ul>
-      <div class="brand-note">让家的温度，从登录这一刻开始。</div>
+      <div class="brand-copy">
+        <p>以 “真” 立企：严筛每套二手房，让信任贯穿安家全程</p>
+        <p>守 “诚” 服务：透明交易无套路，二手置业更安心</p>
+        <p>持 “暖” 同行：不止匹配房源，更懂你对家的期待</p>
+        <p>以 “信” 致远：严控房源质量，让二手房也有品质保障</p>
+        <p>承 “责” 前行：从选房到过户，全程护航二手置业路</p>
+        <p>循 “善” 服务：倾听需求、精准匹配，让二手买房更省心</p>
+      </div>
     </aside>
 
     <div class="auth-panel">
@@ -353,6 +354,8 @@ const submitRegister = async () => {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
+
 .auth-layout {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
@@ -361,43 +364,31 @@ const submitRegister = async () => {
 }
 
 .brand-showcase {
-  background: linear-gradient(180deg, rgba(245, 240, 233, 0.96), rgba(232, 224, 216, 0.92));
   border-radius: var(--radius-lg);
-  padding: 2.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
+  min-height: 420px;
+  background: linear-gradient(145deg, rgba(255, 250, 244, 0.92), rgba(239, 223, 210, 0.92));
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   box-shadow: 0 28px 45px rgba(150, 140, 130, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.75rem 2.25rem;
 }
 
-.brand-showcase h2 {
-  margin: 0;
-  font-size: 1.85rem;
-  color: var(--color-text-strong);
-  letter-spacing: 0.04em;
-}
-
-.brand-showcase p {
-  margin: 0;
-  color: var(--color-text-soft);
-  line-height: 1.8;
-}
-
-.brand-showcase ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.brand-copy {
   display: grid;
-  gap: 0.5rem;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
+  gap: 1.25rem;
+  font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', '楷体', serif;
+  font-size: 1.55rem;
+  color: rgba(98, 74, 56, 0.92);
+  line-height: 1.45;
+  text-align: left;
+  letter-spacing: 0.015em;
 }
 
-.brand-note {
-  margin-top: auto;
-  font-weight: 600;
-  color: #b78460;
+.brand-copy p {
+  margin: 0;
+  text-shadow: 0 12px 24px rgba(120, 95, 75, 0.25);
 }
 
 .auth-panel {
@@ -584,11 +575,21 @@ input:focus {
   .brand-showcase {
     order: 2;
   }
+
+  .brand-copy {
+    text-align: center;
+    font-size: 1.35rem;
+  }
 }
 
 @media (max-width: 640px) {
   .auth-panel {
     padding: 1.6rem;
+  }
+
+  .brand-copy {
+    font-size: 1.2rem;
+    gap: 1rem;
   }
 }
 </style>

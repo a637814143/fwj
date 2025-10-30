@@ -1,6 +1,6 @@
 <template>
   <section class="house-explorer">
-    <form class="filters" @submit.prevent="submitFilters">
+    <form v-if="showFilters" class="filters" @submit.prevent="submitFilters">
       <div class="search-row" ref="searchContainerRef">
         <div class="search-field">
           <input
@@ -82,12 +82,12 @@
       </div>
     </form>
 
-    <section v-if="hasRecommendations" class="recommendations">
+    <section v-if="shouldShowRecommendations" class="recommendations">
       <div class="recommendation">
         <h3>{{ t('explorer.recommendations.sellers.title') }}</h3>
         <ul>
           <li v-for="seller in recommendations.sellers" :key="`seller-${seller.username}`">
-            <button type="button" class="seller-link" @click="viewSellerListings(seller)">
+            <div class="seller-card">
               <div class="seller-text">
                 <strong>{{ seller.displayName }}</strong>
                 <span class="username">@{{ seller.username }}</span>
@@ -95,8 +95,7 @@
               <span class="score">
                 {{ t('explorer.recommendations.sellers.score', { score: seller.reputationScore ?? '—' }) }}
               </span>
-              <span class="cta">{{ t('explorer.recommendations.sellers.cta') }}</span>
-            </button>
+            </div>
           </li>
         </ul>
       </div>
@@ -115,24 +114,17 @@
     </section>
 
     <transition name="fade">
-      <div v-if="hasSellerFilter" class="active-seller-filter">
+      <div v-if="showFilters && hasSellerFilter" class="active-seller-filter">
         <span>{{ t('explorer.recommendations.sellers.active', { name: selectedSeller?.displayName }) }}</span>
         <button type="button" @click="clearSellerFilter">{{ t('explorer.recommendations.sellers.clear') }}</button>
       </div>
     </transition>
 
-    <PricePredictor
-      :api-base-url="apiBaseUrl"
-      :current-user="currentUser"
-      :wallet="wallet"
-      :consume-points="consumePoints"
-    />
-
     <div v-if="loading" class="loading">{{ t('explorer.states.loading') }}</div>
-    <div v-else-if="!houses || houses.length === 0" class="empty">{{ t('explorer.states.empty') }}</div>
+    <div v-else-if="!displayedHouses.length" class="empty">{{ emptyStateMessage }}</div>
 
     <div v-else class="house-grid">
-      <article v-for="house in houses" :key="house.id" class="house-card">
+      <article v-for="house in paginatedHouses" :key="house.id" class="house-card">
         <div class="status" :class="statusClass(house)">{{ statusLabel(house) }}</div>
         <div class="cover" v-if="coverImage(house)">
           <img :src="coverImage(house)" :alt="house.title" loading="lazy" />
@@ -141,9 +133,21 @@
           <span>{{ t('explorer.labels.noImage') }}</span>
         </div>
         <div class="details">
-          <header>
-            <h3>{{ house.title }}</h3>
-            <p class="address">{{ house.address }}</p>
+          <header class="card-header">
+            <div class="card-title">
+              <h3>{{ house.title }}</h3>
+              <p class="address">{{ house.address }}</p>
+            </div>
+            <button
+              type="button"
+              class="favorite-toggle"
+              :class="{ active: isFavorite(house) }"
+              :aria-label="favoriteButtonLabel(house)"
+              :title="favoriteButtonLabel(house)"
+              @click.stop="toggleFavorite(house)"
+            >
+              {{ isFavorite(house) ? '⭐' : '☆' }}
+            </button>
           </header>
           <div class="pricing">
             <div class="pricing-item">
@@ -263,12 +267,23 @@
         </footer>
       </article>
     </div>
+
+    <div v-if="showPagination" class="pagination">
+      <button type="button" class="page-btn" :disabled="!canGoPrevious" @click="goToPreviousPage">
+        {{ t('explorer.pagination.prev') }}
+      </button>
+      <span class="page-indicator">
+        {{ t('explorer.pagination.page', { current: currentPage, total: totalPages }) }}
+      </span>
+      <button type="button" class="page-btn" :disabled="!canGoNext" @click="goToNextPage">
+        {{ t('explorer.pagination.next') }}
+      </button>
+    </div>
   </section>
 </template>
 
 <script setup>
 import { computed, inject, reactive, watch, ref, onMounted, onBeforeUnmount } from 'vue';
-import PricePredictor from './PricePredictor.vue';
 
 const props = defineProps({
   houses: {
@@ -311,17 +326,33 @@ const props = defineProps({
     type: String,
     required: true
   },
-  wallet: {
-    type: Object,
-    default: null
+  favoriteIds: {
+    type: Array,
+    default: () => []
   },
-  consumePoints: {
-    type: Function,
-    default: null
+  canFavorite: {
+    type: Boolean,
+    default: false
+  },
+  pageSize: {
+    type: Number,
+    default: 6
+  },
+  showFilters: {
+    type: Boolean,
+    default: true
+  },
+  showRecommendations: {
+    type: Boolean,
+    default: true
+  },
+  emptyMessage: {
+    type: String,
+    default: ''
   }
 });
 
-const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller']);
+const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller', 'toggle-favorite']);
 
 const settings = inject('appSettings', { language: 'zh' });
 const translate = inject('translate', (key) => key);
@@ -373,6 +404,69 @@ const hasRecommendations = computed(() => {
     ? props.recommendations.buyers.length
     : 0;
   return sellers + buyers > 0;
+});
+
+const shouldShowRecommendations = computed(() => props.showRecommendations && hasRecommendations.value);
+
+const favoriteIdSet = computed(
+  () => new Set((Array.isArray(props.favoriteIds) ? props.favoriteIds : []).map((value) => String(value)))
+);
+
+const pageSizeValue = computed(() => {
+  const numeric = Number(props.pageSize);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return 6;
+  }
+  return Math.max(1, Math.floor(numeric));
+});
+
+const displayedHouses = computed(() => {
+  if (!Array.isArray(props.houses)) {
+    return [];
+  }
+  return props.houses.filter((house) => house && typeof house === 'object');
+});
+
+const currentPage = ref(1);
+
+const totalPages = computed(() => {
+  const count = displayedHouses.value.length;
+  if (count === 0) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(count / pageSizeValue.value));
+});
+
+const paginatedHouses = computed(() => {
+  const size = pageSizeValue.value;
+  const start = (currentPage.value - 1) * size;
+  return displayedHouses.value.slice(start, start + size);
+});
+
+const showPagination = computed(() => totalPages.value > 1);
+const canGoPrevious = computed(() => currentPage.value > 1);
+const canGoNext = computed(() => currentPage.value < totalPages.value);
+
+const goToPreviousPage = () => {
+  if (canGoPrevious.value) {
+    currentPage.value -= 1;
+  }
+};
+
+const goToNextPage = () => {
+  if (canGoNext.value) {
+    currentPage.value += 1;
+  }
+};
+
+const emptyStateMessage = computed(() => {
+  if (typeof props.emptyMessage === 'string') {
+    const trimmed = props.emptyMessage.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return t('explorer.states.empty');
 });
 
 const hasSellerFilter = computed(() => Boolean(localFilters.sellerUsername));
@@ -453,6 +547,32 @@ watch(
   { deep: true }
 );
 
+watch(
+  () => props.houses,
+  () => {
+    currentPage.value = 1;
+  }
+);
+
+watch(
+  () => props.pageSize,
+  () => {
+    currentPage.value = 1;
+  }
+);
+
+watch(
+  totalPages,
+  (pages) => {
+    if (currentPage.value > pages) {
+      currentPage.value = pages;
+    }
+    if (pages <= 0) {
+      currentPage.value = 1;
+    }
+  }
+);
+
 const submitFilters = () => {
   historyVisible.value = false;
   recordHistory(localFilters.keyword);
@@ -462,22 +582,28 @@ const submitFilters = () => {
   emit('search', { ...localFilters, ...extra });
 };
 
-const viewSellerListings = (seller) => {
-  if (!seller?.username) {
-    return;
-  }
-  selectedSeller.value = {
-    username: seller.username,
-    displayName: seller.displayName || seller.username
-  };
-  localFilters.sellerUsername = seller.username;
-  emit('search', { ...localFilters, sellerDisplayName: selectedSeller.value.displayName });
-};
-
 const clearSellerFilter = () => {
   selectedSeller.value = null;
   localFilters.sellerUsername = '';
   emit('search', { ...localFilters, sellerDisplayName: '' });
+};
+
+const isFavorite = (house) => {
+  if (!house || house.id == null) {
+    return false;
+  }
+  return favoriteIdSet.value.has(String(house.id));
+};
+
+const favoriteButtonLabel = (house) => {
+  if (!props.canFavorite) {
+    return t('favorites.loginRequired');
+  }
+  return isFavorite(house) ? t('favorites.remove') : t('favorites.add');
+};
+
+const toggleFavorite = (house) => {
+  emit('toggle-favorite', house);
 };
 
 const contactSeller = (house) => {
@@ -1056,7 +1182,7 @@ const statusClass = (house) => {
   display: block;
 }
 
-.seller-link {
+.seller-card {
   width: 100%;
   display: flex;
   align-items: center;
@@ -1067,12 +1193,7 @@ const statusClass = (house) => {
   border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   background: rgba(255, 255, 255, 0.92);
   text-align: left;
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
-}
-
-.seller-link:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 32px rgba(146, 138, 129, 0.22);
+  cursor: default;
 }
 
 .seller-text {
@@ -1090,13 +1211,8 @@ const statusClass = (house) => {
   color: var(--color-text-soft);
 }
 
-.seller-link .score {
+.seller-card .score {
   color: var(--color-text-muted);
-}
-
-.seller-link .cta {
-  color: var(--color-accent);
-  font-size: 0.9rem;
 }
 
 .active-seller-filter {
@@ -1227,6 +1343,19 @@ const statusClass = (house) => {
   padding: 1.25rem;
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .details h3 {
   margin: 0;
   font-size: 1.2rem;
@@ -1319,6 +1448,30 @@ const statusClass = (house) => {
   gap: 0.75rem;
   border-top: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   background: rgba(248, 244, 239, 0.88);
+}
+
+.favorite-toggle {
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--color-text-soft) 70%, var(--color-text-strong));
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+  transition: transform var(--transition-base), color var(--transition-base);
+}
+
+.favorite-toggle:not(.active) {
+  color: color-mix(in srgb, var(--color-text-soft) 35%, transparent);
+}
+
+.favorite-toggle:hover {
+  transform: scale(1.06);
+  color: var(--color-accent);
+}
+
+.favorite-toggle.active {
+  color: #f5b301;
+  filter: drop-shadow(0 6px 14px rgba(245, 179, 1, 0.35));
 }
 
 .payment {
@@ -1418,6 +1571,41 @@ const statusClass = (house) => {
 .hint {
   color: var(--color-text-soft);
   font-size: 0.9rem;
+}
+
+.pagination {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.page-btn {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.55rem 1.5rem;
+  background: color-mix(in srgb, var(--color-accent) 24%, rgba(255, 255, 255, 0.92));
+  color: var(--color-text-strong);
+  font-weight: 600;
+  box-shadow: 0 12px 24px rgba(150, 132, 118, 0.22);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.page-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(150, 132, 118, 0.26);
+}
+
+.page-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.page-indicator {
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 @media (min-width: 768px) {

@@ -7,7 +7,7 @@ import java.util.Optional;
 @ConfigurationProperties(prefix = "gaode.api")
 public class GaodeMapSettings {
 
-    private static final String DEFAULT_KEY = "8b3a5828dd1e9d106d49f5319c40f6ef";
+    private static final String DEFAULT_KEY = "46dff0d2a8f9204d4642f8dd91e10daf";
 
     private final String apiKey;
     private final String jsSecurityCode;

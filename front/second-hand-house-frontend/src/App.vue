@@ -43,20 +43,49 @@
     </section>
 
     <template v-else>
-      <div class="workspace-layout">
-        <aside class="sidebar">
-          <nav class="menu">
-            <button
-              v-for="tab in navigationTabs"
-              :key="tab.value"
-              type="button"
-              :class="['menu-item', { active: tab.value === activeTab }]"
-              @click="switchTab(tab.value)"
-            >
-              {{ tab.label }}
-            </button>
-          </nav>
-        </aside>
+      <div class="workspace-layout" :class="{ 'menu-open': menuOpen }">
+        <div class="menu-wrapper">
+          <button
+            type="button"
+            class="menu-toggle"
+            :aria-expanded="menuOpen ? 'true' : 'false'"
+            aria-controls="app-navigation"
+            @click="toggleMenu"
+          >
+            ≡
+          </button>
+          <transition name="menu-fade">
+            <aside v-if="menuOpen" id="app-navigation" class="sidebar">
+              <div class="menu-panel">
+                <div class="menu-header" v-if="currentUser">
+                  <div class="menu-user">
+                    <span class="menu-user-name">{{ currentUser.displayName }}</span>
+                    <span class="menu-user-role">{{ roleLabels[currentUser.role] }}</span>
+                    <span class="menu-user-account">@{{ currentUser.username }}</span>
+                  </div>
+                  <div class="menu-wallet">
+                    <span>{{ t('menu.walletBalance') }}：<strong>￥{{ walletBalanceLabel }}</strong></span>
+                    <span>{{ t('menu.walletPoints') }}：<strong>{{ walletPointsLabel }}</strong></span>
+                  </div>
+                </div>
+                <nav class="menu">
+                  <button
+                    v-for="tab in navigationTabs"
+                    :key="tab.value"
+                    type="button"
+                    :class="['menu-item', { active: tab.value === activeTab }]"
+                    @click="switchTab(tab.value)"
+                  >
+                    {{ tab.label }}
+                  </button>
+                </nav>
+                <button type="button" class="menu-logout" @click="handleLogout">
+                  {{ t('header.logout') }}
+                </button>
+              </div>
+            </aside>
+          </transition>
+        </div>
 
         <section class="workspace">
           <section v-if="messages.error" class="alert">
@@ -76,17 +105,51 @@
           :reservation-loading="reservationLoading"
           :reservation-target="reservationTarget"
           :api-base-url="apiBaseUrl"
-          :wallet="wallet"
-          :consume-points="consumePredictionPoints"
+          :favorite-ids="favoriteIdList"
+          :can-favorite="Boolean(currentUser)"
+          :page-size="6"
           @search="handleFilterSearch"
           @reserve="handleReserve"
           @purchase="handlePurchase"
           @contact-seller="handleContactSeller"
+          @toggle-favorite="handleToggleFavorite"
+        />
+
+        <HouseExplorer
+          v-else-if="activeTab === 'favorites'"
+          :houses="favoriteHouses"
+          :loading="loading"
+          :current-user="currentUser"
+          :can-view-sensitive-info="canViewSensitiveInfo"
+          :filters="houseFilters"
+          :recommendations="recommendations"
+          :purchase-loading="ordersLoading"
+          :reservation-loading="reservationLoading"
+          :reservation-target="reservationTarget"
+          :api-base-url="apiBaseUrl"
+          :favorite-ids="favoriteIdList"
+          :can-favorite="Boolean(currentUser)"
+          :page-size="6"
+          :show-filters="false"
+          :show-recommendations="false"
+          :empty-message="t('favorites.empty')"
+          @reserve="handleReserve"
+          @purchase="handlePurchase"
+          @contact-seller="handleContactSeller"
+          @toggle-favorite="handleToggleFavorite"
         />
 
         <AIAssistant
           v-else-if="activeTab === 'assistant'"
           :api-base-url="apiBaseUrl"
+        />
+
+        <PricePredictor
+          v-else-if="activeTab === 'predictor'"
+          :api-base-url="apiBaseUrl"
+          :current-user="currentUser"
+          :wallet="wallet"
+          :consume-points="consumePredictionPoints"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -114,6 +177,21 @@
             @contact-seller="handleContactSeller"
           />
         </div>
+
+        <HouseList
+          v-else-if="activeTab === 'drafts'"
+          :houses="sellerDraftHouses"
+          :loading="loading"
+          :can-manage="canManageHouses"
+          :current-user="currentUser"
+          :can-view-sensitive-info="canViewSensitiveInfo"
+          :orders-loading="ordersLoading"
+          @edit="handleEdit"
+          @remove="handleRemove"
+          @review="handleReview"
+          @purchase="handlePurchase"
+          @contact-seller="handleContactSeller"
+        />
 
         <HouseReviews
           v-else-if="activeTab === 'feedback'"
@@ -241,7 +319,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import HouseForm from './components/HouseForm.vue';
 import HouseList from './components/HouseList.vue';
@@ -293,6 +371,9 @@ const conversationMessagesLoading = ref(false);
 const conversationSending = ref(false);
 const conversationError = ref('');
 const activeTab = ref('home');
+const menuOpen = ref(true);
+const favoriteHouseIds = ref(new Set());
+const favoriteIdList = computed(() => Array.from(favoriteHouseIds.value));
 const houseFilters = reactive({
   keyword: '',
   minPrice: '',
@@ -305,6 +386,7 @@ const houseFilters = reactive({
 const storageKey = 'secondhand-house-current-user';
 const urgentDismissedStoragePrefix = 'shh-urgent-dismissed-';
 const reviewStorageKey = 'shh-house-reviews-v1';
+const favoritesStoragePrefix = 'shh-favorites-';
 
 const client = axios.create({
   baseURL: apiBaseUrl,
@@ -318,6 +400,19 @@ const coerceNumber = (value, fallback = 0) => {
     return Number.isFinite(fallbackNum) ? fallbackNum : 0;
   }
   return num;
+};
+
+const updateMenuForViewport = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (window.innerWidth >= 1024) {
+    menuOpen.value = true;
+  }
+};
+
+const toggleMenu = () => {
+  menuOpen.value = !menuOpen.value;
 };
 
 const normalizeWallet = (next, previous = null) => {
@@ -416,6 +511,38 @@ const settings = reactive({
 
 provide('appSettings', settings);
 
+const buildFavoriteStorageKey = (username) => `${favoritesStoragePrefix}${username}`;
+
+const loadFavoriteIds = (username) => {
+  if (typeof window === 'undefined' || !username) {
+    return new Set();
+  }
+  try {
+    const raw = window.localStorage.getItem(buildFavoriteStorageKey(username));
+    if (!raw) {
+      return new Set();
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.map((value) => String(value)));
+    }
+  } catch (error) {
+    console.warn('Failed to restore favorite houses:', error);
+  }
+  return new Set();
+};
+
+const persistFavoriteIds = (username, ids) => {
+  if (typeof window === 'undefined' || !username) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(buildFavoriteStorageKey(username), JSON.stringify(ids));
+  } catch (error) {
+    console.warn('Failed to persist favorite houses:', error);
+  }
+};
+
 const translations = {
   zh: {
     header: {
@@ -431,8 +558,11 @@ const translations = {
     },
     nav: {
       home: '购买首页',
+      favorites: '我的收藏',
+      predictor: '房价预测',
       aiAssistant: 'AI 智能助手',
       manage: '房源管理',
+      drafts: '草稿箱',
       feedback: '房源评价',
       urgent: '紧急待办',
       orders: '订单与钱包',
@@ -443,11 +573,23 @@ const translations = {
       admin: '管理员面板',
       reputation: '信誉面板'
     },
+    menu: {
+      walletBalance: '钱包余额',
+      walletPoints: '积分余额'
+    },
     footer: {
       apiBaseLabel: '后端接口地址：'
     },
     alerts: {
       errorPrefix: '提示：'
+    },
+    favorites: {
+      empty: '暂未收藏任何房源。',
+      added: '已收藏该房源。',
+      removed: '已取消收藏。',
+      loginRequired: '请登录后再收藏房源。',
+      add: '收藏该房源',
+      remove: '取消收藏'
     },
     aiAssistant: {
       title: '智能购房顾问',
@@ -1036,6 +1178,11 @@ const translations = {
         loading: '房源数据加载中…',
         empty: '暂未查询到符合条件的房源。'
       },
+      pagination: {
+        prev: '上一页',
+        next: '下一页',
+        page: '第 {current} / {total} 页'
+      },
       recommendations: {
         sellers: {
           title: '优质卖家',
@@ -1433,8 +1580,11 @@ const translations = {
     },
     nav: {
       home: 'Home',
+      favorites: 'Favorites',
+      predictor: 'Price predictor',
       aiAssistant: 'AI assistant',
       manage: 'Listing management',
+      drafts: 'Draft box',
       feedback: 'Listing feedback',
       urgent: 'Urgent tasks',
       orders: 'Orders & wallet',
@@ -1445,11 +1595,23 @@ const translations = {
       admin: 'Admin dashboard',
       reputation: 'Reputation board'
     },
+    menu: {
+      walletBalance: 'Wallet balance',
+      walletPoints: 'Reward points'
+    },
     footer: {
       apiBaseLabel: 'API endpoint:'
     },
     alerts: {
       errorPrefix: 'Notice:'
+    },
+    favorites: {
+      empty: 'No favorite listings yet.',
+      added: 'Listing added to favorites.',
+      removed: 'Listing removed from favorites.',
+      loginRequired: 'Sign in to favorite listings.',
+      add: 'Add to favorites',
+      remove: 'Remove from favorites'
     },
     aiAssistant: {
       title: 'Smart buying assistant',
@@ -2039,6 +2201,11 @@ const translations = {
         loading: 'Loading listings…',
         empty: 'No listings matched the filters yet.'
       },
+      pagination: {
+        prev: 'Previous',
+        next: 'Next',
+        page: 'Page {current} of {total}'
+      },
       recommendations: {
         sellers: {
           title: 'Top sellers',
@@ -2575,6 +2742,30 @@ watch(
   }
 );
 
+watch(
+  () => currentUser.value?.username,
+  (username) => {
+    if (!username) {
+      favoriteHouseIds.value = new Set();
+      return;
+    }
+    favoriteHouseIds.value = loadFavoriteIds(username);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => favoriteIdList.value,
+  (ids) => {
+    const username = currentUser.value?.username;
+    if (!username) {
+      return;
+    }
+    persistFavoriteIds(username, ids);
+  },
+  { deep: true }
+);
+
 const parentheses = computed(() =>
   currentLocale.value === 'en'
     ? { left: '(', right: ')' }
@@ -2592,6 +2783,23 @@ const formatCurrencyYuan = (value) => {
     maximumFractionDigits: 2
   });
 };
+
+const walletBalanceLabel = computed(() => {
+  if (!wallet.value || wallet.value.balance == null) {
+    return '—';
+  }
+  return formatCurrencyYuan(wallet.value.balance);
+});
+
+const walletPointsLabel = computed(() => {
+  if (!wallet.value || wallet.value.points == null) {
+    return '—';
+  }
+  const locale = settings.language === 'en' ? 'en-US' : 'zh-CN';
+  return Number(wallet.value.points ?? 0).toLocaleString(locale, {
+    maximumFractionDigits: 0
+  });
+});
 
 const sanitizeDigits = (value) => (value == null ? '' : String(value).replace(/\D/g, ''));
 
@@ -2679,6 +2887,19 @@ const canViewSensitiveInfo = computed(() => {
 });
 
 const canManageHouses = computed(() => isSeller.value);
+
+const favoriteHouses = computed(() => {
+  const set = favoriteHouseIds.value;
+  if (!(set instanceof Set) || set.size === 0) {
+    return [];
+  }
+  return houses.value.filter((house) => {
+    if (!house || house.id == null) {
+      return false;
+    }
+    return set.has(String(house.id));
+  });
+});
 
 const urgentTasks = computed(() => {
   if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
@@ -2771,6 +2992,16 @@ const urgentTasks = computed(() => {
 const showUrgentTasks = computed(() => isBuyer.value || isSeller.value);
 const canAccessOrders = computed(() => showUrgentTasks.value || isAdmin.value);
 
+const sellerDraftHouses = computed(() => {
+  if (!isSeller.value || !currentUser.value?.username) {
+    return [];
+  }
+  const username = String(currentUser.value.username);
+  return houses.value.filter(
+    (house) => house?.status === 'DRAFT' && String(house?.sellerUsername ?? '') === username
+  );
+});
+
 const pendingReviewHouses = computed(() =>
   houses.value.filter((house) => house.status === 'PENDING_REVIEW')
 );
@@ -2782,12 +3013,15 @@ const pendingHouseReviews = computed(() =>
 );
 
 const navigationTabs = computed(() => {
-  const tabs = [
-    { value: 'home', label: t('nav.home') },
-    { value: 'assistant', label: t('nav.aiAssistant') }
-  ];
+  const tabs = [{ value: 'home', label: t('nav.home') }];
+  if (currentUser.value) {
+    tabs.push({ value: 'favorites', label: t('nav.favorites') });
+  }
+  tabs.push({ value: 'predictor', label: t('nav.predictor') });
+  tabs.push({ value: 'assistant', label: t('nav.aiAssistant') });
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: t('nav.manage') });
+    tabs.push({ value: 'drafts', label: t('nav.drafts') });
   }
   tabs.push({ value: 'feedback', label: t('nav.feedback') });
   if (showUrgentTasks.value) {
@@ -2862,6 +3096,9 @@ watch(
 
 const switchTab = (tab) => {
   activeTab.value = tab;
+  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+    menuOpen.value = false;
+  }
   if (tab === 'admin') {
     loadAdminOrders();
   }
@@ -3909,6 +4146,28 @@ const handleRequestReturn = async ({ orderId, reason }) => {
   }
 };
 
+const handleToggleFavorite = (house) => {
+  if (!house || house.id == null) {
+    return;
+  }
+  if (!currentUser.value) {
+    messages.error = t('favorites.loginRequired');
+    messages.success = '';
+    return;
+  }
+  const id = String(house.id);
+  const next = new Set(favoriteHouseIds.value);
+  if (next.has(id)) {
+    next.delete(id);
+    messages.success = t('favorites.removed');
+  } else {
+    next.add(id);
+    messages.success = t('favorites.added');
+  }
+  messages.error = '';
+  favoriteHouseIds.value = next;
+};
+
 const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
 };
@@ -4241,6 +4500,10 @@ watch(
 );
 
 onMounted(() => {
+  if (typeof window !== 'undefined') {
+    menuOpen.value = window.innerWidth >= 1024;
+    window.addEventListener('resize', updateMenuForViewport);
+  }
   try {
     const cached = localStorage.getItem(storageKey);
     if (cached) {
@@ -4262,6 +4525,12 @@ onMounted(() => {
   }
   fetchHouses();
   loadRecommendations();
+});
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateMenuForViewport);
+  }
 });
 </script>
 
@@ -4454,15 +4723,97 @@ onMounted(() => {
 
 .workspace-layout {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: minmax(72px, 260px) 1fr;
   gap: 1.75rem;
   align-items: start;
+}
+
+.menu-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  align-items: stretch;
+}
+
+.menu-toggle {
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1.2rem;
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  color: var(--color-text-strong);
+  font-size: 1.4rem;
+  font-weight: 700;
+  box-shadow: 0 14px 28px rgba(120, 110, 100, 0.22);
+  transition: transform var(--transition-base), box-shadow var(--transition-base),
+    background var(--transition-base);
+}
+
+.menu-toggle:hover,
+.menu-toggle:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(120, 110, 100, 0.26);
+  outline: none;
 }
 
 .sidebar {
   position: sticky;
   top: 1.5rem;
   align-self: start;
+}
+
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.35rem 1.2rem;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(calc(var(--glass-blur) / 2));
+}
+
+.menu-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.menu-user {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--color-text-strong);
+}
+
+.menu-user-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.menu-user-role {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.menu-user-account {
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
+}
+
+.menu-wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.menu-wallet span strong {
+  color: var(--color-text-strong);
+  margin-left: 0.25rem;
 }
 
 .workspace {
@@ -4475,12 +4826,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 1.25rem 1rem;
-  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
 .menu-item {
@@ -4493,6 +4838,37 @@ onMounted(() => {
   text-align: left;
   letter-spacing: 0.01em;
   transition: all var(--transition-base);
+}
+
+.menu-logout {
+  align-self: stretch;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.75rem 1.35rem;
+  font-weight: 600;
+  color: var(--color-text-on-emphasis);
+  background: linear-gradient(135deg, rgba(180, 140, 110, 0.32), rgba(154, 161, 168, 0.36));
+  box-shadow: 0 14px 28px rgba(150, 132, 118, 0.24);
+  transition: transform var(--transition-base), box-shadow var(--transition-base),
+    background var(--transition-base);
+}
+
+.menu-logout:hover,
+.menu-logout:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(150, 132, 118, 0.3);
+  outline: none;
+}
+
+.menu-fade-enter-active,
+.menu-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.2s ease;
+}
+
+.menu-fade-enter-from,
+.menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .menu-item.active {
@@ -4609,9 +4985,22 @@ onMounted(() => {
   color: var(--color-text-on-emphasis);
 }
 
-:global(body[data-theme='dark']) .menu {
-  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
-  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+:global(body[data-theme='dark']) .menu-panel {
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  border-color: color-mix(in srgb, var(--color-border) 85%, transparent);
+}
+
+:global(body[data-theme='dark']) .menu-toggle {
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  color: var(--color-text-on-emphasis);
+}
+
+:global(body[data-theme='dark']) .menu-wallet {
+  color: color-mix(in srgb, var(--color-text-soft) 85%, var(--color-text-on-emphasis));
+}
+
+:global(body[data-theme='dark']) .menu-logout {
+  background: linear-gradient(135deg, rgba(143, 162, 179, 0.32), rgba(178, 141, 156, 0.35));
 }
 
 @media (min-width: 1280px) {
@@ -4636,23 +5025,22 @@ onMounted(() => {
   }
 
   .workspace-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
   }
 
   .sidebar {
     position: static;
   }
 
-  .menu {
+  .menu-wrapper {
     flex-direction: row;
-    flex-wrap: wrap;
-    border-radius: var(--radius-pill);
-    justify-content: center;
+    align-items: center;
+    gap: 1rem;
   }
 
-  .menu-item {
-    text-align: center;
-    flex: 1 1 160px;
+  .menu-panel {
+    width: 100%;
   }
 
   .admin-panels {
@@ -4690,8 +5078,8 @@ onMounted(() => {
     justify-content: center;
   }
 
-  .menu {
-    gap: 0.6rem;
+  .menu-wrapper {
+    align-items: stretch;
   }
 }
 </style>

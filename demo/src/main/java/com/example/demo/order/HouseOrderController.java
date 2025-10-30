@@ -53,6 +53,12 @@ public class HouseOrderController {
         return houseOrderService.scheduleViewing(orderId, request);
     }
 
+    @PostMapping("/{orderId}/viewing/confirm")
+    public HouseOrderResponse confirmViewing(@PathVariable Long orderId,
+                                             @Valid @RequestBody ViewingConfirmationRequest request) {
+        return houseOrderService.confirmViewing(orderId, request);
+    }
+
     @PostMapping("/{orderId}/progress")
     public HouseOrderResponse updateProgress(@PathVariable Long orderId,
                                              @Valid @RequestBody OrderProgressUpdateRequest request) {

@@ -4,41 +4,46 @@
       <header class="modal__header">
         <div class="modal__title">
           <h3>{{ house.title }}</h3>
-          <p class="modal__address">{{ house.address }}</p>
+          <p class="modal__address">{{ addressText }}</p>
         </div>
-        <button type="button" class="icon-button" aria-label="Close details" @click="emit('close')">×</button>
+        <button
+          type="button"
+          class="icon-button"
+          :aria-label="t('houseDetail.close')"
+          @click="emit('close')"
+        >
+          ×
+        </button>
       </header>
 
       <section class="modal__content">
         <div class="info-grid">
           <div class="info-item">
-            <span class="info-label">Price</span>
-            <span class="info-value">¥{{ formattedPrice }}</span>
+            <span class="info-label">{{ t('houseDetail.price') }}</span>
+            <span class="info-value">{{ formattedPrice }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Down payment</span>
-            <span class="info-value">¥{{ formattedDownPayment }}</span>
+            <span class="info-label">{{ t('houseDetail.downPayment') }}</span>
+            <span class="info-value">{{ formattedDownPayment }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Installment plan</span>
-            <span class="info-value">
-              {{ formattedInstallment }}
-            </span>
+            <span class="info-label">{{ t('houseDetail.installment') }}</span>
+            <span class="info-value">{{ formattedInstallment }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Area</span>
-            <span class="info-value">{{ formattedArea }} ㎡</span>
+            <span class="info-label">{{ t('houseDetail.area') }}</span>
+            <span class="info-value">{{ formattedArea }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Listed on</span>
+            <span class="info-label">{{ t('houseDetail.listedOn') }}</span>
             <span class="info-value">{{ formattedDate }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Floor</span>
+            <span class="info-label">{{ t('houseDetail.floor') }}</span>
             <span class="info-value">{{ formattedFloor }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Status</span>
+            <span class="info-label">{{ t('houseDetail.status') }}</span>
             <span class="info-value">
               <span :class="['status-chip', statusClass]">{{ statusLabel }}</span>
             </span>
@@ -48,7 +53,7 @@
         <p v-if="house.description" class="modal__description">{{ house.description }}</p>
 
         <div v-if="keywordList.length" class="keywords">
-          <h4>Listing keywords</h4>
+          <h4>{{ t('houseDetail.keywords') }}</h4>
           <ul>
             <li v-for="keyword in keywordList" :key="keyword">{{ keyword }}</li>
           </ul>
@@ -56,14 +61,14 @@
 
         <div class="gallery">
           <div class="gallery__header">
-            <h4>Gallery</h4>
-            <span v-if="images.length" class="gallery__count">{{ images.length }} images</span>
+            <h4>{{ t('houseDetail.gallery') }}</h4>
+            <span v-if="images.length" class="gallery__count">{{ galleryCountLabel }}</span>
           </div>
-          <p v-if="!images.length" class="gallery__empty">No images uploaded yet.</p>
+          <p v-if="!images.length" class="gallery__empty">{{ t('houseDetail.galleryEmpty') }}</p>
           <div v-else class="gallery__grid">
             <figure v-for="(image, index) in images" :key="`${index}-${image}`" class="gallery__item">
-              <img :src="image" :alt="`${house.title} image ${index + 1}`" loading="lazy" />
-              <figcaption>Image {{ index + 1 }}</figcaption>
+              <img :src="image" :alt="`${house.title} ${t('houseDetail.galleryAlt', { index: index + 1 })}`" loading="lazy" />
+              <figcaption>{{ t('houseDetail.galleryItem', { index: index + 1 }) }}</figcaption>
             </figure>
           </div>
         </div>
@@ -71,17 +76,19 @@
 
       <footer class="modal__footer">
         <div class="contact">
-          <span>Seller: {{ sellerName }}</span>
-          <span>Contact: {{ maskedPhone }}</span>
+          <span>{{ sellerLabel }}</span>
+          <span>{{ contactLabel }}</span>
         </div>
-        <button type="button" class="primary-button" @click="emit('close')">Close</button>
+        <button type="button" class="primary-button" @click="emit('close')">
+          {{ t('houseDetail.close') }}
+        </button>
       </footer>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 
 const props = defineProps({
   house: {
@@ -96,39 +103,99 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
+const translate = inject('translate', (key, vars) => key);
+const settings = inject('appSettings', { language: 'zh' });
+const t = (key, vars) => translate(key, vars);
+
+const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
+const unknownValue = '—';
+
 const images = computed(() => (Array.isArray(props.house?.imageUrls) ? props.house.imageUrls : []));
 
-const formattedPrice = computed(() => formatCurrency(props.house?.price));
-const formattedDownPayment = computed(() => formatCurrency(props.house?.downPayment));
-const formattedInstallment = computed(() => {
-  const monthly = formatCurrency(props.house?.installmentMonthlyPayment);
-  const months =
-    props.house?.installmentMonths != null && props.house.installmentMonths !== ''
-      ? props.house.installmentMonths
-      : '—';
-  if (monthly === '—') {
-    return '—';
+const addressText = computed(() => {
+  const address = props.house?.address;
+  if (!address || !String(address).trim()) {
+    return t('houseDetail.addressFallback');
   }
-  return `¥${monthly} × ${months} months`;
-});
-const formattedArea = computed(() => formatNumber(props.house?.area));
-const formattedDate = computed(() => formatDate(props.house?.listingDate));
-const formattedFloor = computed(() => {
-  if (props.house?.floor == null || props.house.floor === '') {
-    return '—';
-  }
-  return `Floor ${props.house.floor}`;
+  return address;
 });
 
-const listingStatusLabels = {
-  DRAFT: 'Draft',
-  PENDING_REVIEW: 'Pending review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  SOLD: 'Sold (unlisted)'
+const formatCurrencyValue = (value) => {
+  if (value == null || value === '') {
+    return unknownValue;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return unknownValue;
+  }
+  return new Intl.NumberFormat(locale.value, {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
 };
 
-const statusLabel = computed(() => listingStatusLabels[props.house?.status] ?? 'Pending review');
+const formatNumberValue = (value, options = {}) => {
+  if (value == null || value === '') {
+    return unknownValue;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return unknownValue;
+  }
+  return new Intl.NumberFormat(locale.value, {
+    minimumFractionDigits: options.minimumFractionDigits ?? 0,
+    maximumFractionDigits: options.maximumFractionDigits ?? 2
+  }).format(num);
+};
+
+const formatDateValue = (value) => {
+  if (!value) {
+    return unknownValue;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return unknownValue;
+  }
+  return date.toLocaleDateString(locale.value);
+};
+
+const formattedPrice = computed(() => formatCurrencyValue(props.house?.price));
+const formattedDownPayment = computed(() => formatCurrencyValue(props.house?.downPayment));
+const formattedInstallment = computed(() => {
+  const monthly = formatCurrencyValue(props.house?.installmentMonthlyPayment);
+  if (monthly === unknownValue) {
+    return unknownValue;
+  }
+  const months = props.house?.installmentMonths;
+  if (months == null || months === '') {
+    return monthly;
+  }
+  return t('houseDetail.installmentValue', { amount: monthly, months });
+});
+const formattedArea = computed(() => {
+  const area = formatNumberValue(props.house?.area, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return area === unknownValue ? area : t('houseDetail.areaValue', { area });
+});
+const formattedDate = computed(() => formatDateValue(props.house?.listingDate));
+const formattedFloor = computed(() => {
+  if (props.house?.floor == null || props.house.floor === '') {
+    return unknownValue;
+  }
+  return t('houseDetail.floorValue', { floor: props.house.floor });
+});
+
+const statusLabels = computed(() => {
+  const labels = t('statuses');
+  return labels && typeof labels === 'object' ? labels : {};
+});
+
+const statusLabel = computed(() => {
+  const status = props.house?.status;
+  return statusLabels.value?.[status] ?? statusLabels.value?.PENDING ?? unknownValue;
+});
+
 const statusClass = computed(() => {
   switch (props.house?.status) {
     case 'DRAFT':
@@ -145,10 +212,11 @@ const statusClass = computed(() => {
 });
 
 const keywordList = computed(() => (Array.isArray(props.house?.keywords) ? props.house.keywords : []));
+const galleryCountLabel = computed(() => t('houseDetail.galleryCount', { count: images.value.length }));
 
 const sellerName = computed(() => {
   if (props.canViewSensitiveInfo) {
-    return props.house?.sellerName ?? '—';
+    return props.house?.sellerName ?? unknownValue;
   }
   return maskName(props.house?.sellerName);
 });
@@ -156,62 +224,36 @@ const sellerName = computed(() => {
 const maskedPhone = computed(() => {
   const phone = props.house?.contactNumber;
   if (props.canViewSensitiveInfo) {
-    return phone ?? '—';
+    return phone ?? unknownValue;
   }
   return maskPhone(phone);
 });
 
-function formatNumber(value) {
-  if (value == null || value === '') {
-    return '—';
-  }
-  return Number(value).toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  });
-}
-
-function formatCurrency(value) {
-  if (value == null || value === '') {
-    return '—';
-  }
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return '—';
-  }
-  return num.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-function formatDate(value) {
-  if (!value) {
-    return '-';
-  }
-  return new Date(value).toLocaleDateString('en-US');
-}
+const sellerLabel = computed(() => t('houseDetail.seller', { name: sellerName.value }));
+const contactLabel = computed(() => t('houseDetail.contact', { phone: maskedPhone.value }));
 
 function maskPhone(value) {
   if (!value) {
-    return '-';
+    return unknownValue;
   }
   const phone = String(value).trim();
   if (phone.length <= 4) {
-    return '*'.repeat(phone.length);
+    return `${phone}****`;
   }
-  return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
+  const prefix = phone.slice(0, 3);
+  const suffix = phone.slice(-2);
+  return `${prefix}****${suffix}`;
 }
 
 function maskName(value) {
   if (!value) {
-    return '—';
+    return unknownValue;
   }
-  const text = String(value);
-  if (text.length === 1) {
-    return `${text}*`;
+  const name = String(value).trim();
+  if (name.length <= 1) {
+    return `${name}*`;
   }
-  return `${text.slice(0, 1)}**`;
+  return `${name.slice(0, 1)}**`;
 }
 </script>
 
@@ -219,259 +261,242 @@ function maskName(value) {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(15, 23, 42, 0.45);
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 1.5rem;
+  justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
 }
 
 .modal {
-  width: min(900px, 100%);
+  background: var(--gradient-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.32);
+  max-width: 860px;
+  width: min(92vw, 860px);
   max-height: 90vh;
-  background: #fff;
-  border-radius: 1.25rem;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .modal__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 1.5rem 1.75rem;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  color: #fff;
+  padding: 1.4rem 1.8rem 1.2rem;
+  gap: 1rem;
 }
 
 .modal__title h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1.4rem;
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: 1.45rem;
 }
 
 .modal__address {
-  margin: 0;
+  margin: 0.35rem 0 0;
+  color: var(--color-text-soft);
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.85);
 }
 
 .icon-button {
   border: none;
-  background: rgba(15, 23, 42, 0.2);
-  color: #fff;
-  font-size: 1.5rem;
-  width: 2.25rem;
-  height: 2.25rem;
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--color-text-soft);
   border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
   cursor: pointer;
-  line-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-base), color var(--transition-base);
 }
 
-.icon-button:hover {
-  background: rgba(15, 23, 42, 0.35);
+.icon-button:hover,
+.icon-button:focus-visible {
+  background: rgba(37, 99, 235, 0.2);
+  color: var(--color-text-strong);
+  outline: none;
 }
 
 .modal__content {
-  padding: 1.5rem 1.75rem;
+  padding: 0 1.8rem 1.6rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.4rem;
 }
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
+  gap: 1rem 1.4rem;
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  background: rgba(248, 250, 252, 0.8);
-  padding: 0.85rem 1rem;
-  border-radius: 0.85rem;
 }
 
 .info-label {
-  font-size: 0.85rem;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .info-value {
-  font-size: 1rem;
-  color: #1e293b;
+  color: var(--color-text-strong);
   font-weight: 600;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--color-text-strong);
+}
+
+.status-chip.approved {
+  background: rgba(34, 197, 94, 0.18);
+  color: #15803d;
+}
+
+.status-chip.rejected {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
+}
+
+.status-chip.sold {
+  background: rgba(59, 130, 246, 0.18);
+  color: #1d4ed8;
 }
 
 .modal__description {
   margin: 0;
-  font-size: 1rem;
-  color: #475569;
+  color: var(--color-text-strong);
   line-height: 1.6;
 }
 
-.keywords ul {
-  margin: 0.5rem 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.keywords h4,
+.gallery__header h4 {
+  margin: 0 0 0.5rem;
+  color: var(--color-text-strong);
 }
 
-.keywords li {
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  font-weight: 600;
+.keywords ul {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--color-text-soft);
 }
 
 .gallery__header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: 1rem;
 }
 
 .gallery__count {
-  color: #475569;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
 .gallery__empty {
   margin: 0;
-  color: #94a3b8;
+  padding: 0.85rem 1rem;
+  background: rgba(248, 250, 252, 0.75);
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  color: var(--color-text-muted);
 }
 
 .gallery__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .gallery__item {
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  background: rgba(248, 250, 252, 0.8);
-  padding: 0.75rem;
-  border-radius: 0.85rem;
-  align-items: center;
 }
 
 .gallery__item img {
   width: 100%;
-  height: 120px;
+  height: 160px;
   object-fit: cover;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.gallery__item figcaption {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .modal__footer {
-  padding: 1.35rem 1.75rem;
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 1.2rem 1.8rem 1.6rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.65);
 }
 
 .contact {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  color: #1f2937;
+  color: var(--color-text-soft);
 }
 
 .primary-button {
-  padding: 0.75rem 1.6rem;
-  border-radius: 999px;
   border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
+  border-radius: var(--radius-pill);
+  padding: 0.65rem 1.6rem;
+  background: var(--color-primary);
+  color: var(--color-text-on-emphasis);
   font-weight: 600;
   cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+.primary-button:hover,
+.primary-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.25);
+  outline: none;
 }
 
-.status-chip.pending {
-  background: rgba(250, 204, 21, 0.18);
-  color: #92400e;
-}
+@media (max-width: 640px) {
+  .modal {
+    width: 94vw;
+  }
 
-.status-chip.draft {
-  background: rgba(219, 234, 254, 0.6);
-  color: #1d4ed8;
-}
+  .info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
 
-.status-chip.approved {
-  background: rgba(34, 197, 94, 0.18);
-  color: #166534;
-}
-
-.status-chip.rejected {
-  background: rgba(239, 68, 68, 0.2);
-  color: #991b1b;
-}
-
-.status-chip.sold {
-  background: rgba(148, 163, 184, 0.2);
-  color: var(--color-text-strong);
-}
-
-:global(body[data-theme='dark']) :deep(.status-chip.pending) {
-  background: rgba(253, 224, 71, 0.18);
-  color: #facc15;
-}
-
-:global(body[data-theme='dark']) :deep(.status-chip.draft) {
-  background: rgba(37, 99, 235, 0.18);
-  color: #93c5fd;
-}
-
-:global(body[data-theme='dark']) :deep(.status-chip.approved) {
-  background: rgba(74, 222, 128, 0.18);
-  color: #bbf7d0;
-}
-
-:global(body[data-theme='dark']) :deep(.status-chip.rejected) {
-  background: rgba(248, 113, 113, 0.2);
-  color: #fecaca;
-}
-
-:global(body[data-theme='dark']) :deep(.status-chip.sold) {
-  background: rgba(148, 163, 184, 0.26);
-  color: rgba(226, 232, 240, 0.92);
-}
-
-@media (max-width: 768px) {
   .modal__footer {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
   .contact {
-    width: 100%;
-  }
-
-  .primary-button {
-    width: 100%;
-    text-align: center;
+    align-items: flex-start;
   }
 }
 </style>

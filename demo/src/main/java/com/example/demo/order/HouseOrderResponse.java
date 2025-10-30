@@ -29,6 +29,8 @@ public record HouseOrderResponse(
         String returnReason,
         OffsetDateTime viewingTime,
         String viewingMessage,
+        boolean buyerViewingConfirmed,
+        boolean sellerViewingConfirmed,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
@@ -57,6 +59,8 @@ public record HouseOrderResponse(
                 order.getReturnReason(),
                 order.getViewingTime(),
                 order.getViewingMessage(),
+                order.isBuyerViewingConfirmed(),
+                order.isSellerViewingConfirmed(),
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );

@@ -55,9 +55,11 @@
                     :key="tab.value"
                     type="button"
                     :class="['menu-item', { active: tab.value === activeTab }]"
+                    :aria-label="tab.ariaLabel || tab.label"
                     @click="switchTab(tab.value)"
                   >
-                    {{ tab.label }}
+                    <span class="menu-item__label">{{ tab.label }}</span>
+                    <span v-if="tab.alert" class="menu-item__alert" aria-hidden="true"></span>
                   </button>
                 </nav>
                 <button type="button" class="menu-logout" @click="handleLogout">
@@ -179,6 +181,7 @@
           :houses="houses"
           :reviews="houseReviews"
           :current-user="currentUser"
+          :eligible-house-ids="reviewableHouseIds"
           @submit="handleSubmitHouseReview"
         />
 
@@ -573,6 +576,28 @@ const translations = {
       add: '收藏该房源',
       remove: '取消收藏'
     },
+    houseDetail: {
+      price: '总价',
+      downPayment: '首付款',
+      installment: '分期计划',
+      installmentValue: '{amount} × {months} 期',
+      area: '建筑面积',
+      areaValue: '{area} ㎡',
+      listedOn: '上架日期',
+      floor: '楼层',
+      floorValue: '{floor} 层',
+      status: '状态',
+      keywords: '房源关键词',
+      gallery: '图片集',
+      galleryCount: '{count} 张图片',
+      galleryEmpty: '暂无上传的图片。',
+      galleryItem: '图片 {index}',
+      galleryAlt: '图片 {index}',
+      seller: '卖家：{name}',
+      contact: '联系方式：{phone}',
+      close: '关闭',
+      addressFallback: '地址待补充'
+    },
     aiAssistant: {
       title: '智能购房顾问',
       description: '向 AI 咨询二手房购置流程、风险提示与政策信息。',
@@ -729,8 +754,8 @@ const translations = {
         installment: '分期支付'
       },
       actions: {
-        releaseSeller: '放款给卖家',
-        refundBuyer: '退款给买家'
+        accept: '接受',
+        reject: '驳回'
       }
     },
     adminReputation: {
@@ -949,7 +974,7 @@ const translations = {
           placeholders: {
             name: '请输入真实姓名',
             idNumber: '请输入18位身份证号码',
-            phoneNumber: '请输入13位手机号'
+            phoneNumber: '请输入11位手机号'
           },
           actions: {
             submit: '立即认证',
@@ -959,7 +984,7 @@ const translations = {
         },
         errors: {
           idNumber: '身份证号码需为18位数字。',
-          phoneNumber: '手机号需为13位数字。',
+          phoneNumber: '手机号需为11位数字。',
           generic: '实名认证失败，请稍后再试。'
         }
       }
@@ -1028,6 +1053,9 @@ const translations = {
       orderReturned: '订单《{title}》已退换成功。',
       viewingScheduled: '已为房源《{title}》安排看房，时间 {time}。',
       progressUpdated: '交易进度已更新至 {stage}。',
+      viewingConfirmed: '已确认看房状态。',
+      orderReviewAccepted: '审核通过，资金安排已更新。',
+      orderReviewRejected: '已驳回该审核申请。',
       blacklistAdded: '已将账号 {username} 加入黑名单。',
       blacklistRemoved: '已解除账号 {username} 的黑名单状态。',
       accountDeleted: '账号 {username} 已被删除。',
@@ -1092,9 +1120,11 @@ const translations = {
       restoreSession: '恢复登录状态失败。',
       reviewLoginRequired: '请先登录后再提交评价。',
       reviewHouseMissing: '未找到要评价的房源，请刷新后重试。',
+      reviewNotEligible: '仅已购买并完成交易的房源可以评价。',
       reviewModerationDenied: '只有管理员可以执行评价审核。',
       reviewNotFound: '未找到指定的评价，请刷新后重试。',
       reviewContentTooShort: '评价内容不少于8个字。',
+      confirmViewing: '确认看房状态失败，请稍后再试。',
       genericServerError: '发生未知错误，请稍后再试。'
     },
     prompts: {
@@ -1460,7 +1490,9 @@ const translations = {
           notes: '备注：{message}',
           schedule: '安排看房',
           advance: '推进至 {stage}',
-          confirm: '确认已看房'
+          markViewed: '标记已看房',
+          confirmedBuyer: '买家已确认看房',
+          confirmedSeller: '卖家已确认看房'
         },
         actions: {
           requestReturn: '申请退换'
@@ -1496,6 +1528,8 @@ const translations = {
         awaitingScheduleBuyer: '等待卖家安排看房，如有需要可主动联系。',
         scheduledReminderSeller: '已预约 {time} 看房，请准时到场并提前准备房屋。',
         scheduledReminderBuyer: '已预约 {time} 看房，请及时确认并按时到场。',
+        returnRequestedSeller: '买家申请退房，请尽快关注订单进度。',
+        returnCompletedSeller: '退房已完成，房源《{title}》已重新上架，请及时处理。',
         upcomingViewing: '预约时间：{time}',
         markRead: '已读',
         openTarget: '前往处理'
@@ -1507,7 +1541,7 @@ const translations = {
     },
     reviews: {
       title: '房源评价',
-      subtitle: '为已浏览或交易的房源撰写评价，提交后将进入管理员审核队列。',
+      subtitle: '仅可为已购买的房源撰写评价，提交后将进入管理员审核队列。',
       form: {
         heading: '提交新的评价',
         houseLabel: '选择房源',
@@ -1522,7 +1556,8 @@ const translations = {
       validation: {
         houseRequired: '请选择要评价的房源。',
         contentLength: '评价内容不少于8个字。',
-        ratingRequired: '请选择评分。'
+        ratingRequired: '请选择评分。',
+        purchaseRequired: '仅限已购买并完成交易的房源可以评价。'
       },
       list: {
         publicTitle: '已发布的评价',
@@ -1594,6 +1629,28 @@ const translations = {
       loginRequired: 'Sign in to favorite listings.',
       add: 'Add to favorites',
       remove: 'Remove from favorites'
+    },
+    houseDetail: {
+      price: 'Total price',
+      downPayment: 'Down payment',
+      installment: 'Instalment plan',
+      installmentValue: '{amount} × {months} months',
+      area: 'Floor area',
+      areaValue: '{area} ㎡',
+      listedOn: 'Listed on',
+      floor: 'Floor',
+      floorValue: 'Level {floor}',
+      status: 'Status',
+      keywords: 'Listing keywords',
+      gallery: 'Gallery',
+      galleryCount: '{count} images',
+      galleryEmpty: 'No images uploaded yet.',
+      galleryItem: 'Image {index}',
+      galleryAlt: 'Image {index}',
+      seller: 'Seller: {name}',
+      contact: 'Contact: {phone}',
+      close: 'Close',
+      addressFallback: 'Address pending'
     },
     aiAssistant: {
       title: 'Smart buying assistant',
@@ -1751,8 +1808,8 @@ const translations = {
         installment: 'Instalments'
       },
       actions: {
-        releaseSeller: 'Release to seller',
-        refundBuyer: 'Refund to buyer'
+        accept: 'Accept',
+        reject: 'Reject'
       }
     },
     adminReputation: {
@@ -1972,7 +2029,7 @@ const translations = {
           placeholders: {
             name: 'Enter your full name',
             idNumber: 'Enter your 18-digit ID number',
-            phoneNumber: 'Enter your 13-digit phone number'
+            phoneNumber: 'Enter your 11-digit phone number'
           },
           actions: {
             submit: 'Verify now',
@@ -1982,7 +2039,7 @@ const translations = {
         },
         errors: {
           idNumber: 'The ID number must contain exactly 18 digits.',
-          phoneNumber: 'The phone number must contain exactly 13 digits.',
+          phoneNumber: 'The phone number must contain exactly 11 digits.',
           generic: 'Verification failed. Please try again later.'
         }
       }
@@ -2051,6 +2108,9 @@ const translations = {
       orderReturned: 'Order “{title}” has been refunded.',
       viewingScheduled: 'Viewing for “{title}” has been scheduled at {time}.',
       progressUpdated: 'Progress updated to {stage}.',
+      viewingConfirmed: 'Viewing status confirmed.',
+      orderReviewAccepted: 'Escrow review accepted and funds updated.',
+      orderReviewRejected: 'Escrow review request rejected.',
       blacklistAdded: 'Account {username} added to blacklist.',
       blacklistRemoved: 'Account {username} removed from blacklist.',
       accountDeleted: 'Account {username} has been deleted.',
@@ -2115,9 +2175,11 @@ const translations = {
       restoreSession: 'Failed to restore previous session.',
       reviewLoginRequired: 'Please sign in before submitting a review.',
       reviewHouseMissing: 'The selected listing could not be found. Please refresh and try again.',
+      reviewNotEligible: 'Only purchased properties can be reviewed.',
       reviewModerationDenied: 'Only administrators can moderate reviews.',
       reviewNotFound: 'The specified review no longer exists.',
       reviewContentTooShort: 'Reviews must contain at least 8 characters.',
+      confirmViewing: 'Failed to confirm the viewing status.',
       genericServerError: 'An unexpected error occurred. Please try again later.'
     },
     prompts: {
@@ -2479,7 +2541,9 @@ const translations = {
           notes: 'Notes: {message}',
           schedule: 'Schedule viewing',
           advance: 'Advance to {stage}',
-          confirm: 'Confirm viewing'
+          markViewed: 'Mark as viewed',
+          confirmedBuyer: 'Buyer confirmed viewing',
+          confirmedSeller: 'Seller confirmed viewing'
         },
         actions: {
           requestReturn: 'Request a return'
@@ -2515,6 +2579,8 @@ const translations = {
         awaitingScheduleBuyer: 'Waiting for the seller to schedule a viewing. Feel free to reach out proactively.',
         scheduledReminderSeller: 'Viewing scheduled at {time}. Please prepare the property in advance.',
         scheduledReminderBuyer: 'Viewing scheduled at {time}. Remember to confirm and arrive on time.',
+        returnRequestedSeller: 'The buyer has requested a return. Please review the order promptly.',
+        returnCompletedSeller: 'The return is complete. Listing “{title}” has been relisted—please follow up soon.',
         upcomingViewing: 'Appointment: {time}',
         markRead: 'Mark as read',
         openTarget: 'Go to task'
@@ -2526,7 +2592,7 @@ const translations = {
     },
     reviews: {
       title: 'Listing feedback',
-      subtitle: 'Share your experience with a property. Submitted reviews require administrator approval before publication.',
+      subtitle: 'You can only review properties you have purchased. Submitted feedback requires administrator approval before publication.',
       form: {
         heading: 'Submit a new review',
         houseLabel: 'Select listing',
@@ -2541,7 +2607,8 @@ const translations = {
       validation: {
         houseRequired: 'Please choose a listing to review.',
         contentLength: 'Reviews must contain at least 8 characters.',
-        ratingRequired: 'Please choose a rating.'
+        ratingRequired: 'Please choose a rating.',
+        purchaseRequired: 'Only properties that you purchased can be reviewed.'
       },
       list: {
         publicTitle: 'Published reviews',
@@ -2877,6 +2944,32 @@ const favoriteHouses = computed(() => {
   });
 });
 
+const reviewableHouseIds = computed(() => {
+  if (!currentUser.value) {
+    return [];
+  }
+  const username = String(currentUser.value.username ?? '');
+  if (!username) {
+    return [];
+  }
+  const list = Array.isArray(orders.value) ? orders.value : [];
+  const eligible = list.filter((order) => {
+    if (!order || String(order.buyerUsername ?? '') !== username) {
+      return false;
+    }
+    const stage = order.progressStage;
+    const status = order.status;
+    if (status === 'RETURNED') {
+      return true;
+    }
+    if (stage === 'HANDOVER_COMPLETED' || stage === 'FUNDS_RELEASED') {
+      return true;
+    }
+    return order.adminReviewed && order.fundsReleasedTo === 'SELLER';
+  });
+  return Array.from(new Set(eligible.map((order) => String(order.houseId))));
+});
+
 const urgentTasks = computed(() => {
   if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
     return [];
@@ -2893,6 +2986,7 @@ const urgentTasks = computed(() => {
       return;
     }
     const stage = order.progressStage;
+    const status = order.status;
     const viewingDate = order.viewingTime ? new Date(order.viewingTime) : null;
     const validViewing = viewingDate && !Number.isNaN(viewingDate.getTime()) ? viewingDate : null;
     const timeValue = validViewing ? validViewing.getTime() : now;
@@ -2900,6 +2994,35 @@ const urgentTasks = computed(() => {
     const viewingSoon = validViewing ? timeValue <= soonThreshold : false;
 
     if (isSellerRole(role)) {
+      if (status === 'RETURN_REQUESTED') {
+        const updated = order.updatedAt ? new Date(order.updatedAt) : new Date(order.createdAt ?? now);
+        const requestTime = Number.isNaN(updated.getTime()) ? now : updated.getTime();
+        list.push({
+          key: `${order.id}-return-request`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.returnRequestedSeller', {
+            buyer: order.buyerDisplayName ?? order.buyerUsername
+          }),
+          timeLabel: formatLocalDateTime(updated),
+          timeValue: requestTime,
+          isSoon: true
+        });
+      } else if (status === 'RETURNED' && order.adminReviewed) {
+        const updated = order.updatedAt ? new Date(order.updatedAt) : new Date(order.createdAt ?? now);
+        const completeTime = Number.isNaN(updated.getTime()) ? now : updated.getTime();
+        list.push({
+          key: `${order.id}-return-complete`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.returnCompletedSeller', { title: order.houseTitle }),
+          timeLabel: formatLocalDateTime(updated),
+          timeValue: completeTime,
+          isSoon: false
+        });
+      }
       if (stage === 'DEPOSIT_PAID') {
         list.push({
           key: `${order.id}-schedule`,
@@ -2965,6 +3088,8 @@ const urgentTasks = computed(() => {
     .slice(0, 5);
 });
 
+const hasUrgentAlerts = computed(() => urgentTasks.value.length > 0);
+
 const showUrgentTasks = computed(() => isBuyer.value || isSeller.value);
 const canAccessOrders = computed(() => showUrgentTasks.value || isAdmin.value);
 
@@ -2989,32 +3114,54 @@ const pendingHouseReviews = computed(() =>
 );
 
 const navigationTabs = computed(() => {
-  const tabs = [{ value: 'home', label: t('nav.home') }];
+  const tabs = [{ value: 'home', label: t('nav.home'), ariaLabel: t('nav.home') }];
   if (currentUser.value) {
-    tabs.push({ value: 'favorites', label: t('nav.favorites') });
+    const favoritesLabel = t('nav.favorites');
+    tabs.push({ value: 'favorites', label: favoritesLabel, ariaLabel: favoritesLabel });
   }
-  tabs.push({ value: 'predictor', label: t('nav.predictor') });
-  tabs.push({ value: 'assistant', label: t('nav.aiAssistant') });
+  const predictorLabel = t('nav.predictor');
+  tabs.push({ value: 'predictor', label: predictorLabel, ariaLabel: predictorLabel });
+  const assistantLabel = t('nav.aiAssistant');
+  tabs.push({ value: 'assistant', label: assistantLabel, ariaLabel: assistantLabel });
   if (canManageHouses.value) {
-    tabs.push({ value: 'manage', label: t('nav.manage') });
-    tabs.push({ value: 'drafts', label: t('nav.drafts') });
+    const manageLabel = t('nav.manage');
+    const draftsLabel = t('nav.drafts');
+    tabs.push({ value: 'manage', label: manageLabel, ariaLabel: manageLabel });
+    tabs.push({ value: 'drafts', label: draftsLabel, ariaLabel: draftsLabel });
   }
-  tabs.push({ value: 'feedback', label: t('nav.feedback') });
+  const feedbackLabel = t('nav.feedback');
+  tabs.push({ value: 'feedback', label: feedbackLabel, ariaLabel: feedbackLabel });
   if (showUrgentTasks.value) {
-    tabs.push({ value: 'urgent', label: t('nav.urgent') });
+    const urgentLabel = t('nav.urgent');
+    const urgentCount = urgentTasks.value.length;
+    const urgentAria = urgentCount
+      ? `${urgentLabel} · ${t('orders.urgent.badge', { count: urgentCount })}`
+      : urgentLabel;
+    tabs.push({
+      value: 'urgent',
+      label: urgentLabel,
+      ariaLabel: urgentAria,
+      alert: hasUrgentAlerts.value,
+      badgeCount: urgentCount
+    });
   }
   if (canAccessOrders.value) {
-    tabs.push({ value: 'orders', label: t('nav.orders') });
+    const ordersLabel = t('nav.orders');
+    tabs.push({ value: 'orders', label: ordersLabel, ariaLabel: ordersLabel });
   }
-  tabs.push({ value: 'account', label: t('nav.account') });
+  const accountLabel = t('nav.account');
+  tabs.push({ value: 'account', label: accountLabel, ariaLabel: accountLabel });
   if (isAdmin.value) {
     const pendingLabel = pendingReviewHouses.value.length
       ? t('nav.reviewWithCount', { count: pendingReviewHouses.value.length })
       : t('nav.review');
-    tabs.push({ value: 'review', label: pendingLabel });
-    tabs.push({ value: 'admin-houses', label: t('nav.adminHouses') });
-    tabs.push({ value: 'admin', label: t('nav.admin') });
-    tabs.push({ value: 'reputation', label: t('nav.reputation') });
+    tabs.push({ value: 'review', label: pendingLabel, ariaLabel: pendingLabel });
+    const adminHousesLabel = t('nav.adminHouses');
+    const adminLabel = t('nav.admin');
+    const reputationLabel = t('nav.reputation');
+    tabs.push({ value: 'admin-houses', label: adminHousesLabel, ariaLabel: adminHousesLabel });
+    tabs.push({ value: 'admin', label: adminLabel, ariaLabel: adminLabel });
+    tabs.push({ value: 'reputation', label: reputationLabel, ariaLabel: reputationLabel });
   }
   return tabs;
 });
@@ -3520,7 +3667,10 @@ const handleContactSeller = async ({ sellerUsername }) => {
 };
 
 const handleViewingConfirmation = async ({ orderId }) => {
-  if (!isBuyer.value || !currentUser.value) {
+  if (!currentUser.value || (!isBuyer.value && !isSeller.value)) {
+    return;
+  }
+  if (!orderId) {
     return;
   }
   const list = Array.isArray(orders.value) ? orders.value : [];
@@ -3528,15 +3678,26 @@ const handleViewingConfirmation = async ({ orderId }) => {
   if (!order) {
     return;
   }
-  const timeLabel = order.viewingTime ? formatLocalDateTime(order.viewingTime) : '';
-  const message = timeLabel
-    ? t('orders.quickMessages.confirmViewing', { time: timeLabel })
-    : t('orders.quickMessages.confirmViewingNoTime');
-  await openConversation({
-    buyerUsername: currentUser.value.username,
-    sellerUsername: order.sellerUsername,
-    prefill: message
-  });
+  if (isBuyer.value && currentUser.value.username !== order.buyerUsername) {
+    return;
+  }
+  if (isSeller.value && currentUser.value.username !== order.sellerUsername) {
+    return;
+  }
+  ordersLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    await client.post(`/orders/${orderId}/viewing/confirm`, {
+      requesterUsername: currentUser.value.username
+    });
+    messages.success = t('success.viewingConfirmed');
+    await fetchOrders({ silent: true });
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.confirmViewing');
+  } finally {
+    ordersLoading.value = false;
+  }
 };
 
 const handleScheduleViewing = async ({ orderId, viewingTime, message }) => {
@@ -4286,6 +4447,11 @@ const handleSubmitHouseReview = (payload) => {
     messages.success = '';
     return;
   }
+  if (!reviewableHouseIds.value.includes(normalizedHouseId)) {
+    messages.error = t('errors.reviewNotEligible');
+    messages.success = '';
+    return;
+  }
   const review = {
     id: generateReviewId(),
     houseId: normalizedHouseId,
@@ -4372,9 +4538,9 @@ const handleAdminOrderRelease = async ({ orderId, decision }) => {
       decision
     });
     messages.success =
-      decision === 'SELLER'
-        ? t('success.orderReleasedSeller')
-        : t('success.orderReleasedBuyer');
+      decision === 'ACCEPT'
+        ? t('success.orderReviewAccepted')
+        : t('success.orderReviewRejected');
     await Promise.all([
       loadAdminOrders({ silent: true }),
       fetchOrders({ silent: true }),
@@ -4772,6 +4938,26 @@ onBeforeUnmount(() => {
   text-align: left;
   letter-spacing: 0.01em;
   transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.menu-item__label {
+  flex: 1;
+}
+
+.menu-item__alert {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+:global(body[data-theme='dark']) .menu-item__alert {
+  box-shadow: 0 0 0 2px rgba(30, 41, 59, 0.85);
 }
 
 .menu-logout {

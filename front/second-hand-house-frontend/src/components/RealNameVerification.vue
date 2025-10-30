@@ -130,7 +130,7 @@ watch(
 );
 
 const idNumberPattern = /^\d{18}$/;
-const phoneNumberPattern = /^\d{13}$/;
+const phoneNumberPattern = /^\d{11}$/;
 
 const submit = async () => {
   if (!props.currentUser) {

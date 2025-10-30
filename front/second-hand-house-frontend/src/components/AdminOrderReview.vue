@@ -41,11 +41,11 @@
           <td>{{ paymentMethodLabel(order.paymentMethod) }}</td>
           <td>{{ formatTime(order.createdAt) }}</td>
           <td class="actions">
-            <button type="button" class="primary" @click="release(order, 'SELLER')">
-              {{ t('adminOrders.actions.releaseSeller') }}
+            <button type="button" class="primary" @click="decide(order, 'ACCEPT')">
+              {{ t('adminOrders.actions.accept') }}
             </button>
-            <button type="button" class="secondary" @click="release(order, 'BUYER')">
-              {{ t('adminOrders.actions.refundBuyer') }}
+            <button type="button" class="secondary" @click="decide(order, 'REJECT')">
+              {{ t('adminOrders.actions.reject') }}
             </button>
           </td>
         </tr>
@@ -107,7 +107,7 @@ const paymentMethodLabel = (value) => {
   }
 };
 
-const release = (order, decision) => {
+const decide = (order, decision) => {
   emit('release', { orderId: order.id, decision });
 };
 </script>
@@ -169,6 +169,8 @@ td {
   padding: 0.75rem;
   text-align: left;
   border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  word-break: break-word;
+  vertical-align: top;
 }
 
 th {
@@ -190,6 +192,8 @@ td strong {
 .actions {
   display: flex;
   gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .actions button {

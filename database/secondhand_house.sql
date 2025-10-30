@@ -133,6 +133,8 @@ CREATE TABLE IF NOT EXISTS house_orders (
     return_reason VARCHAR(255),
     viewing_time DATETIME(6),
     viewing_message VARCHAR(255),
+    buyer_viewing_confirmed TINYINT(1) NOT NULL DEFAULT 0,
+    seller_viewing_confirmed TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     CONSTRAINT fk_house_order_house FOREIGN KEY (house_id) REFERENCES second_hand_houses(id),

@@ -63,7 +63,7 @@ public class AssistantService {
 
         try {
             AssistantChatResponse response = restClient.post()
-                .uri("/chat/completions")
+                .uri("chat/completions")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getApiKey())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(payload)

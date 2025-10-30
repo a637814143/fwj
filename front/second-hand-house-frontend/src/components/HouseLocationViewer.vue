@@ -95,6 +95,60 @@
             </div>
           </div>
 
+          <div class="gaode-usage-card">
+            <div class="usage-heading">
+              <h4>{{ t('locationViewer.usage.title') }}</h4>
+              <button type="button" :disabled="gaodeUsageLoading" @click="loadGaodeUsage">
+                {{ gaodeUsageLoading ? t('locationViewer.usage.refreshing') : t('locationViewer.usage.refresh') }}
+              </button>
+            </div>
+            <p class="usage-subtitle">{{ t('locationViewer.usage.subtitle') }}</p>
+            <p v-if="gaodeUsageLoading" class="usage-status loading">
+              {{ t('locationViewer.usage.refreshing') }}
+            </p>
+            <p v-else-if="!gaodeUsageEnabled" class="usage-status warning">
+              {{ t('locationViewer.usage.disabled') }}
+            </p>
+            <p v-else-if="gaodeUsageError" class="usage-status error">
+              {{ gaodeUsageError }}
+            </p>
+            <ul v-else-if="gaodeUsageEntries.length" class="usage-list">
+              <li v-for="entry in gaodeUsageEntries" :key="entry.key" class="usage-item">
+                <header class="usage-item-header">
+                  <h5>{{ entry.label }}</h5>
+                  <span v-if="entry.stats.lastInfoCode" class="usage-code">{{ entry.stats.lastInfoCode }}</span>
+                </header>
+                <dl class="usage-metrics">
+                  <div>
+                    <dt>{{ t('locationViewer.usage.totalRequests') }}</dt>
+                    <dd>{{ entry.stats.totalRequests }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('locationViewer.usage.totalFailures') }}</dt>
+                    <dd>{{ entry.stats.totalFailures }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('locationViewer.usage.lastStatus') }}</dt>
+                    <dd>{{ entry.stats.lastStatus || t('locationViewer.usage.unknown') }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('locationViewer.usage.lastInfo') }}</dt>
+                    <dd>{{ entry.stats.lastInfo || t('locationViewer.usage.unknown') }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('locationViewer.usage.lastUpdated') }}</dt>
+                    <dd>{{ formatUsageTime(entry.stats.lastUpdated) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t('locationViewer.usage.lastCount') }}</dt>
+                    <dd>{{ entry.stats.lastCount ?? t('locationViewer.usage.unknown') }}</dd>
+                  </div>
+                </dl>
+              </li>
+            </ul>
+            <p v-else class="usage-status">{{ t('locationViewer.usage.noData') }}</p>
+          </div>
+
           <div class="map-wrapper">
             <div ref="mapContainerRef" class="map-container"></div>
             <div v-if="mapLoading" class="map-overlay">
@@ -231,6 +285,7 @@ const items = computed(() => {
   }
   return props.houses
     .map((house) => ({
+      id: house?.id ?? null,
       key: house?.id != null ? String(house.id) : String(house?.key ?? ''),
       title: normalizeTitle(house?.title),
       rawTitle: typeof house?.title === 'string' ? house.title : '',
@@ -256,6 +311,9 @@ const manualSearchMessage = ref('');
 const manualSearchMessageType = ref('info');
 const manualSearchLoading = ref(false);
 const manualSearchSuggestions = ref([]);
+const gaodeUsage = ref(null);
+const gaodeUsageLoading = ref(false);
+const gaodeUsageError = ref('');
 
 const CHINA_BOUNDS = Object.freeze({
   south: 17.0,
@@ -263,6 +321,54 @@ const CHINA_BOUNDS = Object.freeze({
   north: 54.5,
   east: 136.5
 });
+
+const MUNICIPALITY_PATTERN = /(北京|上海|天津|重庆)/gu;
+const CITY_PATTERN = /([\p{Script=Han}]{2,6}市)/gu;
+const COUNTY_PATTERN = /([\p{Script=Han}]{2,6}(?:县|区|旗))/gu;
+
+const findLastMatch = (pattern, input) => {
+  if (!(pattern instanceof RegExp) || typeof input !== 'string') {
+    return '';
+  }
+  let match;
+  let last = '';
+  pattern.lastIndex = 0;
+  while ((match = pattern.exec(input)) !== null) {
+    last = typeof match[1] === 'string' && match[1] ? match[1] : match[0] ?? '';
+  }
+  pattern.lastIndex = 0;
+  return last;
+};
+
+const sanitizeAdministrativeNameHint = (value) => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/(自治州|地区|盟)/gu, '').trim();
+};
+
+const resolveCityHintFromText = (text) => {
+  if (typeof text !== 'string') {
+    return '';
+  }
+  const normalized = text.replace(/\s+/gu, '').trim();
+  if (!normalized) {
+    return '';
+  }
+  const municipality = findLastMatch(MUNICIPALITY_PATTERN, normalized);
+  if (municipality) {
+    return `${municipality}市`;
+  }
+  const city = findLastMatch(CITY_PATTERN, normalized);
+  if (city) {
+    return sanitizeAdministrativeNameHint(city);
+  }
+  const county = findLastMatch(COUNTY_PATTERN, normalized);
+  if (county) {
+    return sanitizeAdministrativeNameHint(county);
+  }
+  return '';
+};
 
 const mapConfig = ref({ apiKey: '', jsSecurityCode: '' });
 let mapConfigPromise = null;
@@ -316,6 +422,13 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => props.apiBaseUrl,
+  () => {
+    loadGaodeUsage();
+  }
 );
 
 const coordinateCache = new Map();
@@ -552,6 +665,19 @@ const deriveHouseAddress = (house) => {
   return normalized;
 };
 
+const resolveCityHintForHouse = (house) => {
+  const address = deriveHouseAddress(house);
+  return resolveCityHintFromText(address);
+};
+
+const resolveCityHintForQuery = (query, house) => {
+  const queryHint = resolveCityHintFromText(query);
+  if (queryHint) {
+    return queryHint;
+  }
+  return resolveCityHintForHouse(house);
+};
+
 const buildLocationEntry = (house, lat, lng, name, address, signatureOverride) => {
   const resolvedName = fallbackTitle(house, name);
   const resolvedAddress = fallbackAddress(house, address);
@@ -595,8 +721,13 @@ const requestMapLocation = async (query, { house = null, city, signatureOverride
     return { status: 'error', suggestions: [] };
   }
   const params = new URLSearchParams({ query: trimmed });
-  if (city && city.trim()) {
-    params.append('city', city.trim());
+  const explicitCity = typeof city === 'string' ? city.trim() : '';
+  const fallbackCity = explicitCity || resolveCityHintForHouse(house);
+  if (fallbackCity) {
+    params.append('city', fallbackCity);
+  }
+  if (house?.id != null) {
+    params.append('houseId', String(house.id));
   }
   try {
     const response = await fetch(`${base}/houses/map-search?${params.toString()}`);
@@ -709,6 +840,7 @@ const updateMapForHouse = async (house, { forceRefresh = false } = {}) => {
   try {
     const { status, entry } = await requestMapLocation(address, {
       house,
+      city: resolveCityHintForHouse(house),
       signatureOverride: signature,
       fallbackName: address
     });
@@ -783,6 +915,94 @@ const selectHouse = (key) => {
   copyStatusType.value = '';
 };
 
+const usageKeyToLabel = (key) => {
+  switch ((key || '').toUpperCase()) {
+    case 'GEOCODE':
+      return 'geocode';
+    case 'PLACE_TEXT':
+      return 'placeText';
+    case 'INPUT_TIPS':
+      return 'inputTips';
+    default:
+      return (key || '').toLowerCase();
+  }
+};
+
+const gaodeUsageEntries = computed(() => {
+  const data = gaodeUsage.value;
+  if (!data || typeof data !== 'object') {
+    return [];
+  }
+  const endpoints = data.endpoints && typeof data.endpoints === 'object' ? data.endpoints : {};
+  return Object.entries(endpoints).map(([key, stats]) => {
+    const safeStats = stats ?? {};
+    const labelKey = usageKeyToLabel(key);
+    return {
+      key,
+      label: t(`locationViewer.usage.types.${labelKey}`),
+      stats: {
+        totalRequests: Number(safeStats.totalRequests ?? 0),
+        totalFailures: Number(safeStats.totalFailures ?? 0),
+        lastCount: safeStats.lastCount ?? null,
+        lastStatus: safeStats.lastStatus ?? null,
+        lastInfo: safeStats.lastInfo ?? null,
+        lastInfoCode: safeStats.lastInfoCode ?? null,
+        lastUpdated: safeStats.lastUpdated ?? null
+      }
+    };
+  });
+});
+
+const gaodeUsageEnabled = computed(() => Boolean(gaodeUsage.value?.enabled));
+
+const formatUsageTime = (value) => {
+  if (!value) {
+    return t('locationViewer.usage.unknown');
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return t('locationViewer.usage.unknown');
+  }
+  return date.toLocaleString(locale.value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
+const loadGaodeUsage = async () => {
+  const baseUrl = typeof props.apiBaseUrl === 'string' ? props.apiBaseUrl.trim() : '';
+  if (!baseUrl) {
+    gaodeUsage.value = null;
+    gaodeUsageError.value = t('locationViewer.usage.error');
+    return;
+  }
+  const endpoint = baseUrl.endsWith('/houses')
+    ? `${baseUrl}/map-search/usage`
+    : `${baseUrl.replace(/\/$/, '')}/houses/map-search/usage`;
+  gaodeUsageLoading.value = true;
+  gaodeUsageError.value = '';
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    gaodeUsage.value = data;
+  } catch (error) {
+    console.warn('Failed to load Gaode API usage', error);
+    gaodeUsageError.value = t('locationViewer.usage.error');
+  } finally {
+    gaodeUsageLoading.value = false;
+  }
+};
+
 const handleManualSearch = async () => {
   const query = typeof manualSearchQuery.value === 'string' ? manualSearchQuery.value.trim() : '';
   manualSearchMessage.value = '';
@@ -808,6 +1028,7 @@ const handleManualSearch = async () => {
       : `manual::${querySignature || Date.now().toString(36)}`;
     const { status, entry, suggestions } = await requestMapLocation(query, {
       house,
+      city: resolveCityHintForQuery(query, house),
       signatureOverride,
       fallbackName: query
     });
@@ -855,6 +1076,7 @@ const handleManualSearch = async () => {
     if (token === locateSequence) {
       mapLoading.value = false;
     }
+    loadGaodeUsage();
   }
 };
 
@@ -921,6 +1143,7 @@ const handleRefresh = () => {
   manualSearchMessageType.value = 'info';
   manualSearchSuggestions.value = [];
   emit('refresh');
+  loadGaodeUsage();
 };
 
 const locateActiveHouse = (force = false) => {
@@ -967,6 +1190,7 @@ const formatCoordinate = (value) => {
 
 onMounted(() => {
   nextTick(ensureMapReady);
+  loadGaodeUsage();
 });
 
 onBeforeUnmount(() => {
@@ -1343,6 +1567,135 @@ onBeforeUnmount(() => {
 
 .map-status.idle {
   color: var(--color-text-muted);
+}
+
+.gaode-usage-card {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.usage-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.usage-heading h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--color-text-strong);
+}
+
+.usage-heading button {
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.9rem;
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.usage-heading button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.usage-subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
+}
+
+.usage-status {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
+}
+
+.usage-status.warning {
+  color: var(--color-warning, #d47f00);
+}
+
+.usage-status.error {
+  color: var(--color-danger, #d93025);
+}
+
+.usage-status.loading {
+  font-style: italic;
+}
+
+.usage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.usage-item {
+  border: 1px dashed var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.usage-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.usage-item-header h5 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text-strong);
+}
+
+.usage-code {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-strong, rgba(0, 0, 0, 0.05));
+  color: var(--color-text-soft);
+}
+
+.usage-metrics {
+  display: grid;
+  gap: 0.5rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin: 0;
+}
+
+.usage-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.usage-metrics dt {
+  font-size: 0.75rem;
+  color: var(--color-text-soft);
+  font-weight: 500;
+}
+
+.usage-metrics dd {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text-strong);
+  font-weight: 600;
 }
 
 .actions {

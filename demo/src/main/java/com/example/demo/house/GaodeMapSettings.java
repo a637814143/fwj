@@ -11,14 +11,16 @@ public class GaodeMapSettings {
 
     private final String apiKey;
     private final String jsSecurityCode;
+    private final String clientIp;
 
-    public GaodeMapSettings(String key, String jsSecurityCode) {
+    public GaodeMapSettings(String key, String jsSecurityCode, String clientIp) {
         String resolvedKey = key == null ? "" : key.trim();
         if (resolvedKey.isBlank()) {
             resolvedKey = DEFAULT_KEY;
         }
         this.apiKey = resolvedKey;
         this.jsSecurityCode = jsSecurityCode == null ? "" : jsSecurityCode.trim();
+        this.clientIp = clientIp == null ? "" : clientIp.trim();
     }
 
     public String apiKey() {
@@ -31,5 +33,9 @@ public class GaodeMapSettings {
 
     public boolean hasApiKey() {
         return !apiKey.isBlank();
+    }
+
+    public Optional<String> clientIp() {
+        return clientIp.isBlank() ? Optional.empty() : Optional.of(clientIp);
     }
 }

@@ -188,14 +188,6 @@
           </ul>
         </div>
         <footer class="card-actions">
-          <button
-            type="button"
-            class="map-button"
-            :disabled="!canLocate(house)"
-            @click="showOnMap(house)"
-          >
-            {{ t('explorer.actions.viewMap') }}
-          </button>
           <template v-if="canOperate">
             <div class="payment" v-if="isApproved(house)">
               <label>{{ t('explorer.labels.paymentMethod') }}</label>
@@ -329,7 +321,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller', 'show-on-map']);
+const emit = defineEmits(['search', 'reserve', 'purchase', 'contact-seller']);
 
 const settings = inject('appSettings', { language: 'zh' });
 const translate = inject('translate', (key) => key);
@@ -372,19 +364,6 @@ const purchaseDisabled = computed(
   () => props.purchaseLoading || props.loading || requiresVerification.value
 );
 const contactDisabled = computed(() => requiresVerification.value);
-
-const canLocate = (house) => {
-  if (!house) {
-    return false;
-  }
-  const hasLatitude = Number.isFinite(house?.latitude);
-  const hasLongitude = Number.isFinite(house?.longitude);
-  if (hasLatitude && hasLongitude) {
-    return true;
-  }
-  const address = typeof house?.address === 'string' ? house.address.trim() : '';
-  return address.length > 0;
-};
 
 const hasRecommendations = computed(() => {
   const sellers = Array.isArray(props.recommendations?.sellers)
@@ -509,13 +488,6 @@ const contactSeller = (house) => {
     sellerUsername: house.sellerUsername,
     sellerName: house.sellerName
   });
-};
-
-const showOnMap = (house) => {
-  if (!house) {
-    return;
-  }
-  emit('show-on-map', house);
 };
 
 const resetFilters = () => {
@@ -1347,30 +1319,6 @@ const statusClass = (house) => {
   gap: 0.75rem;
   border-top: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   background: rgba(248, 244, 239, 0.88);
-}
-
-.map-button {
-  align-self: flex-start;
-  border: none;
-  border-radius: var(--radius-pill);
-  padding: 0.5rem 1.1rem;
-  background: color-mix(in srgb, var(--color-primary, #8c6545) 85%, #ffffff 15%);
-  color: var(--color-text-on-emphasis, #ffffff);
-  font-weight: 600;
-  box-shadow: 0 10px 24px rgba(140, 101, 69, 0.2);
-  cursor: pointer;
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
-}
-
-.map-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 32px rgba(140, 101, 69, 0.28);
-}
-
-.map-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-  box-shadow: none;
 }
 
 .payment {

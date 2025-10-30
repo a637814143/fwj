@@ -17,16 +17,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 @Transactional
@@ -34,28 +27,15 @@ public class SecondHandHouseService {
 
     private static final Logger log = LoggerFactory.getLogger(SecondHandHouseService.class);
 
-    private static final double CHINA_LAT_MIN = 17.0d;
-    private static final double CHINA_LAT_MAX = 54.5d;
-    private static final double CHINA_LNG_MIN = 73.0d;
-    private static final double CHINA_LNG_MAX = 136.5d;
-
-    private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
-    private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
-    private static final Pattern COUNTY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}(?:县|区|旗))");
-
     private final SecondHandHouseRepository repository;
     private final UserAccountRepository userAccountRepository;
     private final HouseOrderRepository houseOrderRepository;
-    private final GaodeGeocodingClient geocodingClient;
-
     public SecondHandHouseService(SecondHandHouseRepository repository,
                                   UserAccountRepository userAccountRepository,
-                                  HouseOrderRepository houseOrderRepository,
-                                  GaodeGeocodingClient geocodingClient) {
+                                  HouseOrderRepository houseOrderRepository) {
         this.repository = repository;
         this.userAccountRepository = userAccountRepository;
         this.houseOrderRepository = houseOrderRepository;
-        this.geocodingClient = geocodingClient;
     }
 
     @Transactional(readOnly = true)
@@ -107,7 +87,6 @@ public class SecondHandHouseService {
         house.setReviewedAt(null);
         house.setReviewedBy(null);
         house.setReviewMessage(null);
-        ensureCoordinates(house, !hasCoordinates(house));
         return repository.save(house);
     }
 
@@ -118,10 +97,6 @@ public class SecondHandHouseService {
         if (targetStatus != ListingStatus.DRAFT) {
             ensureNotDuplicate(updatedHouse, id);
         }
-        String previousAddress = existing.getAddress();
-        String nextAddress = updatedHouse.getAddress();
-        boolean addressChanged = !Objects.equals(normalize(previousAddress), normalize(nextAddress));
-        boolean newCoordinatesProvided = hasCoordinates(updatedHouse);
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
@@ -139,39 +114,11 @@ public class SecondHandHouseService {
         existing.setFloor(updatedHouse.getFloor());
         existing.setKeywords(updatedHouse.getKeywords());
         existing.setImageUrls(updatedHouse.getImageUrls());
-        boolean shouldRefreshCoordinates = addressChanged ? !newCoordinatesProvided : !hasCoordinates(existing);
-        ensureCoordinates(existing, shouldRefreshCoordinates);
         existing.setStatus(targetStatus);
         existing.setReviewedAt(null);
         existing.setReviewedBy(null);
         existing.setReviewMessage(null);
         return repository.save(existing);
-    }
-
-    @Transactional(readOnly = true)
-    public List<HouseLocationView> listLocations(Double centerLat,
-                                                 Double centerLng,
-                                                 Double radiusKm,
-                                                 String requesterUsername) {
-        UserAccount requester = resolveRequester(requesterUsername);
-        Double sanitizedLat = sanitizeCoordinate(centerLat, CHINA_LAT_MIN, CHINA_LAT_MAX);
-        Double sanitizedLng = sanitizeCoordinate(centerLng, CHINA_LNG_MIN, CHINA_LNG_MAX);
-        Double sanitizedRadius = radiusKm != null && Double.isFinite(radiusKm) && radiusKm > 0
-                ? radiusKm
-                : null;
-        List<HouseLocationView> locations = repository.findAll().stream()
-                .filter(house -> hasCoordinates(house) || hasMappableAddress(house))
-                .filter(house -> isVisibleToRequester(house, requester))
-                .map(this::buildLocationView)
-                .filter(Objects::nonNull)
-                .toList();
-        if (sanitizedLat != null && sanitizedLng != null) {
-            return locations.stream()
-                    .filter(view -> isWithinRadius(view, sanitizedLat, sanitizedLng, sanitizedRadius))
-                    .sorted(Comparator.comparingDouble(view -> distanceToView(view, sanitizedLat, sanitizedLng)))
-                    .toList();
-        }
-        return locations;
     }
 
     public void delete(Long id, String requesterUsername) {
@@ -327,391 +274,6 @@ public class SecondHandHouseService {
         boolean greaterThanMin = min == null || value.compareTo(min) >= 0;
         boolean lessThanMax = max == null || value.compareTo(max) <= 0;
         return greaterThanMin && lessThanMax;
-    }
-
-    private boolean hasCoordinates(SecondHandHouse house) {
-        if (house == null) {
-            return false;
-        }
-        Double latitude = house.getLatitude();
-        Double longitude = house.getLongitude();
-        return latitude != null
-                && longitude != null
-                && Double.isFinite(latitude)
-                && Double.isFinite(longitude)
-                && isCoordinateWithinChina(latitude, longitude);
-    }
-
-    private boolean hasMappableAddress(SecondHandHouse house) {
-        if (house == null) {
-            return false;
-        }
-        String address = house.getAddress();
-        return address != null && !address.trim().isEmpty();
-    }
-
-    private void ensureCoordinates(SecondHandHouse house, boolean requireFreshLookup) {
-        if (house == null) {
-            return;
-        }
-        if (!requireFreshLookup && hasCoordinates(house)) {
-            return;
-        }
-        if (!hasMappableAddress(house)) {
-            if (requireFreshLookup) {
-                house.setLatitude(null);
-                house.setLongitude(null);
-            }
-            return;
-        }
-        if (!geocodingClient.isEnabled()) {
-            if (requireFreshLookup) {
-                house.setLatitude(null);
-                house.setLongitude(null);
-            }
-            return;
-        }
-        String address = house.getAddress();
-        String cityHint = resolveCityHint(address);
-        Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, cityHint);
-        if (coordinate.isEmpty()) {
-            coordinate = geocodingClient.searchPlace(address, cityHint)
-                    .map(place -> new GaodeGeocodingClient.Coordinate(place.latitude(), place.longitude()));
-        }
-        if (coordinate.isEmpty()) {
-            if (requireFreshLookup) {
-                house.setLatitude(null);
-                house.setLongitude(null);
-            }
-            return;
-        }
-        Double latitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
-        Double longitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
-        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
-            if (requireFreshLookup) {
-                house.setLatitude(null);
-                house.setLongitude(null);
-            }
-            return;
-        }
-        house.setLatitude(latitude);
-        house.setLongitude(longitude);
-    }
-
-    private HouseLocationView buildLocationView(SecondHandHouse house) {
-        if (house == null) {
-            return null;
-        }
-        Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
-        Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
-        if ((latitude == null || longitude == null) && hasMappableAddress(house) && geocodingClient.isEnabled()) {
-            Optional<GaodeGeocodingClient.Coordinate> coordinate =
-                    geocodingClient.geocode(house.getAddress(), resolveCityHint(house.getAddress()));
-            if (coordinate.isPresent()) {
-                Double lookedUpLatitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
-                Double lookedUpLongitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
-                if (lookedUpLatitude != null && lookedUpLongitude != null
-                        && isCoordinateWithinChina(lookedUpLatitude, lookedUpLongitude)) {
-                    latitude = lookedUpLatitude;
-                    longitude = lookedUpLongitude;
-                }
-            }
-        }
-        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
-            latitude = null;
-            longitude = null;
-        }
-        return new HouseLocationView(
-                house.getId(),
-                house.getTitle(),
-                house.getAddress(),
-                house.getPrice(),
-                house.getStatus(),
-                latitude,
-                longitude,
-                house.getUpdatedAt()
-        );
-    }
-
-    public MapSearchResult searchMapLocation(String query, String cityHint) {
-        if (query == null || query.isBlank()) {
-            return MapSearchResult.empty();
-        }
-        LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestionMap = new LinkedHashMap<>();
-        String normalizedQuery = normalize(query);
-        GaodeGeocodingClient.PlaceSuggestion bestMatch = repository.findAll().stream()
-                .filter(house -> normalize(house.getAddress()).equals(normalizedQuery))
-                .map(house -> {
-                    Double latitude = sanitizeCoordinate(house.getLatitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
-                    Double longitude = sanitizeCoordinate(house.getLongitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
-                    if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
-                        return null;
-                    }
-                    String name = house.getTitle() == null || house.getTitle().isBlank()
-                            ? query
-                            : house.getTitle();
-                    String address = house.getAddress() == null || house.getAddress().isBlank()
-                            ? query
-                            : house.getAddress();
-                    return new GaodeGeocodingClient.PlaceSuggestion(name, address, latitude, longitude);
-                })
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-        addSuggestion(suggestionMap, bestMatch);
-
-        List<String> queryCandidates = buildQueryCandidates(query);
-        for (String candidateQuery : queryCandidates) {
-            String effectiveCityCandidate = (cityHint == null || cityHint.isBlank())
-                    ? resolveCityHint(candidateQuery)
-                    : cityHint.trim();
-            String effectiveCity = effectiveCityCandidate == null
-                    ? null
-                    : sanitizeAdministrativeName(effectiveCityCandidate);
-
-            Optional<GaodeGeocodingClient.PlaceSuggestion> placeSuggestion = geocodingClient.searchPlace(candidateQuery, effectiveCity)
-                    .filter(place -> isCoordinateWithinChina(place.latitude(), place.longitude()));
-            if (placeSuggestion.isPresent()) {
-                GaodeGeocodingClient.PlaceSuggestion suggestion = placeSuggestion.get();
-                addSuggestion(suggestionMap, suggestion);
-                if (bestMatch == null) {
-                    bestMatch = suggestion;
-                }
-            }
-
-            List<GaodeGeocodingClient.PlaceSuggestion> tipSuggestions =
-                    geocodingClient.suggestPlaces(candidateQuery, effectiveCity);
-            for (GaodeGeocodingClient.PlaceSuggestion suggestion : tipSuggestions) {
-                if (!isCoordinateWithinChina(suggestion.latitude(), suggestion.longitude())) {
-                    continue;
-                }
-                addSuggestion(suggestionMap, suggestion);
-                if (bestMatch == null) {
-                    bestMatch = suggestion;
-                }
-            }
-
-            Optional<GaodeGeocodingClient.Coordinate> geocoded = geocodingClient.geocode(candidateQuery, effectiveCity);
-            if (geocoded.isPresent()) {
-                double lat = geocoded.get().latitude();
-                double lng = geocoded.get().longitude();
-                if (isCoordinateWithinChina(lat, lng)) {
-                    GaodeGeocodingClient.PlaceSuggestion suggestion = new GaodeGeocodingClient.PlaceSuggestion(
-                            candidateQuery,
-                            candidateQuery,
-                            lat,
-                            lng
-                    );
-                    addSuggestion(suggestionMap, suggestion);
-                    if (bestMatch == null) {
-                        bestMatch = suggestion;
-                    }
-                }
-            }
-        }
-
-        if (bestMatch == null && !suggestionMap.isEmpty()) {
-            bestMatch = suggestionMap.values().iterator().next();
-        }
-
-        List<GaodeGeocodingClient.PlaceSuggestion> orderedSuggestions = new ArrayList<>();
-        if (bestMatch != null) {
-            orderedSuggestions.add(bestMatch);
-        }
-        for (GaodeGeocodingClient.PlaceSuggestion suggestion : suggestionMap.values()) {
-            if (bestMatch != null && suggestionsEqual(bestMatch, suggestion)) {
-                continue;
-            }
-            orderedSuggestions.add(suggestion);
-        }
-
-        List<GaodeGeocodingClient.PlaceSuggestion> limitedSuggestions = orderedSuggestions.stream()
-                .limit(8)
-                .toList();
-
-        return new MapSearchResult(Optional.ofNullable(bestMatch), limitedSuggestions);
-    }
-
-    private void addSuggestion(LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestions,
-                               GaodeGeocodingClient.PlaceSuggestion suggestion) {
-        if (suggestion == null) {
-            return;
-        }
-        String key = buildSuggestionKey(suggestion);
-        suggestions.putIfAbsent(key, suggestion);
-    }
-
-    private boolean suggestionsEqual(GaodeGeocodingClient.PlaceSuggestion left,
-                                     GaodeGeocodingClient.PlaceSuggestion right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        return buildSuggestionKey(left).equals(buildSuggestionKey(right));
-    }
-
-    private String buildSuggestionKey(GaodeGeocodingClient.PlaceSuggestion suggestion) {
-        long latKey = Math.round(suggestion.latitude() * 1_000_000d);
-        long lngKey = Math.round(suggestion.longitude() * 1_000_000d);
-        String normalizedAddress = normalize(suggestion.address());
-        return latKey + ":" + lngKey + "::" + normalizedAddress;
-    }
-
-
-    public record MapSearchResult(Optional<GaodeGeocodingClient.PlaceSuggestion> match,
-                                  List<GaodeGeocodingClient.PlaceSuggestion> suggestions) {
-        public MapSearchResult {
-            Objects.requireNonNull(match, "match must not be null");
-            Objects.requireNonNull(suggestions, "suggestions must not be null");
-        }
-
-        public static MapSearchResult empty() {
-            return new MapSearchResult(Optional.empty(), List.of());
-        }
-    }
-
-    private boolean hasCoordinates(HouseLocationView view) {
-        if (view == null) {
-            return false;
-        }
-        Double latitude = view.latitude();
-        Double longitude = view.longitude();
-        return latitude != null
-                && longitude != null
-                && Double.isFinite(latitude)
-                && Double.isFinite(longitude)
-                && isCoordinateWithinChina(latitude, longitude);
-    }
-
-    private boolean isWithinRadius(HouseLocationView view,
-                                   Double centerLat,
-                                   Double centerLng,
-                                   Double radiusKm) {
-        if (radiusKm == null || centerLat == null || centerLng == null) {
-            return true;
-        }
-        if (!hasCoordinates(view)) {
-            return false;
-        }
-        double distance = haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
-        return distance <= radiusKm;
-    }
-
-    private List<String> buildQueryCandidates(String query) {
-        if (query == null) {
-            return List.of();
-        }
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        String trimmed = query.trim();
-        addCandidate(candidates, trimmed);
-        addCandidate(candidates, trimmed.replaceAll("\\s+", ""));
-        String withoutParentheses = trimmed.replaceAll("（.*?）", "").replaceAll("\\(.*?\\)", "");
-        addCandidate(candidates, withoutParentheses);
-        for (String delimiter : new String[]{"，", ",", "。", " "}) {
-            int index = trimmed.indexOf(delimiter);
-            if (index > 3) {
-                addCandidate(candidates, trimmed.substring(0, index));
-            }
-        }
-        int haoIndex = trimmed.indexOf('号');
-        if (haoIndex > 3) {
-            addCandidate(candidates, trimmed.substring(0, haoIndex + 1));
-        }
-        int hashIndex = trimmed.indexOf('#');
-        if (hashIndex > 3) {
-            addCandidate(candidates, trimmed.substring(0, hashIndex));
-        }
-        return candidates.stream()
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList();
-    }
-
-    private void addCandidate(LinkedHashSet<String> candidates, String value) {
-        if (value == null) {
-            return;
-        }
-        String candidate = value.trim();
-        if (candidate.isEmpty()) {
-            return;
-        }
-        candidates.add(candidate);
-    }
-
-    private String resolveCityHint(String address) {
-        if (address == null || address.isBlank()) {
-            return null;
-        }
-        String trimmed = address.replaceAll("\\s+", "").trim();
-        String municipality = findLastMatch(MUNICIPALITY_PATTERN, trimmed);
-        if (municipality != null) {
-            return municipality + "市";
-        }
-        String city = findLastMatch(CITY_PATTERN, trimmed);
-        if (city != null) {
-            return sanitizeAdministrativeName(city);
-        }
-        String county = findLastMatch(COUNTY_PATTERN, trimmed);
-        if (county != null) {
-            return sanitizeAdministrativeName(county);
-        }
-        return null;
-    }
-
-    private String findLastMatch(Pattern pattern, String input) {
-        Matcher matcher = pattern.matcher(input);
-        String candidate = null;
-        while (matcher.find()) {
-            candidate = matcher.group(1);
-        }
-        return candidate;
-    }
-
-    private String sanitizeAdministrativeName(String value) {
-        if (value == null) {
-            return null;
-        }
-        String sanitized = value.replaceAll("(自治州|地区|盟)", "").trim();
-        return sanitized.isEmpty() ? null : sanitized;
-    }
-
-    private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {
-        final double earthRadiusKm = 6371.0088d;
-        double latRad1 = Math.toRadians(lat1);
-        double latRad2 = Math.toRadians(lat2);
-        double deltaLat = Math.toRadians(lat2 - lat1);
-        double deltaLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
-                + Math.cos(latRad1) * Math.cos(latRad2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return earthRadiusKm * c;
-    }
-
-    private double distanceToView(HouseLocationView view, double centerLat, double centerLng) {
-        if (!hasCoordinates(view)) {
-            return Double.POSITIVE_INFINITY;
-        }
-        return haversineDistanceKm(centerLat, centerLng, view.latitude(), view.longitude());
-    }
-
-    private boolean isCoordinateWithinChina(double latitude, double longitude) {
-        return latitude >= CHINA_LAT_MIN
-                && latitude <= CHINA_LAT_MAX
-                && longitude >= CHINA_LNG_MIN
-                && longitude <= CHINA_LNG_MAX;
-    }
-
-    private Double sanitizeCoordinate(Double value, double min, double max) {
-        if (value == null) {
-            return null;
-        }
-        double number = value;
-        if (!Double.isFinite(number)) {
-            return null;
-        }
-        if (number < min || number > max) {
-            return null;
-        }
-        return number;
     }
 
     private void validateSellerAccount(String sellerUsername) {

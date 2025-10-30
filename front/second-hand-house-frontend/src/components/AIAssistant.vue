@@ -231,8 +231,6 @@ watch(() => normalizedApiBaseUrl.value, () => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Ma+Shan+Zheng&display=swap');
-
 .ai-assistant {
   position: relative;
   display: flex;
@@ -276,7 +274,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
 
 .ai-assistant__header h2 {
   margin: 0;
-  font-family: 'ZCOOL XiaoWei', 'Ma Shan Zheng', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   font-size: 2rem;
   letter-spacing: 0.04em;
   color: color-mix(in srgb, var(--color-text-strong) 86%, #b48c6e 14%);
@@ -287,7 +285,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   margin-top: 0.35rem;
   font-size: 1rem;
   line-height: 1.55;
-  font-family: 'Ma Shan Zheng', 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   letter-spacing: 0.03em;
 }
 
@@ -311,7 +309,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
 .ai-assistant__model {
   font-size: 0.9rem;
   color: color-mix(in srgb, var(--color-text-muted, #746a5e) 80%, rgba(180, 140, 110, 0.8) 20%);
-  font-family: 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
 }
 
 .ai-assistant__body {
@@ -348,7 +346,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
 
 .ai-assistant__sidebar-header h3 {
   margin: 0 0 0.35rem;
-  font-family: 'ZCOOL XiaoWei', 'Ma Shan Zheng', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   font-size: 1.35rem;
   color: color-mix(in srgb, var(--color-text-strong) 80%, #b48c6e 20%);
 }
@@ -375,7 +373,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   padding: 0.55rem 0.75rem;
   border-radius: var(--radius-md, 0.85rem);
   font-size: 1rem;
-  font-family: 'Ma Shan Zheng', 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -426,7 +424,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   min-height: 7rem;
   background: linear-gradient(130deg, rgba(255, 255, 255, 0.92), rgba(243, 236, 229, 0.86));
   box-shadow: inset 0 0 0 1px rgba(180, 140, 110, 0.12);
-  font-family: 'Ma Shan Zheng', 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   color: var(--color-text-strong);
 }
 
@@ -451,7 +449,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   border-radius: var(--radius-pill, 999px);
   padding: 0.65rem 1.6rem;
   font-size: 1rem;
-  font-family: 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   background: linear-gradient(135deg, rgba(180, 140, 110, 0.92), rgba(122, 142, 160, 0.9));
   color: var(--color-text-on-emphasis, #faf7f3);
   box-shadow: 0 15px 28px rgba(150, 132, 118, 0.28);
@@ -465,7 +463,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
 .ai-assistant__hint {
   font-size: 0.95rem;
   color: #d86c6c;
-  font-family: 'Ma Shan Zheng', 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
 }
 
 .ai-assistant__error {
@@ -475,7 +473,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   padding: 0.85rem 1.2rem;
   border: 1px solid rgba(216, 108, 108, 0.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  font-family: 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
 }
 
 .ai-assistant__conversation {
@@ -489,7 +487,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
 
 .ai-assistant__conversation header h3 {
   margin: 0 0 1rem;
-  font-family: 'ZCOOL XiaoWei', 'Ma Shan Zheng', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   font-size: 1.5rem;
   color: color-mix(in srgb, var(--color-text-strong) 82%, #b48c6e 18%);
 }
@@ -537,7 +535,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   font-weight: 600;
   color: color-mix(in srgb, var(--color-text-muted, #746a5e) 82%, rgba(180, 140, 110, 0.8) 18%);
   margin: 0 0 0.45rem;
-  font-family: 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   letter-spacing: 0.03em;
 }
 
@@ -546,7 +544,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
   white-space: pre-wrap;
   line-height: 1.65;
   font-size: 1.05rem;
-  font-family: 'Ma Shan Zheng', 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   color: var(--color-text-strong);
 }
 
@@ -563,7 +561,7 @@ watch(() => normalizedApiBaseUrl.value, () => {
 
 .ai-assistant__empty {
   color: color-mix(in srgb, var(--color-text-muted, #746a5e) 80%, rgba(255, 255, 255, 0.5) 20%);
-  font-family: 'Ma Shan Zheng', 'ZCOOL XiaoWei', var(--font-sans, 'Noto Sans SC', sans-serif);
+  font-family: var(--font-sans, 'Noto Sans SC', sans-serif);
   text-align: center;
   padding: 2rem 1rem;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0));

@@ -1,13 +1,11 @@
 <template>
   <div class="auth-layout">
     <aside class="brand-showcase">
-      <p>科技赋能的二手房交易平台，为家庭量身打造舒心的安居旅程。</p>
-      <ul>
-        <li>• AI 房价洞察，精准掌握社区走势</li>
-        <li>• 严选优质经纪人，提供一对一陪伴服务</li>
-        <li>• 资产安全托管与积分体系，守护每一笔心动交易</li>
-      </ul>
-      <div class="brand-note">让家的温度，从登录这一刻开始。</div>
+      <img
+        src="https://images.unsplash.com/photo-1600607687920-4e2a33b8ad58?auto=format&fit=crop&w=1100&q=80"
+        alt="柔和日光洒入的温馨卧室场景"
+        loading="lazy"
+      />
     </aside>
 
     <div class="auth-panel">
@@ -361,43 +359,19 @@ const submitRegister = async () => {
 }
 
 .brand-showcase {
-  background: linear-gradient(180deg, rgba(245, 240, 233, 0.96), rgba(232, 224, 216, 0.92));
   border-radius: var(--radius-lg);
-  padding: 2.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
+  overflow: hidden;
+  min-height: 420px;
+  background: #f5f1eb;
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   box-shadow: 0 28px 45px rgba(150, 140, 130, 0.18);
 }
 
-.brand-showcase h2 {
-  margin: 0;
-  font-size: 1.85rem;
-  color: var(--color-text-strong);
-  letter-spacing: 0.04em;
-}
-
-.brand-showcase p {
-  margin: 0;
-  color: var(--color-text-soft);
-  line-height: 1.8;
-}
-
-.brand-showcase ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 0.5rem;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
-}
-
-.brand-note {
-  margin-top: auto;
-  font-weight: 600;
-  color: #b78460;
+.brand-showcase img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .auth-panel {

@@ -467,7 +467,8 @@ const translations = {
       answerLabel: 'AI 的建议',
       pendingAnswer: '正在生成回答…',
       genericError: '暂时无法获取 AI 回答，请稍后再试。',
-      fallbackAnswer: '抱歉，未能生成有效的回答，请换个问题试试。'
+      fallbackAnswer: '抱歉，未能生成有效的回答，请换个问题试试。',
+      degradedNotice: '已为您展示离线备选答案（云端服务暂不可用）。'
     },
     conversation: {
       title: '消息中心',
@@ -1468,7 +1469,8 @@ const translations = {
       answerLabel: 'AI response',
       pendingAnswer: 'Preparing a response…',
       genericError: 'Unable to fetch the AI response right now. Please try again later.',
-      fallbackAnswer: 'Sorry, the assistant could not generate a helpful answer. Please try another question.'
+      fallbackAnswer: 'Sorry, the assistant could not generate a helpful answer. Please try another question.',
+      degradedNotice: 'Offline fallback answer shown (cloud service temporarily unavailable).'
     },
     conversation: {
       title: 'Message center',

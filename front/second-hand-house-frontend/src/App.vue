@@ -82,17 +82,6 @@
           @reserve="handleReserve"
           @purchase="handlePurchase"
           @contact-seller="handleContactSeller"
-          @show-on-map="handleShowOnMap"
-        />
-
-        <HouseLocationViewer
-          v-else-if="activeTab === 'locations'"
-          :houses="houses"
-          :loading="loading"
-          :updated-at="housesUpdatedAt"
-          :focus-key="locationFocusId"
-          :api-base-url="apiBaseUrl"
-          @refresh="fetchHouses({ silent: false })"
         />
 
         <div v-else-if="activeTab === 'manage'" class="manage-grid">
@@ -265,12 +254,8 @@ import InterfaceSettings from './components/InterfaceSettings.vue';
 import UrgentTasks from './components/UrgentTasks.vue';
 import ReviewModeration from './components/ReviewModeration.vue';
 import AccountCenter from './components/AccountCenter.vue';
-import HouseLocationViewer from './components/HouseLocationViewer.vue';
-
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
-const housesUpdatedAt = ref('');
-const locationFocusId = ref('');
 const loading = ref(false);
 const selectedHouse = ref(null);
 const formResetKey = ref(0);
@@ -440,7 +425,6 @@ const translations = {
     },
     nav: {
       home: '购买首页',
-      locations: '地段地图',
       manage: '房源管理',
       feedback: '房源评价',
       urgent: '紧急待办',
@@ -902,8 +886,7 @@ const translations = {
       reviewModeratedRejected: '已驳回该评价。',
       login: '登录成功。',
       loginReputationSuffix: ' 当前信誉分：{score}。',
-      restoredSession: '已恢复上次的登录状态。',
-      mapSearchLaunched: '已切换到地段地图，并尝试自动定位房源地址。'
+      restoredSession: '已恢复上次的登录状态。'
     },
     errors: {
       loadHouses: '加载房源数据失败，请检查后端服务。',
@@ -938,7 +921,6 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
-      mapAddressMissing: '该房源尚未提供地址，无法进行地图定位。',
       installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
@@ -996,7 +978,6 @@ const translations = {
         search: '搜索房源',
         applyFilters: '应用筛选',
         reset: '重置',
-        viewMap: '打开地图',
         contactSeller: '联系卖家',
         reserve: '预定（定金 ￥{deposit}）',
         reserving: '预定中…',
@@ -1095,74 +1076,6 @@ const translations = {
           transferOut: '转出',
           adjustment: '调账',
           unknown: '其他交易'
-        }
-      }
-    },
-    locationViewer: {
-      title: '房源地段地图',
-      subtitle: '系统将根据房源地址自动定位，并展示周边地图实况。',
-      refresh: '刷新房源数据',
-      refreshing: '刷新中…',
-      updatedAt: '数据更新：{time}',
-      listTitle: '房源列表',
-      empty: '暂无可展示的房源，请先发布或检索房源。',
-      noTitle: '未命名房源',
-      noAddress: '地址信息待补充',
-      priceLabel: '参考价：￥{price}',
-      noSelection: '请选择左侧的房源以查看详情。',
-      search: {
-        label: '地址搜索',
-        placeholder: '输入房源地址或周边地标',
-        action: '搜索位置',
-        searching: '搜索中…',
-        hint: '可补充城市、区域等信息以提升定位准确度。',
-        success: '已为您定位：{name}',
-        failure: '暂未找到对应位置，请尝试调整输入。',
-        error: '搜索失败，请稍后重试。',
-        required: '请输入要搜索的房源地址。',
-        suggestions: '未找到精确匹配，可尝试以下推荐位置。',
-        suggestionsTitle: '推荐位置',
-        suggestionsApply: '使用该位置',
-        appliedSuggestion: '已应用推荐位置：{name}'
-      },
-      actions: {
-        copyAddress: '复制地址',
-        locate: '重新定位'
-      },
-      status: {
-        copySuccess: '地址已复制到剪贴板。',
-        copyUnavailable: '该房源暂未提供可复制的地址。',
-        copyManual: '复制功能不可用，可手动复制：{address}'
-      },
-      map: {
-        locating: '正在根据房源地址定位…',
-        idle: '选择房源后将尝试自动定位并展示地图。',
-        explore: '可拖动地图查看周边环境。',
-        coordinates: '坐标：{lat}，{lng}',
-        place: '定位结果：{name}',
-        noResult: '暂时无法根据该地址定位，请核对地址或稍后再试。',
-        error: '定位服务暂时不可用，请稍后重试。',
-        addressMissing: '该房源暂未提供详细地址，无法进行定位。'
-      },
-      usage: {
-        title: '高德接口用量',
-        subtitle: '查看最近的接口调用状态，确保搜索能力保持可用。',
-        refresh: '刷新用量',
-        refreshing: '获取中…',
-        disabled: '当前未启用高德定位服务或缺少安全密钥。',
-        error: '暂时无法获取高德接口用量，请稍后再试。',
-        noData: '暂无接口调用记录。',
-        totalRequests: '总请求次数',
-        totalFailures: '失败次数',
-        lastStatus: '最近状态',
-        lastInfo: '最近信息',
-        lastUpdated: '最近更新时间',
-        lastCount: '最近返回计数',
-        unknown: '未记录',
-        types: {
-          geocode: '地理编码',
-          placeText: '地点搜索',
-          inputTips: '输入提示'
         }
       }
     },
@@ -1492,7 +1405,6 @@ const translations = {
     },
     nav: {
       home: 'Home',
-      locations: 'Map view',
       manage: 'Listing management',
       feedback: 'Listing feedback',
       urgent: 'Urgent tasks',
@@ -1955,8 +1867,7 @@ const translations = {
       reviewModeratedRejected: 'The review has been rejected.',
       login: 'Signed in successfully.',
       loginReputationSuffix: ' Current reputation score: {score}.',
-      restoredSession: 'Previous session restored.',
-      mapSearchLaunched: 'Switched to the map view and attempted to locate the listing automatically.'
+      restoredSession: 'Previous session restored.'
     },
     errors: {
       loadHouses: 'Failed to load listings. Please check the backend service.',
@@ -1991,7 +1902,6 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
-      mapAddressMissing: 'This listing is missing an address, so it cannot be located on the map yet.',
       installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
@@ -2049,7 +1959,6 @@ const translations = {
         search: 'Search listings',
         applyFilters: 'Apply filters',
         reset: 'Reset',
-        viewMap: 'Open map search',
         contactSeller: 'Contact seller',
         reserve: 'Reserve (deposit ¥{deposit})',
         reserving: 'Reserving…',
@@ -2144,74 +2053,6 @@ const translations = {
           transferOut: 'Transfer out',
           adjustment: 'Adjustment',
           unknown: 'Other'
-        }
-      }
-    },
-    locationViewer: {
-      title: 'Listing map overview',
-      subtitle: 'We locate each listing automatically by address and render the live map around it.',
-      refresh: 'Refresh listings',
-      refreshing: 'Refreshing…',
-      updatedAt: 'Data updated: {time}',
-      listTitle: 'Listings',
-      empty: 'No listings are available yet. Publish or search for a property first.',
-      noTitle: 'Untitled listing',
-      noAddress: 'Address pending',
-      priceLabel: 'Price: ￥{price}',
-      noSelection: 'Select a listing on the left to view its details.',
-      search: {
-        label: 'Address search',
-        placeholder: 'Enter a property address or nearby landmark',
-        action: 'Search',
-        searching: 'Searching…',
-        hint: 'Add city or district names to improve accuracy.',
-        success: 'Showing location for {name}.',
-        failure: 'No matching location was found. Try another address.',
-        error: 'Search failed. Please try again later.',
-        required: 'Enter an address before searching.',
-        suggestions: 'No exact match was found. Try one of the suggested locations below.',
-        suggestionsTitle: 'Suggested locations',
-        suggestionsApply: 'Use this location',
-        appliedSuggestion: 'Applied suggested location: {name}'
-      },
-      actions: {
-        copyAddress: 'Copy address',
-        locate: 'Locate again'
-      },
-      status: {
-        copySuccess: 'Address copied to the clipboard.',
-        copyUnavailable: 'No address is available to copy for this listing.',
-        copyManual: 'Copying is unavailable. Please copy manually: {address}'
-      },
-      map: {
-        locating: 'Locating the listing by its address…',
-        idle: 'Select a listing to locate it and display the map.',
-        explore: 'Pan and zoom the map to explore the surrounding area.',
-        coordinates: 'Coordinates: {lat}, {lng}',
-        place: 'Matched place: {name}',
-        noResult: 'We could not locate this address for now. Please verify it or try again later.',
-        error: 'The location service is temporarily unavailable. Please try again later.',
-        addressMissing: 'This listing is missing a detailed address, so it cannot be located yet.'
-      },
-      usage: {
-        title: 'Gaode API usage',
-        subtitle: 'Monitor recent API calls to keep map searches healthy.',
-        refresh: 'Refresh usage',
-        refreshing: 'Fetching…',
-        disabled: 'Gaode location services are disabled or missing a security key.',
-        error: 'Unable to retrieve usage from Gaode for now. Please try again later.',
-        noData: 'No API calls have been recorded yet.',
-        totalRequests: 'Total requests',
-        totalFailures: 'Failures',
-        lastStatus: 'Last status',
-        lastInfo: 'Last info',
-        lastUpdated: 'Last updated',
-        lastCount: 'Last count',
-        unknown: 'Unknown',
-        types: {
-          geocode: 'Geocode',
-          placeText: 'Place search',
-          inputTips: 'Input tips'
         }
       }
     },
@@ -2892,7 +2733,6 @@ const pendingHouseReviews = computed(() =>
 
 const navigationTabs = computed(() => {
   const tabs = [{ value: 'home', label: t('nav.home') }];
-  tabs.push({ value: 'locations', label: t('nav.locations') });
   if (canManageHouses.value) {
     tabs.push({ value: 'manage', label: t('nav.manage') });
   }
@@ -3145,7 +2985,6 @@ const fetchHouses = async ({ filters, silent = false } = {}) => {
     const { data } = await client.get('/houses', { params });
     houses.value = data.map(normalizeHouse);
     syncReviewHouseTitles();
-    housesUpdatedAt.value = new Date().toISOString();
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadHouses');
   } finally {
@@ -4021,23 +3860,6 @@ const handleFilterSearch = (filters) => {
   fetchHouses({ filters });
 };
 
-const handleShowOnMap = (house) => {
-  if (!house) {
-    return;
-  }
-  const key = house.id != null ? String(house.id) : '';
-  const address = typeof house.address === 'string' ? house.address.trim() : '';
-  messages.error = '';
-  messages.success = '';
-  if (!address) {
-    messages.error = t('errors.mapAddressMissing');
-    return;
-  }
-  messages.success = t('success.mapSearchLaunched');
-  locationFocusId.value = key;
-  activeTab.value = 'locations';
-};
-
 const handleToggleBlacklist = async ({ username, blacklisted }) => {
   if (!isAdmin.value || !currentUser.value) {
     return;
@@ -4337,7 +4159,6 @@ const handleLogout = () => {
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
-  housesUpdatedAt.value = '';
   messages.error = '';
   messages.success = '';
   activeTab.value = 'home';

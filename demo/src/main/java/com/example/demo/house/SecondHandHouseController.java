@@ -1,6 +1,5 @@
 package com.example.demo.house;
 
-import com.example.demo.house.SecondHandHouse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -24,11 +23,9 @@ import java.util.List;
 public class SecondHandHouseController {
 
     private final SecondHandHouseService service;
-    private final GaodeMapSettings mapSettings;
-
-    public SecondHandHouseController(SecondHandHouseService service, GaodeMapSettings mapSettings) {
+ 
+    public SecondHandHouseController(SecondHandHouseService service) {
         this.service = service;
-        this.mapSettings = mapSettings;
     }
 
     @GetMapping
@@ -39,48 +36,6 @@ public class SecondHandHouseController {
                                           @RequestParam(value = "maxArea", required = false) java.math.BigDecimal maxArea,
                                           @RequestParam(value = "requester", required = false) String requesterUsername) {
         return service.search(keyword, minPrice, maxPrice, minArea, maxArea, requesterUsername);
-    }
-
-    @GetMapping("/locations")
-    public List<HouseLocationView> locations(@RequestParam(value = "centerLat", required = false) Double centerLat,
-                                             @RequestParam(value = "centerLng", required = false) Double centerLng,
-                                             @RequestParam(value = "radiusKm", required = false) Double radiusKm,
-                                             @RequestParam(value = "requester", required = false) String requesterUsername) {
-        return service.listLocations(centerLat, centerLng, radiusKm, requesterUsername);
-    }
-
-    @GetMapping("/map-config")
-    public MapConfigResponse mapConfig() {
-        return new MapConfigResponse(mapSettings.apiKey(), mapSettings.jsSecurityCode().orElse(null));
-    }
-
-    @GetMapping("/map-search")
-    public MapSearchResponse mapSearch(@RequestParam("query") String query,
-                                       @RequestParam(value = "city", required = false) String city,
-                                       @RequestParam(value = "houseId", required = false) Long houseId) {
-        SecondHandHouseService.MapSearchResult result = service.searchMapLocation(query, city, houseId);
-        List<MapSuggestionResponse> suggestions = result.suggestions().stream()
-                .map(place -> new MapSuggestionResponse(
-                        place.name(),
-                        place.address(),
-                        place.latitude(),
-                        place.longitude()))
-                .toList();
-        return result.match()
-                .map(place -> new MapSearchResponse(
-                        true,
-                        place.name(),
-                        place.address(),
-                        place.latitude(),
-                        place.longitude(),
-                        suggestions))
-                .orElseGet(() -> new MapSearchResponse(false, null, null, null, null, suggestions));
-    }
-
-    @GetMapping("/map-search/usage")
-    public GaodeUsageResponse gaodeUsage() {
-        GaodeApiUsageTracker.UsageSnapshot snapshot = service.gaodeUsageSnapshot();
-        return new GaodeUsageResponse(snapshot.enabled(), snapshot.endpoints());
     }
 
     @GetMapping("/{id}")
@@ -112,21 +67,4 @@ public class SecondHandHouseController {
     public SecondHandHouseView review(@PathVariable Long id, @Valid @RequestBody SecondHandHouseReviewRequest request) {
         return service.review(id, request.status(), request.message(), request.reviewerUsername());
     }
-}
-
-record MapConfigResponse(String apiKey, String jsSecurityCode) {
-}
-
-record MapSearchResponse(boolean found,
-                         String name,
-                         String address,
-                         Double latitude,
-                         Double longitude,
-                         List<MapSuggestionResponse> suggestions) {
-}
-
-record MapSuggestionResponse(String name, String address, Double latitude, Double longitude) {
-}
-
-record GaodeUsageResponse(boolean enabled, java.util.Map<String, GaodeApiUsageTracker.ApiUsage> endpoints) {
 }

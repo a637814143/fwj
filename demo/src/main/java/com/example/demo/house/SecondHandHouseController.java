@@ -77,6 +77,12 @@ public class SecondHandHouseController {
                 .orElseGet(() -> new MapSearchResponse(false, null, null, null, null, suggestions));
     }
 
+    @GetMapping("/map-search/usage")
+    public GaodeUsageResponse gaodeUsage() {
+        GaodeApiUsageTracker.UsageSnapshot snapshot = service.gaodeUsageSnapshot();
+        return new GaodeUsageResponse(snapshot.enabled(), snapshot.endpoints());
+    }
+
     @GetMapping("/{id}")
     public SecondHandHouseView get(@PathVariable Long id,
                                    @RequestParam(value = "requester", required = false) String requesterUsername) {
@@ -120,4 +126,7 @@ record MapSearchResponse(boolean found,
 }
 
 record MapSuggestionResponse(String name, String address, Double latitude, Double longitude) {
+}
+
+record GaodeUsageResponse(boolean enabled, java.util.Map<String, GaodeApiUsageTracker.ApiUsage> endpoints) {
 }

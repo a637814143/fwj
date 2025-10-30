@@ -1143,6 +1143,27 @@ const translations = {
         noResult: '暂时无法根据该地址定位，请核对地址或稍后再试。',
         error: '定位服务暂时不可用，请稍后重试。',
         addressMissing: '该房源暂未提供详细地址，无法进行定位。'
+      },
+      usage: {
+        title: '高德接口用量',
+        subtitle: '查看最近的接口调用状态，确保搜索能力保持可用。',
+        refresh: '刷新用量',
+        refreshing: '获取中…',
+        disabled: '当前未启用高德定位服务或缺少安全密钥。',
+        error: '暂时无法获取高德接口用量，请稍后再试。',
+        noData: '暂无接口调用记录。',
+        totalRequests: '总请求次数',
+        totalFailures: '失败次数',
+        lastStatus: '最近状态',
+        lastInfo: '最近信息',
+        lastUpdated: '最近更新时间',
+        lastCount: '最近返回计数',
+        unknown: '未记录',
+        types: {
+          geocode: '地理编码',
+          placeText: '地点搜索',
+          inputTips: '输入提示'
+        }
       }
     },
     prediction: {
@@ -2171,6 +2192,27 @@ const translations = {
         noResult: 'We could not locate this address for now. Please verify it or try again later.',
         error: 'The location service is temporarily unavailable. Please try again later.',
         addressMissing: 'This listing is missing a detailed address, so it cannot be located yet.'
+      },
+      usage: {
+        title: 'Gaode API usage',
+        subtitle: 'Monitor recent API calls to keep map searches healthy.',
+        refresh: 'Refresh usage',
+        refreshing: 'Fetching…',
+        disabled: 'Gaode location services are disabled or missing a security key.',
+        error: 'Unable to retrieve usage from Gaode for now. Please try again later.',
+        noData: 'No API calls have been recorded yet.',
+        totalRequests: 'Total requests',
+        totalFailures: 'Failures',
+        lastStatus: 'Last status',
+        lastInfo: 'Last info',
+        lastUpdated: 'Last updated',
+        lastCount: 'Last count',
+        unknown: 'Unknown',
+        types: {
+          geocode: 'Geocode',
+          placeText: 'Place search',
+          inputTips: 'Input tips'
+        }
       }
     },
     prediction: {

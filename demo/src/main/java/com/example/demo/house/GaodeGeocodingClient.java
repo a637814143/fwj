@@ -32,6 +32,7 @@ public class GaodeGeocodingClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final GaodeMapSettings settings;
+    private final GaodeApiUsageTracker usageTracker;
     private final String outboundClientIp;
     private final Map<String, Optional<Coordinate>> cache = new ConcurrentHashMap<>();
     private final Map<String, Optional<PlaceSuggestion>> searchCache = new ConcurrentHashMap<>();
@@ -39,9 +40,11 @@ public class GaodeGeocodingClient {
 
     public GaodeGeocodingClient(RestClient.Builder restClientBuilder,
                                 ObjectMapper objectMapper,
-                                GaodeMapSettings settings) {
+                                GaodeMapSettings settings,
+                                GaodeApiUsageTracker usageTracker) {
         this.objectMapper = objectMapper;
         this.settings = settings;
+        this.usageTracker = usageTracker;
         this.outboundClientIp = resolveClientIp(settings.clientIp().orElse(null));
         RestClient.Builder builder = restClientBuilder
                 .baseUrl("https://restapi.amap.com/v3")
@@ -72,6 +75,11 @@ public class GaodeGeocodingClient {
     }
 
     private Optional<Coordinate> fetchCoordinate(String address, String cityHint) {
+        String status = null;
+        String info = null;
+        String infoCode = null;
+        Integer count = null;
+        boolean success = false;
         try {
             RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
                 uriBuilder.path("/geocode/geo")
@@ -90,9 +98,13 @@ public class GaodeGeocodingClient {
                 return Optional.empty();
             }
             JsonNode root = objectMapper.readTree(body);
-            if (!"1".equals(root.path("status").asText())) {
+            status = sanitizeText(root.path("status").asText(null));
+            info = sanitizeText(root.path("info").asText(null));
+            infoCode = sanitizeText(root.path("infocode").asText(null));
+            count = extractCount(root.path("count"));
+            if (!"1".equals(status)) {
                 log.debug("Gaode geocode rejected address {} with status {} info {}", address,
-                        root.path("status").asText(), root.path("info").asText());
+                        status, info);
                 return Optional.empty();
             }
             JsonNode geocodes = root.path("geocodes");
@@ -116,10 +128,15 @@ public class GaodeGeocodingClient {
                 log.debug("Gaode geocode returned coordinate outside China bounds lat {} lng {} for {}", lat, lng, address);
                 return Optional.empty();
             }
+            success = true;
             return Optional.of(new Coordinate(lat, lng));
         } catch (Exception ex) {
             log.warn("Gaode geocode request failed for address {}: {}", address, ex.getMessage());
+            info = buildExceptionInfo(ex);
+            infoCode = "EXCEPTION";
             return Optional.empty();
+        } finally {
+            recordUsage(GaodeApiUsageTracker.ApiType.GEOCODE, success, status, info, infoCode, count);
         }
     }
 
@@ -194,6 +211,11 @@ public class GaodeGeocodingClient {
     }
 
     private Optional<PlaceSuggestion> requestPlace(String keyword, String city, boolean limitToCity) {
+        String status = null;
+        String info = null;
+        String infoCode = null;
+        Integer count = null;
+        boolean success = false;
         try {
             RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
                 uriBuilder.path("/place/text")
@@ -217,9 +239,13 @@ public class GaodeGeocodingClient {
                 return Optional.empty();
             }
             JsonNode root = objectMapper.readTree(body);
-            if (!"1".equals(root.path("status").asText())) {
+            status = sanitizeText(root.path("status").asText(null));
+            info = sanitizeText(root.path("info").asText(null));
+            infoCode = sanitizeText(root.path("infocode").asText(null));
+            count = extractCount(root.path("count"));
+            if (!"1".equals(status)) {
                 log.debug("Gaode place search rejected keyword {} with status {} info {}", keyword,
-                        root.path("status").asText(), root.path("info").asText());
+                        status, info);
                 return Optional.empty();
             }
             JsonNode pois = root.path("pois");
@@ -263,12 +289,17 @@ public class GaodeGeocodingClient {
                 if (name == null || name.isBlank()) {
                     name = keyword;
                 }
+                success = true;
                 return Optional.of(new PlaceSuggestion(name, address, lat, lng));
             }
             return Optional.empty();
         } catch (Exception ex) {
             log.warn("Gaode place search failed for keyword {}: {}", keyword, ex.getMessage());
+            info = buildExceptionInfo(ex);
+            infoCode = "EXCEPTION";
             return Optional.empty();
+        } finally {
+            recordUsage(GaodeApiUsageTracker.ApiType.PLACE_TEXT, success, status, info, infoCode, count);
         }
     }
 
@@ -289,6 +320,11 @@ public class GaodeGeocodingClient {
     }
 
     private List<PlaceSuggestion> fetchInputTips(String keyword, String cityHint) {
+        String status = null;
+        String info = null;
+        String infoCode = null;
+        Integer count = null;
+        boolean success = false;
         try {
             RestClient.RequestHeadersSpec<?> request = restClient.get().uri(uriBuilder -> {
                 uriBuilder.path("/assistant/inputtips")
@@ -307,9 +343,13 @@ public class GaodeGeocodingClient {
                 return List.of();
             }
             JsonNode root = objectMapper.readTree(body);
-            if (!"1".equals(root.path("status").asText())) {
+            status = sanitizeText(root.path("status").asText(null));
+            info = sanitizeText(root.path("info").asText(null));
+            infoCode = sanitizeText(root.path("infocode").asText(null));
+            count = extractCount(root.path("count"));
+            if (!"1".equals(status)) {
                 log.debug("Gaode input tips rejected keyword {} with status {} info {}", keyword,
-                        root.path("status").asText(), root.path("info").asText());
+                        status, info);
                 return List.of();
             }
             JsonNode tips = root.path("tips");
@@ -350,11 +390,20 @@ public class GaodeGeocodingClient {
                 }
                 results.add(new PlaceSuggestion(name, address, lat, lng));
             }
+            success = !results.isEmpty();
             return results.isEmpty() ? List.of() : List.copyOf(results);
         } catch (Exception ex) {
             log.warn("Gaode input tips failed for keyword {}: {}", keyword, ex.getMessage());
+            info = buildExceptionInfo(ex);
+            infoCode = "EXCEPTION";
             return List.of();
+        } finally {
+            recordUsage(GaodeApiUsageTracker.ApiType.INPUT_TIPS, success, status, info, infoCode, count);
         }
+    }
+
+    public GaodeApiUsageTracker.UsageSnapshot usageSnapshot() {
+        return usageTracker.snapshot(isEnabled());
     }
 
     private String normalizeCityQuery(String cityHint) {
@@ -364,6 +413,54 @@ public class GaodeGeocodingClient {
             sanitized = sanitized.substring(0, sanitized.length() - 1);
         }
         return sanitized;
+    }
+
+    private Integer extractCount(JsonNode node) {
+        if (node == null || node.isMissingNode()) {
+            return null;
+        }
+        if (node.canConvertToInt()) {
+            int value = node.asInt();
+            return value < 0 ? null : value;
+        }
+        String text = sanitizeText(node.asText(null));
+        if (text == null) {
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(text);
+            return parsed < 0 ? null : parsed;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String sanitizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String buildExceptionInfo(Exception ex) {
+        if (ex == null) {
+            return null;
+        }
+        String message = ex.getMessage();
+        return ex.getClass().getSimpleName() + (message == null || message.isBlank() ? "" : (": " + message.trim()));
+    }
+
+    private void recordUsage(GaodeApiUsageTracker.ApiType type,
+                             boolean success,
+                             String status,
+                             String info,
+                             String infoCode,
+                             Integer count) {
+        if (usageTracker == null) {
+            return;
+        }
+        usageTracker.record(type, success, status, info, infoCode, count);
     }
 
     private String resolveClientIp(String configuredIp) {

@@ -598,9 +598,21 @@ public class SecondHandHouseService {
         }
         List<HouseCandidate> filtered = new ArrayList<>(candidates);
         filtered = filterByComponent(filtered, queryComponents.province(), AddressComponents::province);
+        if (filtered.isEmpty()) {
+            return List.of();
+        }
         filtered = filterByComponent(filtered, queryComponents.city(), AddressComponents::city);
+        if (filtered.isEmpty()) {
+            return List.of();
+        }
         filtered = filterByComponent(filtered, queryComponents.district(), AddressComponents::district);
+        if (filtered.isEmpty()) {
+            return List.of();
+        }
         filtered = filterByStreet(filtered, queryComponents.street(), normalizedQuery);
+        if (filtered.isEmpty()) {
+            return List.of();
+        }
         filtered.sort(Comparator
                 .comparingInt((HouseCandidate candidate) -> computeMatchScore(candidate, queryComponents, normalizedQuery))
                 .reversed()
@@ -622,7 +634,7 @@ public class SecondHandHouseService {
                 matches.add(candidate);
             }
         }
-        return matches.isEmpty() ? candidates : matches;
+        return matches;
     }
 
     private List<HouseCandidate> filterByStreet(List<HouseCandidate> candidates,
@@ -646,7 +658,7 @@ public class SecondHandHouseService {
                 matches.add(candidate);
             }
         }
-        return matches.isEmpty() ? candidates : matches;
+        return matches;
     }
 
     private int computeMatchScore(HouseCandidate candidate,
@@ -748,6 +760,11 @@ public class SecondHandHouseService {
         long lngKey = Math.round(suggestion.longitude() * 1_000_000d);
         String normalizedAddress = normalize(suggestion.address());
         return latKey + ":" + lngKey + "::" + normalizedAddress;
+    }
+
+    @Transactional(readOnly = true)
+    public GaodeApiUsageTracker.UsageSnapshot gaodeUsageSnapshot() {
+        return geocodingClient.usageSnapshot();
     }
 
 

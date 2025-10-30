@@ -40,8 +40,9 @@ public class SecondHandHouseService {
     private static final double CHINA_LNG_MAX = 136.5d;
 
     private static final Pattern MUNICIPALITY_PATTERN = Pattern.compile("(北京|上海|天津|重庆)");
+    private static final Pattern PROVINCE_PATTERN = Pattern.compile("([\\p{IsHan}]{2,}(?:省|自治区|特别行政区))");
     private static final Pattern CITY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}市)");
-    private static final Pattern COUNTY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}(?:县|区|旗))");
+    private static final Pattern COUNTY_PATTERN = Pattern.compile("([\\p{IsHan}]{2,6}(?:自治县|县|区|旗|自治旗|林区))");
 
     private final SecondHandHouseRepository repository;
     private final UserAccountRepository userAccountRepository;
@@ -442,6 +443,7 @@ public class SecondHandHouseService {
                 : repository.findById(houseId).orElse(null);
         LinkedHashMap<String, GaodeGeocodingClient.PlaceSuggestion> suggestionMap = new LinkedHashMap<>();
         String normalizedQuery = normalize(query);
+        String normalizedQueryNoSpace = normalizeForMatch(query);
         GaodeGeocodingClient.PlaceSuggestion bestMatch = null;
 
         if (targetHouse != null) {
@@ -449,18 +451,51 @@ public class SecondHandHouseService {
             addSuggestion(suggestionMap, bestMatch);
         }
 
+        AddressComponents queryComponents = parseAddressComponents(query);
+        List<HouseCandidate> localCandidates = collectHouseCandidates();
+        if (targetHouse != null && localCandidates.stream()
+                .noneMatch(candidate -> Objects.equals(candidate.house().getId(), targetHouse.getId()))) {
+            localCandidates.add(new HouseCandidate(targetHouse, parseAddressComponents(targetHouse.getAddress())));
+        }
+
+        List<HouseCandidate> prioritizedCandidates = prioritizeCandidates(localCandidates, queryComponents, normalizedQueryNoSpace);
+        for (HouseCandidate candidate : prioritizedCandidates) {
+            if (suggestionMap.size() >= 8) {
+                break;
+            }
+            if (targetHouse != null && Objects.equals(candidate.house().getId(), targetHouse.getId())) {
+                continue;
+            }
+            Optional<GaodeGeocodingClient.PlaceSuggestion> suggestion = buildSuggestionFromHouse(candidate.house());
+            if (suggestion.isEmpty()) {
+                suggestion = buildSuggestionFromAddress(candidate.house(), candidate.components());
+            }
+            if (suggestion.isEmpty()) {
+                continue;
+            }
+            addSuggestion(suggestionMap, suggestion.get());
+            if (bestMatch == null) {
+                bestMatch = suggestion.get();
+            }
+        }
+
         if (bestMatch == null && !normalizedQuery.isEmpty()) {
-            bestMatch = repository.findAll().stream()
+            Optional<GaodeGeocodingClient.PlaceSuggestion> houseMatch = repository.findAll().stream()
                     .filter(house -> addressMatchesQuery(house, normalizedQuery))
                     .map(this::buildSuggestionFromHouse)
                     .flatMap(Optional::stream)
-                    .findFirst()
-                    .orElse(null);
-            addSuggestion(suggestionMap, bestMatch);
+                    .findFirst();
+            if (houseMatch.isPresent()) {
+                bestMatch = houseMatch.get();
+                addSuggestion(suggestionMap, bestMatch);
+            }
         }
 
         List<String> queryCandidates = buildQueryCandidates(query, targetHouse);
         for (String candidateQuery : queryCandidates) {
+            if (suggestionMap.size() >= 8) {
+                break;
+            }
             String effectiveCityCandidate = firstNonBlank(
                     cityHint,
                     resolveCityHint(candidateQuery),
@@ -480,6 +515,10 @@ public class SecondHandHouseService {
                 }
             }
 
+            if (suggestionMap.size() >= 8) {
+                continue;
+            }
+
             List<GaodeGeocodingClient.PlaceSuggestion> tipSuggestions =
                     geocodingClient.suggestPlaces(candidateQuery, effectiveCity);
             for (GaodeGeocodingClient.PlaceSuggestion suggestion : tipSuggestions) {
@@ -490,6 +529,13 @@ public class SecondHandHouseService {
                 if (bestMatch == null) {
                     bestMatch = suggestion;
                 }
+                if (suggestionMap.size() >= 8) {
+                    break;
+                }
+            }
+
+            if (suggestionMap.size() >= 8) {
+                continue;
             }
 
             Optional<GaodeGeocodingClient.Coordinate> geocoded = geocodingClient.geocode(candidateQuery, effectiveCity);
@@ -531,6 +577,137 @@ public class SecondHandHouseService {
                 .toList();
 
         return new MapSearchResult(Optional.ofNullable(bestMatch), limitedSuggestions);
+    }
+
+    private List<HouseCandidate> collectHouseCandidates() {
+        List<HouseCandidate> candidates = new ArrayList<>();
+        for (SecondHandHouse house : repository.findAll()) {
+            if (!hasMappableAddress(house)) {
+                continue;
+            }
+            candidates.add(new HouseCandidate(house, parseAddressComponents(house.getAddress())));
+        }
+        return candidates;
+    }
+
+    private List<HouseCandidate> prioritizeCandidates(List<HouseCandidate> candidates,
+                                                      AddressComponents queryComponents,
+                                                      String normalizedQuery) {
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        List<HouseCandidate> filtered = new ArrayList<>(candidates);
+        filtered = filterByComponent(filtered, queryComponents.province(), AddressComponents::province);
+        filtered = filterByComponent(filtered, queryComponents.city(), AddressComponents::city);
+        filtered = filterByComponent(filtered, queryComponents.district(), AddressComponents::district);
+        filtered = filterByStreet(filtered, queryComponents.street(), normalizedQuery);
+        filtered.sort(Comparator
+                .comparingInt((HouseCandidate candidate) -> computeMatchScore(candidate, queryComponents, normalizedQuery))
+                .reversed()
+                .thenComparing(candidate -> candidate.house().getUpdatedAt(), Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(candidate -> candidate.house().getId(), Comparator.nullsLast(Long::compareTo)));
+        return filtered;
+    }
+
+    private List<HouseCandidate> filterByComponent(List<HouseCandidate> candidates,
+                                                   String queryValue,
+                                                   java.util.function.Function<AddressComponents, String> extractor) {
+        if (queryValue == null || queryValue.isBlank()) {
+            return candidates;
+        }
+        List<HouseCandidate> matches = new ArrayList<>();
+        for (HouseCandidate candidate : candidates) {
+            String component = extractor.apply(candidate.components());
+            if (componentMatches(component, queryValue)) {
+                matches.add(candidate);
+            }
+        }
+        return matches.isEmpty() ? candidates : matches;
+    }
+
+    private List<HouseCandidate> filterByStreet(List<HouseCandidate> candidates,
+                                                String streetFragment,
+                                                String normalizedQuery) {
+        if ((streetFragment == null || streetFragment.isBlank())
+                && (normalizedQuery == null || normalizedQuery.isBlank())) {
+            return candidates;
+        }
+        List<HouseCandidate> matches = new ArrayList<>();
+        for (HouseCandidate candidate : candidates) {
+            boolean matched = false;
+            if (streetFragment != null && !streetFragment.isBlank()) {
+                matched = componentMatches(candidate.components().street(), streetFragment);
+            }
+            if (!matched && normalizedQuery != null && !normalizedQuery.isBlank()) {
+                String normalizedAddress = candidate.components().normalizedFull();
+                matched = normalizedAddress.contains(normalizedQuery);
+            }
+            if (matched) {
+                matches.add(candidate);
+            }
+        }
+        return matches.isEmpty() ? candidates : matches;
+    }
+
+    private int computeMatchScore(HouseCandidate candidate,
+                                  AddressComponents queryComponents,
+                                  String normalizedQuery) {
+        int score = 0;
+        AddressComponents components = candidate.components();
+        if (componentMatches(components.province(), queryComponents.province())) {
+            score += 1000;
+        }
+        if (componentMatches(components.city(), queryComponents.city())) {
+            score += 200;
+        }
+        if (componentMatches(components.district(), queryComponents.district())) {
+            score += 50;
+        }
+        if (componentMatches(components.street(), queryComponents.street())) {
+            score += 20;
+        }
+        if (normalizedQuery != null && !normalizedQuery.isBlank()) {
+            String address = components.normalizedFull();
+            if (!address.isBlank()) {
+                if (address.contains(normalizedQuery)) {
+                    score += 15;
+                } else if (normalizedQuery.contains(address)) {
+                    score += 10;
+                }
+            }
+        }
+        if (hasCoordinates(candidate.house())) {
+            score += 5;
+        }
+        return score;
+    }
+
+    private Optional<GaodeGeocodingClient.PlaceSuggestion> buildSuggestionFromAddress(SecondHandHouse house,
+                                                                                      AddressComponents components) {
+        if (house == null || !hasMappableAddress(house) || !geocodingClient.isEnabled()) {
+            return Optional.empty();
+        }
+        String address = house.getAddress();
+        String cityHint = firstNonBlank(
+                resolveCityHint(address),
+                components == null ? null : components.city(),
+                components == null ? null : components.province()
+        );
+        Optional<GaodeGeocodingClient.Coordinate> coordinate = geocodingClient.geocode(address, cityHint);
+        if (coordinate.isEmpty()) {
+            return Optional.empty();
+        }
+        Double latitude = sanitizeCoordinate(coordinate.get().latitude(), CHINA_LAT_MIN, CHINA_LAT_MAX);
+        Double longitude = sanitizeCoordinate(coordinate.get().longitude(), CHINA_LNG_MIN, CHINA_LNG_MAX);
+        if (latitude == null || longitude == null || !isCoordinateWithinChina(latitude, longitude)) {
+            return Optional.empty();
+        }
+        String name = house.getTitle();
+        if (name == null || name.isBlank()) {
+            name = address == null || address.isBlank() ? "房源" : address.trim();
+        }
+        String displayAddress = address == null || address.isBlank() ? name : address.trim();
+        return Optional.of(new GaodeGeocodingClient.PlaceSuggestion(name, displayAddress, latitude, longitude));
     }
 
     private String firstNonBlank(String... values) {
@@ -694,6 +871,74 @@ public class SecondHandHouseService {
         candidates.add(candidate);
     }
 
+    private AddressComponents parseAddressComponents(String value) {
+        if (value == null || value.isBlank()) {
+            return AddressComponents.EMPTY;
+        }
+        String trimmed = value.replaceAll("\\s+", "").trim();
+        if (trimmed.isEmpty()) {
+            return AddressComponents.EMPTY;
+        }
+        String normalizedFull = normalizeForMatch(trimmed);
+        String municipality = findLastMatch(MUNICIPALITY_PATTERN, trimmed);
+        String province = findLastMatch(PROVINCE_PATTERN, trimmed);
+        if (province == null && municipality != null) {
+            province = municipality + "市";
+        }
+        String city = findLastMatch(CITY_PATTERN, trimmed);
+        if (city == null && municipality != null) {
+            city = municipality + "市";
+        }
+        String district = findLastMatch(COUNTY_PATTERN, trimmed);
+        String street = trimmed;
+        for (String segment : new String[]{province, city, district}) {
+            if (segment != null && !segment.isBlank()) {
+                street = street.replace(segment, "");
+            }
+        }
+        street = street.replace("中华人民共和国", "").replace("中国", "");
+        street = street.trim();
+        if (street.isEmpty()) {
+            street = null;
+        }
+        return new AddressComponents(province, city, district, street, normalizedFull);
+    }
+
+    private boolean componentMatches(String component, String queryComponent) {
+        if (component == null || component.isBlank() || queryComponent == null || queryComponent.isBlank()) {
+            return false;
+        }
+        String normalizedComponent = normalizeForMatch(component);
+        String normalizedQuery = normalizeForMatch(queryComponent);
+        if (!normalizedComponent.isBlank() && !normalizedQuery.isBlank()
+                && (normalizedComponent.contains(normalizedQuery) || normalizedQuery.contains(normalizedComponent))) {
+            return true;
+        }
+        String sanitizedComponent = normalizeAdministrativeSegment(component);
+        String sanitizedQuery = normalizeAdministrativeSegment(queryComponent);
+        return !sanitizedComponent.isBlank()
+                && !sanitizedQuery.isBlank()
+                && (sanitizedComponent.contains(sanitizedQuery) || sanitizedQuery.contains(sanitizedComponent));
+    }
+
+    private String normalizeAdministrativeSegment(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.replaceAll("\\s+", "").trim().toLowerCase(Locale.ROOT);
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        return trimmed.replaceAll("(特别行政区|自治区|自治州|自治县|自治旗|地区|盟|省|市|区|县|旗)$", "");
+    }
+
+    private String normalizeForMatch(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\s+", "").trim().toLowerCase(Locale.ROOT);
+    }
+
     private String resolveCityHint(String address) {
         if (address == null || address.isBlank()) {
             return null;
@@ -729,6 +974,22 @@ public class SecondHandHouseService {
         }
         String sanitized = value.replaceAll("(自治州|地区|盟)", "").trim();
         return sanitized.isEmpty() ? null : sanitized;
+    }
+
+    private record HouseCandidate(SecondHandHouse house, AddressComponents components) {
+    }
+
+    private record AddressComponents(String province,
+                                     String city,
+                                     String district,
+                                     String street,
+                                     String normalizedFull) {
+        private static final AddressComponents EMPTY = new AddressComponents(null, null, null, null, "");
+
+        @Override
+        public String normalizedFull() {
+            return normalizedFull == null ? "" : normalizedFull;
+        }
     }
 
     private double haversineDistanceKm(double lat1, double lng1, double lat2, double lng2) {

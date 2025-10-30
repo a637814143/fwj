@@ -84,6 +84,12 @@ public class HouseOrder {
     @Column(name = "viewing_message", length = 255)
     private String viewingMessage;
 
+    @Column(name = "buyer_viewing_confirmed", nullable = false)
+    private boolean buyerViewingConfirmed = false;
+
+    @Column(name = "seller_viewing_confirmed", nullable = false)
+    private boolean sellerViewingConfirmed = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -216,6 +222,22 @@ public class HouseOrder {
 
     public void setReturnReason(String returnReason) {
         this.returnReason = returnReason;
+    }
+
+    public boolean isBuyerViewingConfirmed() {
+        return buyerViewingConfirmed;
+    }
+
+    public void setBuyerViewingConfirmed(boolean buyerViewingConfirmed) {
+        this.buyerViewingConfirmed = buyerViewingConfirmed;
+    }
+
+    public boolean isSellerViewingConfirmed() {
+        return sellerViewingConfirmed;
+    }
+
+    public void setSellerViewingConfirmed(boolean sellerViewingConfirmed) {
+        this.sellerViewingConfirmed = sellerViewingConfirmed;
     }
 
     public OffsetDateTime getViewingTime() {

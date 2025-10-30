@@ -2,7 +2,6 @@ package com.example.demo.admin;
 
 import com.example.demo.order.HouseOrderResponse;
 import com.example.demo.order.HouseOrderService;
-import com.example.demo.order.PayoutRecipient;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +33,6 @@ public class AdminOrderReviewController {
     @PatchMapping("/{orderId}/review")
     public HouseOrderResponse review(@PathVariable Long orderId,
                                      @Valid @RequestBody AdminOrderReviewRequest request) {
-        PayoutRecipient recipient = request.decision();
-        return orderService.reviewPayout(orderId, recipient, request.requesterUsername());
+        return orderService.reviewPayout(orderId, request.decision(), request.requesterUsername());
     }
 }

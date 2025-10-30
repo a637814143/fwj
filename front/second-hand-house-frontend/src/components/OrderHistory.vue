@@ -101,6 +101,17 @@
                 {{ t('orders.history.viewing.notes', { message: order.viewingMessage }) }}
               </span>
             </p>
+            <div
+              v-if="order.buyerViewingConfirmed || order.sellerViewingConfirmed"
+              class="viewing-status"
+            >
+              <span v-if="order.buyerViewingConfirmed" class="viewing-chip">
+                {{ t('orders.history.viewing.confirmedBuyer') }}
+              </span>
+              <span v-if="order.sellerViewingConfirmed" class="viewing-chip">
+                {{ t('orders.history.viewing.confirmedSeller') }}
+              </span>
+            </div>
             <div class="viewing-actions">
               <button
                 v-if="canSchedule(order)"
@@ -123,11 +134,11 @@
               <button
                 v-if="canConfirmViewing(order)"
                 type="button"
-                class="ghost"
+                class="secondary"
                 :disabled="loading"
                 @click="confirmViewing(order)"
               >
-                {{ t('orders.history.viewing.confirm') }}
+                {{ t('orders.history.viewing.markViewed') }}
               </button>
             </div>
           </section>
@@ -577,15 +588,27 @@ const canAdvance = (order) => {
   return true;
 };
 
-const canConfirmViewing = (order) => {
+const canBuyerConfirmViewing = (order) => {
   if (!order || !isBuyer.value || props.loading) {
     return false;
   }
   if (props.currentUser?.username !== order.buyerUsername) {
     return false;
   }
-  return order.progressStage === 'VIEWING_SCHEDULED';
+  return order.progressStage === 'VIEWING_SCHEDULED' && !order.buyerViewingConfirmed;
 };
+
+const canSellerConfirmViewing = (order) => {
+  if (!order || !isSeller.value || props.loading) {
+    return false;
+  }
+  if (props.currentUser?.username !== order.sellerUsername) {
+    return false;
+  }
+  return order.progressStage === 'VIEWING_SCHEDULED' && !order.sellerViewingConfirmed;
+};
+
+const canConfirmViewing = (order) => canBuyerConfirmViewing(order) || canSellerConfirmViewing(order);
 
 const viewingTimeLabel = (order) => {
   if (!order?.viewingTime) {
@@ -594,14 +617,13 @@ const viewingTimeLabel = (order) => {
   return formatTime(order.viewingTime);
 };
 
-const hasViewingSection = (order) => {
-  return (
-    Boolean(order?.viewingTime) ||
-    canSchedule(order) ||
-    canAdvance(order) ||
-    canConfirmViewing(order)
-  );
-};
+const hasViewingSection = (order) =>
+  Boolean(order?.viewingTime) ||
+  canSchedule(order) ||
+  canAdvance(order) ||
+  canConfirmViewing(order) ||
+  Boolean(order?.buyerViewingConfirmed) ||
+  Boolean(order?.sellerViewingConfirmed);
 
 const advanceProgress = (order) => {
   const target = nextStage(order);
@@ -612,7 +634,7 @@ const advanceProgress = (order) => {
 };
 
 const confirmViewing = (order) => {
-  if (!order || props.loading) {
+  if (!order || props.loading || !canConfirmViewing(order)) {
     return;
   }
   emit('confirm-viewing', { orderId: order.id });
@@ -883,6 +905,23 @@ dl dt {
   margin: 0;
   font-size: 0.95rem;
   color: var(--color-text-strong);
+}
+
+.viewing-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.viewing-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .viewing-actions {

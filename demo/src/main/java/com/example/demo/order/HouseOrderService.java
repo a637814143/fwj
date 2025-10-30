@@ -1,5 +1,6 @@
 package com.example.demo.order;
 
+import com.example.demo.admin.AdminReviewDecision;
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
 import com.example.demo.auth.UserRole;
@@ -163,6 +164,8 @@ public class HouseOrderService {
 
         order.setViewingTime(viewingTime);
         order.setViewingMessage(viewingMessage);
+        order.setBuyerViewingConfirmed(false);
+        order.setSellerViewingConfirmed(false);
         if (order.getProgressStage() == OrderProgressStage.DEPOSIT_PAID) {
             order.setProgressStage(OrderProgressStage.VIEWING_SCHEDULED);
         }
@@ -183,6 +186,47 @@ public class HouseOrderService {
         );
 
         return HouseOrderResponse.fromEntity(order);
+    }
+
+    public HouseOrderResponse confirmViewing(Long orderId, ViewingConfirmationRequest request) {
+        HouseOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
+        String requester = normalizeUsername(request.requesterUsername());
+        if (requester.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求人不能为空");
+        }
+        boolean isBuyer = order.getBuyer().getUsername().equals(requester);
+        boolean isSeller = order.getSeller().getUsername().equals(requester);
+        if (!isBuyer && !isSeller) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅买家或卖家本人可以确认看房");
+        }
+        OrderProgressStage stage = order.getProgressStage();
+        if (stage == OrderProgressStage.DEPOSIT_PAID && order.getViewingTime() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "尚未安排看房，无法确认");
+        }
+
+        boolean changed = false;
+        if (isBuyer && !order.isBuyerViewingConfirmed()) {
+            order.setBuyerViewingConfirmed(true);
+            changed = true;
+        }
+        if (isSeller && !order.isSellerViewingConfirmed()) {
+            order.setSellerViewingConfirmed(true);
+            changed = true;
+        }
+
+        if (order.isBuyerViewingConfirmed() && order.isSellerViewingConfirmed()
+                && stage.ordinal() < OrderProgressStage.HANDOVER_COMPLETED.ordinal()) {
+            order.setProgressStage(OrderProgressStage.HANDOVER_COMPLETED);
+            rewardHandoverParticipants(order);
+            changed = true;
+        }
+
+        if (!changed) {
+            return HouseOrderResponse.fromEntity(order);
+        }
+        HouseOrder saved = orderRepository.save(order);
+        return HouseOrderResponse.fromEntity(saved);
     }
 
     public HouseOrderResponse createOrder(@Valid HouseOrderRequest request) {
@@ -295,12 +339,7 @@ public class HouseOrderService {
         }
         order.setProgressStage(target);
         if (target == OrderProgressStage.HANDOVER_COMPLETED) {
-            UserAccount seller = order.getSeller();
-            UserAccount buyer = order.getBuyer();
-            seller.increaseReputation(5);
-            buyer.increaseReputation(3);
-            userAccountRepository.save(seller);
-            userAccountRepository.save(buyer);
+            rewardHandoverParticipants(order);
         }
         order = orderRepository.save(order);
         return HouseOrderResponse.fromEntity(order);
@@ -315,13 +354,17 @@ public class HouseOrderService {
                 .toList();
     }
 
-    public HouseOrderResponse reviewPayout(Long orderId, PayoutRecipient recipient, String reviewerUsername) {
+    public HouseOrderResponse reviewPayout(Long orderId, AdminReviewDecision decision, String reviewerUsername) {
+        if (decision == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请选择审核结果");
+        }
         UserAccount admin = requireAdmin(reviewerUsername);
         HouseOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
         if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.RETURN_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "仅已支付订单可执行资金审核");
         }
+        PayoutRecipient recipient = resolvePayoutRecipient(order, decision);
         BigDecimal holdAmount = resolveHoldAmount(order);
         if (holdAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "该订单暂无可发放的托管资金");
@@ -467,6 +510,31 @@ public class HouseOrderService {
             return "";
         }
         return value.replaceAll("\\D", "");
+    }
+
+    private PayoutRecipient resolvePayoutRecipient(HouseOrder order, AdminReviewDecision decision) {
+        OrderStatus status = order.getStatus();
+        if (decision == AdminReviewDecision.ACCEPT) {
+            return status == OrderStatus.RETURN_REQUESTED ? PayoutRecipient.BUYER : PayoutRecipient.SELLER;
+        }
+        return status == OrderStatus.RETURN_REQUESTED ? PayoutRecipient.SELLER : PayoutRecipient.BUYER;
+    }
+
+    private void rewardHandoverParticipants(HouseOrder order) {
+        UserAccount seller = order.getSeller();
+        UserAccount buyer = order.getBuyer();
+        seller.increaseReputation(5);
+        buyer.increaseReputation(3);
+        userAccountRepository.save(seller);
+        userAccountRepository.save(buyer);
+    }
+
+    private String normalizeUsername(String username) {
+        if (username == null) {
+            return "";
+        }
+        String trimmed = username.trim();
+        return trimmed.isEmpty() ? "" : trimmed;
     }
 
     private void handleExistingReservation(HouseOrder reservation, UserAccount currentBuyer, UserAccount seller) {

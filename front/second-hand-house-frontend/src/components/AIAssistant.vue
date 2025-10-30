@@ -61,6 +61,7 @@
               </article>
               <article>
                 <h4>{{ t('aiAssistant.answerLabel') }}</h4>
+                <p v-if="entry.degraded" class="ai-assistant__degraded">{{ t('aiAssistant.degradedNotice') }}</p>
                 <p v-if="entry.answer">{{ entry.answer }}</p>
                 <p v-else class="ai-assistant__pending">{{ t('aiAssistant.pendingAnswer') }}</p>
               </article>
@@ -137,7 +138,8 @@ const askAssistant = async (question) => {
   const entry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     question: trimmed,
-    answer: ''
+    answer: '',
+    degraded: false
   };
   exchanges.value = [entry, ...exchanges.value];
   loading.value = true;
@@ -164,6 +166,7 @@ const askAssistant = async (question) => {
     entry.answer = typeof content === 'string' && content.trim().length > 0
       ? content.trim()
       : t('aiAssistant.fallbackAnswer');
+    entry.degraded = Boolean(payload?.degraded);
     if (typeof payload?.model === 'string') {
       status.value = {
         ready: hasKey.value,
@@ -380,6 +383,12 @@ watch(() => normalizedApiBaseUrl.value, () => {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.5;
+}
+
+.ai-assistant__degraded {
+  color: var(--warning-strong, #b45309);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
 
 .ai-assistant__pending {

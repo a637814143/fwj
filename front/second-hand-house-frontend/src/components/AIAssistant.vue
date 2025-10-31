@@ -554,6 +554,12 @@ watch(() => normalizedApiBaseUrl.value, () => {
   margin-bottom: 0.5rem;
 }
 
+.ai-assistant__degraded {
+  color: var(--warning-strong, #b45309);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
 .ai-assistant__pending {
   color: color-mix(in srgb, var(--color-text-muted, #746a5e) 70%, rgba(180, 140, 110, 0.6) 30%);
   font-style: italic;

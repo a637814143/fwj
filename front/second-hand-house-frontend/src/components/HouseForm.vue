@@ -215,6 +215,21 @@
       <p v-else class="hint">{{ t('manage.form.hints.noImages') }}</p>
     </section>
 
+    <section class="contract-section">
+      <div>
+        <h4>{{ t('contracts.usage.seller.title') }}</h4>
+        <p class="hint">{{ t('contracts.usage.seller.notice') }}</p>
+      </div>
+      <div class="contract-actions">
+        <button type="button" class="btn link" :disabled="disabled" @click="openSellerContract">
+          {{ t('contracts.common.open') }}
+        </button>
+        <span :class="['contract-status', { accepted: sellerContractAccepted }]">
+          {{ sellerContractAccepted ? t('contracts.status.accepted') : t('contracts.status.pending') }}
+        </span>
+      </div>
+    </section>
+
     <p v-if="formError" class="error">{{ formError }}</p>
 
     <div class="actions">
@@ -239,11 +254,19 @@
         {{ t('manage.form.actions.cancel') }}
       </button>
     </div>
+
+    <ContractAgreement
+      :visible="sellerContractVisible"
+      context="seller"
+      @agree="handleSellerContractAgree"
+      @reject="handleSellerContractReject"
+    />
   </form>
 </template>
 
 <script setup>
 import { computed, inject, reactive, ref, watch } from 'vue';
+import ContractAgreement from './ContractAgreement.vue';
 
 const props = defineProps({
   initialHouse: {
@@ -390,6 +413,8 @@ const uploadError = ref('');
 const uploadingImages = ref(false);
 const fileInputRef = ref(null);
 const maxImageCount = 10;
+const sellerContractVisible = ref(false);
+const sellerContractAccepted = ref(false);
 
 const uploadEndpoint = computed(() => {
   const base = props.apiBaseUrl?.replace(/\/$/, '') ?? '';
@@ -550,6 +575,8 @@ const setFormDefaults = () => {
   formError.value = '';
   uploadError.value = '';
   uploadingImages.value = false;
+  sellerContractVisible.value = false;
+  sellerContractAccepted.value = Boolean(props.initialHouse);
 };
 
 const fillFromHouse = (house) => {
@@ -573,6 +600,8 @@ const fillFromHouse = (house) => {
   formError.value = '';
   uploadError.value = '';
   uploadingImages.value = false;
+  sellerContractVisible.value = false;
+  sellerContractAccepted.value = true;
 };
 
 watch(
@@ -795,6 +824,11 @@ const submitForm = (maybeOptions) => {
   if (!validateForm({ draft })) {
     return;
   }
+  if (!draft && !sellerContractAccepted.value) {
+    formError.value = t('contracts.errors.sellerAgreeRequired');
+    sellerContractVisible.value = true;
+    return;
+  }
   const payload = {
     title: form.title.trim(),
     address: form.address.trim(),
@@ -818,6 +852,26 @@ const submitForm = (maybeOptions) => {
 const cancelEdit = () => {
   emit('cancel');
   setFormDefaults();
+};
+
+const openSellerContract = () => {
+  if (disabled.value) {
+    return;
+  }
+  formError.value = '';
+  sellerContractVisible.value = true;
+};
+
+const handleSellerContractAgree = () => {
+  sellerContractAccepted.value = true;
+  sellerContractVisible.value = false;
+  formError.value = '';
+};
+
+const handleSellerContractReject = () => {
+  sellerContractAccepted.value = false;
+  sellerContractVisible.value = false;
+  formError.value = t('contracts.errors.sellerDeclined');
 };
 </script>
 
@@ -1051,6 +1105,64 @@ textarea:focus {
   display: flex;
   gap: 0.85rem;
   justify-content: flex-end;
+}
+
+.contract-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: rgba(59, 130, 246, 0.06);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #2563eb) 20%, transparent);
+}
+
+.contract-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn.link {
+  background: none;
+  border: none;
+  color: var(--color-primary, #2563eb);
+  padding: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contract-status {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.contract-status.accepted {
+  color: #047857;
+  font-weight: 600;
+}
+
+:global(body[data-theme='dark']) .contract-section {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+:global(body[data-theme='dark']) .btn.link {
+  color: #93c5fd;
+}
+
+:global(body[data-theme='dark']) .contract-status {
+  color: rgba(148, 163, 184, 0.85);
+}
+
+:global(body[data-theme='dark']) .contract-status.accepted {
+  color: #34d399;
 }
 
 .btn {

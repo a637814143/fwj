@@ -296,6 +296,13 @@
       @prefill-consumed="handleConversationPrefillConsumed"
     />
 
+    <ContractAgreement
+      :visible="purchaseContractVisible"
+      context="buyer"
+      @agree="handlePurchaseAgreementAgree"
+      @reject="handlePurchaseAgreementReject"
+    />
+
     <footer class="footer">
       <small>{{ t('footer.apiBaseLabel') }}{{ apiBaseUrl }}</small>
     </footer>
@@ -323,6 +330,7 @@ import ReviewModeration from './components/ReviewModeration.vue';
 import AccountCenter from './components/AccountCenter.vue';
 import AIAssistant from './components/AIAssistant.vue';
 import PricePredictor from './components/PricePredictor.vue';
+import ContractAgreement from './components/ContractAgreement.vue';
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
 const loading = ref(false);
@@ -335,6 +343,8 @@ const orders = ref([]);
 const ordersLoading = ref(false);
 const reservationLoading = ref(false);
 const reservationTarget = ref(null);
+const purchaseContractVisible = ref(false);
+const pendingPurchaseOptions = ref(null);
 const dismissedUrgentTaskKeys = ref([]);
 const messages = reactive({ error: '', success: '' });
 const accountSaving = ref(false);
@@ -567,6 +577,131 @@ const translations = {
     },
     alerts: {
       errorPrefix: '提示：'
+    },
+    contracts: {
+      common: {
+        open: '阅读并签署《二手房买卖合同》',
+        scrollNotice: '请完整阅读合同条款，滚动至最底部后方可选择是否同意。',
+        disagree: '不同意',
+        agree: '我已阅读并同意合同条款',
+        agreeLabels: {
+          default: '我已阅读并同意合同条款',
+          buyer: '我已阅读并同意，继续购买',
+          seller: '我已阅读并同意，提交房源'
+        }
+      },
+      status: {
+        accepted: '已确认合同条款',
+        pending: '尚未确认合同条款'
+      },
+      errors: {
+        sellerAgreeRequired: '请先阅读并同意《二手房买卖合同》后再提交房源。',
+        sellerDeclined: '您已拒绝合同条款，房源未提交。',
+        purchaseDeclined: '您已拒绝合同条款，购买流程已终止。'
+      },
+      usage: {
+        seller: {
+          title: '卖家合同确认',
+          notice:
+            '发布房源前须阅读并同意平台示范《二手房买卖合同》，并保证房源信息真实、权属清晰且不存在查封、抵押等限制。'
+        },
+        buyer: {
+          title: '买家合同确认',
+          notice:
+            '下单前请完整阅读合同条款，确认自身符合当地购房资格、资信条件及资金监管要求。'
+        }
+      },
+      secondHand: {
+        title: '二手房买卖合同（平台示范文本）',
+        preface:
+          '为保障买受人（买方）与出卖人（卖方）的合法权益，根据《中华人民共和国民法典》《城市房地产管理法》《不动产登记暂行条例》《关于规范房屋买卖合同网签备案管理的通知》等现行法律法规及属地调控政策，双方通过平台达成如下线上示范合同：',
+        sections: [
+          {
+            heading: '一、房屋基本信息',
+            clauses: [
+              '1. 房屋坐落位置、用途、建筑面积、房屋性质及不动产权证号以卖方提交的权属证明材料为准，卖方须保证资料真实、合法、完整。',
+              '2. 房屋应不存在查封、预告登记冲突、司法冻结、共有权争议等影响交易的情形，如存在抵押或租赁关系须提前书面告知买方并依法处理。',
+              '3. 平台提示双方核验房地产登记信息、土地年限、规划用途、公共维修基金结存及物业费缴纳情况。'
+            ]
+          },
+          {
+            heading: '二、价款与支付安排',
+            clauses: [
+              '1. 双方协商房屋总价为人民币（大写）及（小写）金额，以平台订单确认信息为准。',
+              '2. 买方应按约定支付定金、首付款及尾款。定金或预订金由平台托管，违约责任按照《民法典》第五百八十七条执行。',
+              '3. 买方选择贷款的，应在约定期限内向符合监管要求的金融机构提交按揭申请，卖方应配合提供相关资料。'
+            ]
+          },
+          {
+            heading: '三、资金监管与贷款发放',
+            clauses: [
+              '1. 平台支持使用监管专户或商业银行托管方式存放交易价款，未经双方确认及监管机构核验不得提前划转。',
+              '2. 贷款发放前，卖方不得擅自解除抵押或另行处分房屋；贷款到账后，卖方应按监管银行指令完成解押、交付。',
+              '3. 因买方资信不足导致贷款审批未通过的，双方可协商延期或终止交易，相关损失依合同约定承担。'
+            ]
+          },
+          {
+            heading: '四、交付与权属转移',
+            clauses: [
+              '1. 双方应在价款支付完成后按照当地不动产登记部门流程办理过户手续，卖方应在约定时间内协助买方完成网签、税务申报和登记申请。',
+              '2. 房屋交付时，卖方应移交房屋钥匙、物业交接单、水电燃气、供暖、有线电视、网络等相关账户，保证欠费已结清。',
+              '3. 买方应在取得不动产权属证书后，及时向平台确认交易完成状态，以便解除资金监管。'
+            ]
+          },
+          {
+            heading: '五、税费及其他费用承担',
+            clauses: [
+              '1. 契税、增值税、个人所得税等法定税费按国家及地方政策规定承担；如政策调整导致税费变化，按调整后标准执行。',
+              '2. 交易过程中产生的评估费、公证费、贷款服务费、过户手续费等，按照双方约定执行；无约定的，依照交易习惯各自承担。',
+              '3. 平台服务费、资金监管手续费等应由订单确认页面载明，双方确认后不得擅自变更。'
+            ]
+          },
+          {
+            heading: '六、房屋现状与质量责任',
+            clauses: [
+              '1. 卖方应保证房屋结构、装饰、附属设施现状与披露信息一致，无违法加建、重大质量缺陷或影响安全使用的情形。',
+              '2. 买方在签约前可申请第三方查验，发现影响交易的重要问题的，有权要求卖方整改或解除合同。',
+              '3. 对于物业管理、车位、公共收益分配等权利义务，双方应按照现行管理规约及业主大会决定执行。'
+            ]
+          },
+          {
+            heading: '七、违约责任',
+            clauses: [
+              '1. 任一方未按约定期限履行支付、交付、配合办理登记等主要义务的，应在接到催告后三日内纠正；逾期仍未履行的，构成违约。',
+              '2. 违约方应向守约方支付房屋总价款5%-10%的违约金（具体比例以双方线下补充协议或地方惯例确定），不足以弥补损失的，还应继续赔偿。',
+              '3. 因虚假陈述、隐瞒重要事实或提供伪造材料导致合同无法履行的，违约方须承担全部损失并接受平台信誉扣减、账户限制等措施。'
+            ]
+          },
+          {
+            heading: '八、风险提示与政策遵循',
+            clauses: [
+              '1. 双方应确认符合限购、限售、购房资格审查、征信审核等政策条件，因个人原因不符合法律法规导致的风险自行承担。',
+              '2. 资金往来必须使用实名银行账户，严格遵守反洗钱、反恐怖融资等监管要求，不得使用现金或虚假交易流水。',
+              '3. 买方应关注按揭利率、还款压力及税费政策变化，合理安排资金；卖方应妥善处理原有贷款、共有权人意见等事项。'
+            ]
+          },
+          {
+            heading: '九、争议解决',
+            clauses: [
+              '1. 双方应首先通过友好协商解决争议，协商不成的，可申请平台调解或向属地房地产交易纠纷调解机构申请调解。',
+              '2. 调解不成的，可向房屋所在地人民法院提起诉讼或提交经双方约定的仲裁机构仲裁。',
+              '3. 在争议处理期间，双方应配合平台采取必要的资金冻结、信息公示等风险控制措施。'
+            ]
+          }
+        ],
+        appendix: {
+          heading: '附加约定',
+          clauses: [
+            '1. 平台提供的示范合同不替代双方线下签署的正式买卖合同，线下补充条款不得与国家政策及本合同精神相违背。',
+            '2. 双方应保护彼此个人信息安全，未经允许不得向无关第三方泄露。',
+            '3. 如需变更或解除合同，应通过平台提交申请，并依据法律法规及平台规则执行。'
+          ]
+        },
+        conclusion: [
+          '本合同经双方在线确认后生效，视为双方已充分理解全部条款并自愿承担相应权利义务。',
+          '线下办理产权转移、贷款、缴税等手续时，双方应继续遵守国家最新政策规定并及时向平台备案进展。'
+        ]
+      }
     },
     favorites: {
       empty: '暂未收藏任何房源。',
@@ -1621,6 +1756,131 @@ const translations = {
     },
     alerts: {
       errorPrefix: 'Notice:'
+    },
+    contracts: {
+      common: {
+        open: 'Review the second-hand sale agreement',
+        scrollNotice: 'Please read the full agreement. Scroll to the bottom to enable the action buttons.',
+        disagree: 'Decline',
+        agree: 'I have read and agree',
+        agreeLabels: {
+          default: 'I have read and agree to the terms',
+          buyer: 'I agree and continue to purchase',
+          seller: 'I agree and submit the listing'
+        }
+      },
+      status: {
+        accepted: 'Agreement confirmed',
+        pending: 'Agreement pending confirmation'
+      },
+      errors: {
+        sellerAgreeRequired: 'Please review and accept the sale agreement before submitting the listing.',
+        sellerDeclined: 'You declined the agreement. The listing was not submitted.',
+        purchaseDeclined: 'You declined the agreement. The purchase has been cancelled.'
+      },
+      usage: {
+        seller: {
+          title: 'Seller confirmation',
+          notice:
+            'Read and accept the platform sample agreement before publishing. Ensure the property information is truthful and the title is free of liens or disputes.'
+        },
+        buyer: {
+          title: 'Buyer confirmation',
+          notice:
+            'Read the agreement carefully before ordering and confirm that you satisfy local purchase qualifications, credit requirements, and escrow rules.'
+        }
+      },
+      secondHand: {
+        title: 'Second-hand Housing Sale Agreement (Sample)',
+        preface:
+          'To protect the legitimate rights of the seller and buyer, and pursuant to the PRC Civil Code, the Urban Real Estate Administration Law, the Provisional Regulations on Real Estate Registration, and applicable local housing policies, both parties agree to the following terms through the platform:',
+        sections: [
+          {
+            heading: '1. Property information',
+            clauses: [
+              '1.1 The property location, usage, floor area, tenure, and title certificate number shall match the documents submitted by the seller, who guarantees their authenticity and completeness.',
+              '1.2 The property must be free from seizure, conflicting pre-registrations, judicial restrictions, or ownership disputes. Existing mortgages or leases must be disclosed in writing and properly resolved.',
+              '1.3 The platform reminds both parties to verify registration records, land-use terms, public maintenance funds, and property fee balances.'
+            ]
+          },
+          {
+            heading: '2. Price and payment schedule',
+            clauses: [
+              '2.1 The parties agree on the total price in Renminbi as shown on the confirmed order.',
+              '2.2 Deposits and down payments shall be held in platform escrow. Breach liabilities follow Article 587 of the PRC Civil Code unless otherwise agreed.',
+              '2.3 If the buyer applies for a mortgage, the application must be filed with a qualified lender within the agreed period and the seller shall provide the required documents.'
+            ]
+          },
+          {
+            heading: '3. Fund supervision and loan release',
+            clauses: [
+              '3.1 Transaction funds may be placed in an escrow or supervised bank account. Funds cannot be released without mutual confirmation and regulatory approval.',
+              '3.2 Before loan disbursement the seller shall not dispose of the property. After disbursement the seller must cooperate with mortgage release and delivery as instructed by the supervising bank.',
+              '3.3 If financing is rejected because of the buyer\'s credit profile, the parties may extend or terminate the deal. Resulting losses are allocated under the agreement.'
+            ]
+          },
+          {
+            heading: '4. Delivery and title transfer',
+            clauses: [
+              '4.1 After the agreed payments are completed, both parties shall complete online filing, tax declaration, and real-estate registration within the statutory timeline. The seller must cooperate in person when required.',
+              '4.2 Upon delivery the seller shall hand over keys, property handover documents, and settled utility, heating, cable, and broadband accounts.',
+              '4.3 The buyer shall confirm completion on the platform after obtaining the ownership certificate so the supervised funds can be released.'
+            ]
+          },
+          {
+            heading: '5. Taxes and other fees',
+            clauses: [
+              '5.1 Deed tax, value-added tax, individual income tax, and other statutory levies are borne according to national and local rules. Policy adjustments apply immediately.',
+              '5.2 Appraisal, notary, loan service, and transfer handling fees are shared as agreed; if no agreement exists, customary local practice applies.',
+              '5.3 Platform service charges and escrow fees must be disclosed on the confirmation page and may not be changed unilaterally.'
+            ]
+          },
+          {
+            heading: '6. Property condition and disclosure',
+            clauses: [
+              '6.1 The seller warrants that the structure, finishes, and fixtures match the disclosed condition and that no illegal alterations or major defects exist.',
+              '6.2 The buyer may commission third-party inspections before signing. Material issues entitle the buyer to request remediation or contract termination.',
+              '6.3 Rights and obligations regarding property management, parking, and shared income follow the current community regulations.'
+            ]
+          },
+          {
+            heading: '7. Default liabilities',
+            clauses: [
+              '7.1 Failure to pay, deliver, or cooperate with registration within the agreed time constitutes default if not remedied within three days of a written notice.',
+              '7.2 The defaulting party shall pay liquidated damages of 5%–10% of the total price (subject to supplemental agreements or local practice) and compensate additional losses if the penalty is insufficient.',
+              '7.3 Providing false statements, concealing material facts, or using forged documents shall result in full liability and platform sanctions such as reputation deductions or account restrictions.'
+            ]
+          },
+          {
+            heading: '8. Risk warnings and compliance',
+            clauses: [
+              '8.1 Both parties must meet purchase restrictions, credit checks, and qualification reviews. Risks arising from personal non-compliance are borne by the responsible party.',
+              '8.2 Fund transfers must use verified bank accounts and comply with anti-money-laundering and counter-terrorism financing rules. Cash payments or fictitious transactions are prohibited.',
+              '8.3 The buyer should evaluate mortgage interest changes, repayment ability, and tax adjustments, while the seller shall resolve existing loans and co-owner consents.'
+            ]
+          },
+          {
+            heading: '9. Dispute resolution',
+            clauses: [
+              '9.1 Disputes should first be resolved through amicable consultation or platform mediation, or via local real-estate mediation bodies.',
+              '9.2 If mediation fails, disputes may be submitted to the people\'s court where the property is located or to an agreed arbitration institution.',
+              '9.3 During dispute handling the platform may freeze funds or display risk notices as necessary risk controls.'
+            ]
+          }
+        ],
+        appendix: {
+          heading: 'Supplementary provisions',
+          clauses: [
+            'A1. This sample does not replace the formal offline agreement. Supplemental clauses must not contravene national policies or the intent of this document.',
+            'A2. Both parties must protect each other\'s personal data and keep transaction information confidential.',
+            'A3. Any amendment or termination shall be filed through the platform and handled according to laws and platform rules.'
+          ]
+        },
+        conclusion: [
+          'The agreement takes effect once both parties confirm it online, signifying full understanding of the rights and obligations.',
+          'When handling offline registration, financing, and tax procedures, both parties must continue to comply with the latest regulations and update the platform on progress.'
+        ]
+      }
     },
     favorites: {
       empty: 'No favorite listings yet.',
@@ -4016,24 +4276,26 @@ const handleAdminUnlist = async (house) => {
   }
 };
 
-const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {
+const preparePurchase = ({ house, paymentMethod, installmentCardNumber }) => {
   if (!isBuyer.value) {
     messages.error = t('errors.purchaseBuyerOnly');
     messages.success = '';
-    return;
+    return null;
   }
   if (!isRealNameVerified.value) {
     messages.error = t('errors.purchaseVerifyFirst');
     messages.success = '';
-    return;
+    return null;
   }
   if (!house || house.status !== 'APPROVED') {
     messages.error = t('errors.purchaseNotApproved');
-    return;
+    messages.success = '';
+    return null;
   }
   if (!paymentMethod) {
     messages.error = t('errors.purchaseSelectMethod');
-    return;
+    messages.success = '';
+    return null;
   }
   let sanitizedCardNumber = '';
   if (paymentMethod === 'INSTALLMENT') {
@@ -4041,12 +4303,22 @@ const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) =
     if (sanitizedCardNumber.length !== 19) {
       messages.error = t('errors.installmentCardRequired');
       messages.success = '';
-      return;
+      return null;
     }
   }
-  if (isSeller.value && currentUser.value.username === house.sellerUsername) {
+  const username = currentUser.value?.username;
+  if (isSeller.value && username && username === house.sellerUsername) {
     messages.error = t('errors.purchaseOwnListing');
     messages.success = '';
+    return null;
+  }
+  messages.error = '';
+  messages.success = '';
+  return { house, paymentMethod, installmentCardNumber: sanitizedCardNumber };
+};
+
+const executePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {
+  if (!house?.id || !currentUser.value?.username) {
     return;
   }
   ordersLoading.value = true;
@@ -4059,7 +4331,7 @@ const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) =
       paymentMethod
     };
     if (paymentMethod === 'INSTALLMENT') {
-      payload.installmentCardNumber = sanitizedCardNumber;
+      payload.installmentCardNumber = installmentCardNumber;
     }
     const { data } = await client.post('/orders', payload);
     const payment = formatCurrencyYuan(data.amount);
@@ -4080,6 +4352,32 @@ const handlePurchase = async ({ house, paymentMethod, installmentCardNumber }) =
   } finally {
     ordersLoading.value = false;
   }
+};
+
+const handlePurchase = (options = {}) => {
+  const prepared = preparePurchase(options);
+  if (!prepared) {
+    return;
+  }
+  pendingPurchaseOptions.value = prepared;
+  purchaseContractVisible.value = true;
+};
+
+const handlePurchaseAgreementAgree = async () => {
+  const prepared = pendingPurchaseOptions.value;
+  purchaseContractVisible.value = false;
+  pendingPurchaseOptions.value = null;
+  if (!prepared) {
+    return;
+  }
+  await executePurchase(prepared);
+};
+
+const handlePurchaseAgreementReject = () => {
+  purchaseContractVisible.value = false;
+  pendingPurchaseOptions.value = null;
+  messages.error = t('contracts.errors.purchaseDeclined');
+  messages.success = '';
 };
 
 const handleUrgentTaskRead = (taskKey) => {

@@ -64,4 +64,10 @@ public class HouseOrderController {
                                              @Valid @RequestBody OrderProgressUpdateRequest request) {
         return houseOrderService.updateProgress(orderId, request);
     }
+
+    @PostMapping("/{orderId}/seller-repay")
+    public HouseOrderResponse settleSellerRepayment(@PathVariable Long orderId,
+                                                    @Valid @RequestBody SellerRepayRequest request) {
+        return houseOrderService.settleSellerRepayment(orderId, request);
+    }
 }

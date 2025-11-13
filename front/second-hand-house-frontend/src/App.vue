@@ -1573,7 +1573,8 @@ const translations = {
         refundAmountPositive: '退款金额必须大于0',
         referenceLength: '备注长度不能超过100个字符',
         balanceInsufficient: '买家钱包余额不足',
-        sellerInsufficient: '卖家钱包余额不足，无法完成退款'
+        sellerInsufficient: '卖家钱包余额不足，无法完成退款',
+        sellerRepayInsufficient: '卖家钱包余额不足，无法归还垫付金额'
       },
       accounts: {
         notFound: '未找到指定用户账号',
@@ -1590,7 +1591,11 @@ const translations = {
         alreadyReserved: '该房源已有其他买家预定',
         reservedSelf: '您已预定该房源，请耐心等待卖家处理',
         statusUnsupported: '当前订单状态不支持退换',
-        buyerOnlyReturn: '仅买家本人可以申请退换'
+        buyerOnlyReturn: '仅买家本人可以申请退换',
+        sellerUsernameRequired: '卖家账号不能为空',
+        repaySellerOnly: '仅房源卖家可以归还垫付金额',
+        repayNotRequired: '当前订单暂无待归还金额',
+        repayAmountInvalid: '归还金额无效'
       },
       generic: {
         validationFailed: '请求参数校验失败'
@@ -1676,6 +1681,10 @@ const translations = {
           settled: '托管资金已结算',
           hold: '托管金额：￥{amount}',
           released: '已结算：￥{amount}'
+        },
+        repayment: {
+          pending: '平台已垫付买家退款，请尽快归还 ￥{amount} 至平台账户。',
+          completed: '已于 {time} 完成归还。'
         }
       },
       urgent: {
@@ -1691,7 +1700,11 @@ const translations = {
         returnCompletedSeller: '退房已完成，房源《{title}》已重新上架，请及时处理。',
         upcomingViewing: '预约时间：{time}',
         markRead: '已读',
-        openTarget: '前往处理'
+        openTarget: '前往处理',
+        recoverDescription: '平台已为买家垫付 ￥{amount}，请确认回收房源并归还金额。',
+        recoverAction: '确认回收',
+        recoverConfirm: '确认将 ￥{amount} 归还至平台账户？',
+        recoverSuccess: '已成功归还 ￥{amount} 至平台账户。'
       },
       quickMessages: {
         confirmViewing: '我已确认 {time} 的看房安排，届时见。',
@@ -2773,7 +2786,8 @@ const translations = {
         refundAmountPositive: 'Refund amount must be greater than zero',
         referenceLength: 'Reference must not exceed 100 characters',
         balanceInsufficient: 'Buyer wallet balance is insufficient',
-        sellerInsufficient: 'Seller wallet balance is insufficient to process the refund'
+        sellerInsufficient: 'Seller wallet balance is insufficient to process the refund',
+        sellerRepayInsufficient: 'Seller wallet balance is insufficient to return the advance'
       },
       accounts: {
         notFound: 'The specified user account could not be found',
@@ -2790,7 +2804,11 @@ const translations = {
         alreadyReserved: 'Another buyer has already reserved this listing',
         reservedSelf: 'You have already reserved this listing. Please wait for the seller.',
         statusUnsupported: 'The current order status does not allow this action',
-        buyerOnlyReturn: 'Only the buyer can request a refund'
+        buyerOnlyReturn: 'Only the buyer can request a refund',
+        sellerUsernameRequired: 'Seller account is required',
+        repaySellerOnly: 'Only the listing seller can return the advance',
+        repayNotRequired: 'There is no pending repayment for this order',
+        repayAmountInvalid: 'Invalid repayment amount'
       },
       generic: {
         validationFailed: 'Request validation failed'
@@ -2876,6 +2894,10 @@ const translations = {
           settled: 'Escrow settled',
           hold: 'Escrow hold: ￥{amount}',
           released: 'Released amount: ￥{amount}'
+        },
+        repayment: {
+          pending: 'The platform advanced the buyer refund. Please return ￥{amount} to the platform.',
+          completed: 'Repayment completed on {time}.'
         }
       },
       urgent: {
@@ -2891,7 +2913,11 @@ const translations = {
         returnCompletedSeller: 'The return is complete. Listing “{title}” has been relisted—please follow up soon.',
         upcomingViewing: 'Appointment: {time}',
         markRead: 'Mark as read',
-        openTarget: 'Go to task'
+        openTarget: 'Go to task',
+        recoverDescription: 'The platform advanced ￥{amount} to the buyer. Please confirm recovery and refund the platform.',
+        recoverAction: 'Confirm recovery',
+        recoverConfirm: 'Confirm refunding ￥{amount} to the platform account?',
+        recoverSuccess: 'Refunded ￥{amount} back to the platform account.'
       },
       quickMessages: {
         confirmViewing: 'I confirm the viewing at {time}. See you then!',
@@ -2952,6 +2978,7 @@ const serverMessageKeyMap = Object.freeze({
   '备注长度不能超过100个字符': 'serverMessages.wallet.referenceLength',
   '买家钱包余额不足': 'serverMessages.wallet.balanceInsufficient',
   '卖家钱包余额不足，无法完成退款': 'serverMessages.wallet.sellerInsufficient',
+  '卖家钱包余额不足，无法归还垫付金额': 'serverMessages.wallet.sellerRepayInsufficient',
   '未找到指定用户账号': 'serverMessages.accounts.notFound',
   '买家账号不存在': 'serverMessages.accounts.buyerMissing',
   '卖家账号不存在': 'serverMessages.accounts.sellerMissing',
@@ -2963,6 +2990,10 @@ const serverMessageKeyMap = Object.freeze({
   '您已预定该房源，请耐心等待卖家处理': 'serverMessages.orders.reservedSelf',
   '当前订单状态不支持退换': 'serverMessages.orders.statusUnsupported',
   '仅买家本人可以申请退换': 'serverMessages.orders.buyerOnlyReturn',
+  '卖家账号不能为空': 'serverMessages.orders.sellerUsernameRequired',
+  '仅房源卖家可以归还垫付金额': 'serverMessages.orders.repaySellerOnly',
+  '当前订单暂无待归还金额': 'serverMessages.orders.repayNotRequired',
+  '归还金额无效': 'serverMessages.orders.repayAmountInvalid',
   '买家未完成实名认证，无法预定房源': 'errors.reserveVerifyFirst',
   '买家未完成实名认证，无法购买房源': 'errors.purchaseVerifyFirst',
   '房源尚未通过审核，暂不可预定。': 'errors.reserveNotApproved',
@@ -3302,6 +3333,26 @@ const urgentTasks = computed(() => {
     const viewingSoon = validViewing ? timeValue <= soonThreshold : false;
 
     if (isSellerRole(role)) {
+      if (order.sellerRepayRequired) {
+        const reviewedAt = order.adminReviewedAt ? new Date(order.adminReviewedAt) : new Date(order.updatedAt ?? now);
+        const validReviewed = reviewedAt && !Number.isNaN(reviewedAt.getTime()) ? reviewedAt : null;
+        const timeValueReviewed = validReviewed ? validReviewed.getTime() : now;
+        const repayAmountLabel = formatCurrencyYuan(order.sellerRepayAmount);
+        list.push({
+          key: `${order.id}-seller-recover`,
+          orderId: order.id,
+          houseTitle: order.houseTitle,
+          stage,
+          description: t('orders.urgent.recoverDescription', { amount: repayAmountLabel }),
+          timeLabel: validReviewed ? formatLocalDateTime(validReviewed) : null,
+          timeValue: timeValueReviewed,
+          isSoon: true,
+          action: 'seller-repay',
+          amount: order.sellerRepayAmount,
+          actionLabel: t('orders.urgent.recoverAction')
+        });
+        return;
+      }
       if (status === 'RETURN_REQUESTED') {
         const updated = order.updatedAt ? new Date(order.updatedAt) : new Date(order.createdAt ?? now);
         const requestTime = Number.isNaN(updated.getTime()) ? now : updated.getTime();
@@ -4444,9 +4495,37 @@ const handleUrgentTaskRead = (taskKey) => {
   persistDismissedUrgentTasks(username, updated);
 };
 
-const handleUrgentTaskNavigate = (task) => {
+const handleUrgentTaskNavigate = async (task) => {
   if (!task) {
     return;
+  }
+  if (task.action === 'seller-repay') {
+    const username = currentUser.value?.username;
+    if (!username) {
+      activeTab.value = 'orders';
+      return;
+    }
+    const amountLabel = formatCurrencyYuan(task.amount);
+    const confirmed = window.confirm(t('orders.urgent.recoverConfirm', { amount: amountLabel }));
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await client.post(`/orders/${task.orderId}/seller-repay`, { sellerUsername: username });
+      messages.error = '';
+      messages.success = t('orders.urgent.recoverSuccess', { amount: amountLabel });
+      const dismissKey = task.key ?? task.orderId;
+      if (dismissKey != null) {
+        handleUrgentTaskRead(dismissKey);
+      }
+      await Promise.all([
+        fetchOrders({ silent: true }),
+        fetchWallet({ silent: true })
+      ]);
+    } catch (error) {
+      messages.error = resolveError(error, 'errors.genericServerError');
+      messages.success = '';
+    }
   }
   activeTab.value = 'orders';
 };
@@ -5165,6 +5244,10 @@ onBeforeUnmount(() => {
 .login-section {
   display: flex;
   justify-content: center;
+  align-items: stretch;
+  width: 100%;
+  padding: clamp(1.5rem, 6vw, 3rem);
+  box-sizing: border-box;
 }
 
 .workspace-layout {

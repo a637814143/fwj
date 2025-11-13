@@ -576,6 +576,10 @@ const requestVerificationCode = async () => {
   grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
   gap: 2rem;
   align-items: stretch;
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  box-sizing: border-box;
 }
 
 .brand-showcase {
@@ -588,6 +592,9 @@ const requestVerificationCode = async () => {
   align-items: center;
   justify-content: center;
   padding: 2.75rem 2.25rem;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
 }
 
 .brand-copy {
@@ -615,6 +622,9 @@ const requestVerificationCode = async () => {
   border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
   display: grid;
   gap: 1.75rem;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
 }
 
 .mode-toggle {
@@ -663,6 +673,7 @@ const requestVerificationCode = async () => {
   display: flex;
   gap: 0.75rem;
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .verification-field input {
@@ -906,10 +917,14 @@ input:focus {
 @media (max-width: 960px) {
   .auth-layout {
     grid-template-columns: 1fr;
+    padding: clamp(1rem, 6vw, 2rem);
+    gap: 1.5rem;
   }
 
   .brand-showcase {
     order: 2;
+    max-width: 620px;
+    margin: 0 auto;
   }
 
   .brand-copy {
@@ -918,14 +933,45 @@ input:focus {
   }
 }
 
+@media (max-width: 720px) {
+  .auth-layout {
+    padding: clamp(0.75rem, 5vw, 1.5rem);
+    gap: 1.4rem;
+  }
+
+  .brand-showcase {
+    padding: 2.25rem 1.75rem;
+  }
+}
+
 @media (max-width: 640px) {
   .auth-panel {
     padding: 1.6rem;
+    width: 100%;
   }
 
   .brand-copy {
     font-size: 1.2rem;
     gap: 1rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .verification-field {
+    flex-direction: column;
+  }
+
+  .code-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .brand-showcase {
+    padding: 2rem 1.5rem;
+  }
+
+  .auth-panel {
+    padding: 1.4rem;
   }
 }
 </style>

@@ -90,6 +90,47 @@
         </div>
 
         <div class="field">
+          <label for="register-email">{{ t('auth.fields.email') }}</label>
+          <input
+            id="register-email"
+            v-model.trim="registerForm.email"
+            type="email"
+            :placeholder="t('auth.placeholders.email')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="register-code">{{ t('auth.fields.verificationCode') }}</label>
+          <div class="verification-field">
+            <input
+              id="register-code"
+              v-model.trim="registerForm.verificationCode"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              :placeholder="t('auth.placeholders.verificationCode')"
+              :disabled="loading"
+              required
+            />
+            <button
+              type="button"
+              class="code-button"
+              @click="requestVerificationCode"
+              :disabled="!canRequestCode"
+            >
+              <span v-if="verificationCountdown > 0">
+                {{ t('auth.actions.resendIn', { seconds: verificationCountdown }) }}
+              </span>
+              <span v-else>
+                {{ codeLoading ? t('auth.actions.sendingCode') : t('auth.actions.sendCode') }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
           <label for="register-display-name">{{ t('auth.fields.displayName') }}</label>
           <input
             id="register-display-name"
@@ -111,6 +152,15 @@
             :disabled="loading"
             required
           />
+          <div
+            v-if="registerForm.password"
+            class="password-strength"
+            :data-level="passwordStrength.level"
+          >
+            <div class="password-strength__label">{{ t('auth.password.label') }}</div>
+            <div class="password-strength__meter"></div>
+            <div class="password-strength__text">{{ passwordStrength.label }}</div>
+          </div>
         </div>
 
         <div class="field">
@@ -141,6 +191,7 @@
           </div>
         </div>
 
+        <p v-if="registerInfo" class="info">{{ registerInfo }}</p>
         <p v-if="registerError" class="error">{{ registerError }}</p>
 
         <button class="submit" type="submit" :disabled="loading">
@@ -152,7 +203,7 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref, onMounted } from 'vue';
+import { computed, inject, reactive, ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -178,10 +229,19 @@ const registerForm = reactive({
   password: '',
   confirm: '',
   displayName: '',
+  email: '',
+  verificationCode: '',
   role: 'SELLER'
 });
 
 const captcha = reactive({ question: '', answer: '0' });
+
+const registerInfo = ref('');
+const codeLoading = ref(false);
+const verificationCountdown = ref(0);
+let countdownTimer = null;
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -248,6 +308,93 @@ const client = axios.create({
 });
 
 onMounted(refreshCaptcha);
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+  }
+});
+
+const startCountdown = (seconds = 60) => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+  }
+  verificationCountdown.value = seconds;
+  countdownTimer = setInterval(() => {
+    if (verificationCountdown.value <= 1) {
+      verificationCountdown.value = 0;
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    } else {
+      verificationCountdown.value -= 1;
+    }
+  }, 1000);
+};
+
+const containsSequentialPattern = (value) => {
+  if (!value) {
+    return false;
+  }
+  const chars = Array.from(value);
+  let ascending = 1;
+  let descending = 1;
+  const isSequential = (prev, current, step) => {
+    if (/\d/.test(prev) && /\d/.test(current)) {
+      return current.charCodeAt(0) - prev.charCodeAt(0) === step;
+    }
+    if (/[a-z]/i.test(prev) && /[a-z]/i.test(current)) {
+      return current.toLowerCase().charCodeAt(0) - prev.toLowerCase().charCodeAt(0) === step;
+    }
+    return false;
+  };
+  for (let i = 1; i < chars.length; i += 1) {
+    const prev = chars[i - 1];
+    const current = chars[i];
+    if (isSequential(prev, current, 1)) {
+      ascending += 1;
+    } else {
+      ascending = 1;
+    }
+    if (isSequential(prev, current, -1)) {
+      descending += 1;
+    } else {
+      descending = 1;
+    }
+    if (ascending >= 3 || descending >= 3) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const evaluatePasswordStrength = (value) => {
+  const password = (value ?? '').trim();
+  if (!password) {
+    return { level: 'empty', label: '', valid: false };
+  }
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  const hasSequential = containsSequentialPattern(password);
+  const valid = hasUpper && hasLower && hasDigit && !hasSequential && password.length >= 6;
+  let level = 'weak';
+  if (!valid) {
+    level = 'invalid';
+  } else if (password.length >= 12) {
+    level = 'strong';
+  } else if (password.length >= 8) {
+    level = 'medium';
+  }
+  const labelKey = level === 'invalid' ? 'auth.password.strength.invalid' : `auth.password.strength.${level}`;
+  return {
+    level,
+    valid,
+    label: t(labelKey)
+  };
+};
+
+const passwordStrength = computed(() => evaluatePasswordStrength(registerForm.password));
+
+const canRequestCode = computed(() => verificationCountdown.value === 0 && !codeLoading.value && !loading.value);
 
 const resetForms = () => {
   loginForm.username = '';
@@ -257,7 +404,10 @@ const resetForms = () => {
   registerForm.password = '';
   registerForm.confirm = '';
   registerForm.displayName = '';
+  registerForm.email = '';
+  registerForm.verificationCode = '';
   registerForm.role = 'SELLER';
+  registerInfo.value = '';
 };
 
 const switchMode = (value) => {
@@ -265,6 +415,12 @@ const switchMode = (value) => {
   loading.value = false;
   loginError.value = '';
   registerError.value = '';
+  registerInfo.value = '';
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  verificationCountdown.value = 0;
   resetForms();
   refreshCaptcha();
 };
@@ -311,7 +467,7 @@ const submitLogin = async () => {
 };
 
 const submitRegister = async () => {
-  if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName) {
+  if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName || !registerForm.email || !registerForm.verificationCode) {
     registerError.value = t('auth.errors.registerRequired');
     return;
   }
@@ -326,19 +482,44 @@ const submitRegister = async () => {
     return;
   }
 
+  if (!passwordStrength.value.valid) {
+    registerError.value = t('auth.errors.passwordWeak');
+    return;
+  }
+
+  const email = (registerForm.email ?? '').trim();
+  if (!emailPattern.test(email)) {
+    registerError.value = t('auth.errors.emailInvalid');
+    return;
+  }
+
+  const code = (registerForm.verificationCode ?? '').trim();
+  if (!/^[0-9]{6}$/.test(code)) {
+    registerError.value = t('auth.errors.verificationFormat');
+    return;
+  }
+
   loading.value = true;
   registerError.value = '';
+  registerInfo.value = '';
 
   try {
     const { data } = await client.post('/auth/register', {
       username: registerForm.username,
       password: registerForm.password,
       displayName: registerForm.displayName,
-      role: registerForm.role
+      role: registerForm.role,
+      email,
+      verificationCode: code
     });
     emit('login-success', data);
     resetForms();
     switchMode('login');
+    verificationCountdown.value = 0;
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
   } catch (err) {
     const detail = err.response?.data;
     if (detail?.errors) {
@@ -349,6 +530,40 @@ const submitRegister = async () => {
     }
   } finally {
     loading.value = false;
+  }
+};
+
+const requestVerificationCode = async () => {
+  if (!canRequestCode.value) {
+    return;
+  }
+  const email = (registerForm.email ?? '').trim();
+  if (!email) {
+    registerError.value = t('auth.errors.emailRequired');
+    return;
+  }
+  if (!emailPattern.test(email)) {
+    registerError.value = t('auth.errors.emailInvalid');
+    return;
+  }
+
+  registerError.value = '';
+  registerInfo.value = '';
+  codeLoading.value = true;
+  try {
+    await client.post('/auth/register/verification-code', { email });
+    registerInfo.value = t('auth.messages.codeSent', { email });
+    startCountdown();
+  } catch (err) {
+    const detail = err.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      registerError.value = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      registerError.value = detail?.detail ?? t('auth.errors.sendCodeFailed');
+    }
+  } finally {
+    codeLoading.value = false;
   }
 };
 </script>
@@ -442,6 +657,118 @@ const submitRegister = async () => {
 .field {
   display: grid;
   gap: 0.55rem;
+}
+
+.verification-field {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.verification-field input {
+  flex: 1;
+}
+
+.code-button {
+  border: none;
+  background: linear-gradient(135deg, #b48c6e, #9aa1a8);
+  color: #fff;
+  font-weight: 600;
+  padding: 0 1.2rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 9rem;
+  transition: transform var(--transition-base), box-shadow var(--transition-base),
+    filter var(--transition-base);
+}
+
+.code-button:not(:disabled):hover,
+.code-button:not(:disabled):focus {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(165, 137, 114, 0.28);
+}
+
+.code-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.15);
+  opacity: 0.7;
+}
+
+.password-strength {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.password-strength__label {
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  font-weight: 600;
+}
+
+.password-strength__meter {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-border) 65%, transparent);
+  overflow: hidden;
+}
+
+.password-strength__meter::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(135deg, #f39c12, #f1c40f);
+  transition: width var(--transition-base), background var(--transition-base);
+}
+
+.password-strength[data-level='invalid'] .password-strength__meter::after {
+  width: 25%;
+  background: linear-gradient(135deg, #d64541, #c0392b);
+}
+
+.password-strength[data-level='weak'] .password-strength__meter::after {
+  width: 33%;
+  background: linear-gradient(135deg, #f39c12, #f1c40f);
+}
+
+.password-strength[data-level='medium'] .password-strength__meter::after {
+  width: 66%;
+  background: linear-gradient(135deg, #f39c12, #27ae60);
+}
+
+.password-strength[data-level='strong'] .password-strength__meter::after {
+  width: 100%;
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+.password-strength__text {
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--color-text-strong) 80%, transparent);
+  font-weight: 600;
+}
+
+.password-strength[data-level='invalid'] .password-strength__text {
+  color: #c0392b;
+}
+
+.password-strength[data-level='weak'] .password-strength__text {
+  color: #f39c12;
+}
+
+.password-strength[data-level='medium'] .password-strength__text {
+  color: #e67e22;
+}
+
+.password-strength[data-level='strong'] .password-strength__text {
+  color: #27ae60;
 }
 
 .captcha-display {
@@ -540,6 +867,15 @@ input:focus {
   border-radius: var(--radius-md);
   padding: 0.6rem 0.9rem;
   border: 1px solid rgba(222, 180, 170, 0.5);
+}
+
+.info {
+  color: #257a7a;
+  font-size: 0.95rem;
+  background: rgba(204, 236, 228, 0.65);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(150, 210, 200, 0.5);
 }
 
 .submit {

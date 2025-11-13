@@ -1135,7 +1135,9 @@ const translations = {
         displayName: '昵称',
         confirmPassword: '确认密码',
         role: '选择角色',
-        captcha: '验证码'
+        captcha: '验证码',
+        email: '邮箱',
+        verificationCode: '邮箱验证码'
       },
       placeholders: {
         username: '请输入用户名',
@@ -1143,7 +1145,9 @@ const translations = {
         passwordWithHint: '请输入密码（至少6位）',
         displayName: '请输入昵称',
         confirmPassword: '请再次输入密码',
-        captchaAnswer: '请输入答案'
+        captchaAnswer: '请输入答案',
+        email: '请输入常用邮箱',
+        verificationCode: '请输入6位验证码'
       },
       roles: {
         seller: '卖家',
@@ -1153,10 +1157,25 @@ const translations = {
         login: '登录',
         loggingIn: '登录中...',
         register: '注册并登录',
-        registering: '注册中...'
+        registering: '注册中...',
+        sendCode: '发送验证码',
+        sendingCode: '发送中...',
+        resendIn: '{seconds} 秒后可重发'
       },
       captcha: {
         refresh: '换一题'
+      },
+      password: {
+        label: '密码强度',
+        strength: {
+          invalid: '需包含大小写字母和数字且不可连续',
+          weak: '强度：较弱',
+          medium: '强度：良好',
+          strong: '强度：安全'
+        }
+      },
+      messages: {
+        codeSent: '验证码已发送至 {email}，请注意查收。'
       },
       errors: {
         loginRequired: '请输入用户名和密码',
@@ -1165,6 +1184,11 @@ const translations = {
         passwordMismatch: '两次输入的密码不一致',
         passwordLength: '请输入至少6位密码',
         registerFailed: '注册失败，请稍后重试',
+        emailRequired: '请填写邮箱地址',
+        emailInvalid: '请输入有效的邮箱地址',
+        verificationFormat: '请输入6位数字验证码',
+        passwordWeak: '密码需包含大小写字母与数字且不可包含连续字符',
+        sendCodeFailed: '验证码发送失败，请稍后重试',
         captchaRequired: '请先完成验证码',
         captchaInvalid: '验证码回答不正确，请重试'
       }
@@ -2315,7 +2339,9 @@ const translations = {
         displayName: 'Display name',
         confirmPassword: 'Confirm password',
         role: 'Choose role',
-        captcha: 'Verification question'
+        captcha: 'Verification question',
+        email: 'Email',
+        verificationCode: 'Email verification code'
       },
       placeholders: {
         username: 'Enter username',
@@ -2323,7 +2349,9 @@ const translations = {
         passwordWithHint: 'Enter password (min. 6 characters)',
         displayName: 'Enter display name',
         confirmPassword: 'Re-enter password',
-        captchaAnswer: 'Enter the answer'
+        captchaAnswer: 'Enter the answer',
+        email: 'Enter your email',
+        verificationCode: 'Enter the 6-digit code'
       },
       roles: {
         seller: 'Seller',
@@ -2333,10 +2361,25 @@ const translations = {
         login: 'Log in',
         loggingIn: 'Logging in...',
         register: 'Register & log in',
-        registering: 'Registering...'
+        registering: 'Registering...',
+        sendCode: 'Send code',
+        sendingCode: 'Sending...',
+        resendIn: 'Resend in {seconds}s'
       },
       captcha: {
         refresh: 'Try another question'
+      },
+      password: {
+        label: 'Password strength',
+        strength: {
+          invalid: 'Use upper & lower case letters and numbers without sequences',
+          weak: 'Strength: Weak',
+          medium: 'Strength: Fair',
+          strong: 'Strength: Strong'
+        }
+      },
+      messages: {
+        codeSent: 'Verification code sent to {email}. Please check your inbox.'
       },
       errors: {
         loginRequired: 'Please enter username and password.',
@@ -2345,6 +2388,11 @@ const translations = {
         passwordMismatch: 'The passwords do not match.',
         passwordLength: 'Please enter a password with at least 6 characters.',
         registerFailed: 'Registration failed. Please try again later.',
+        emailRequired: 'Please enter your email address.',
+        emailInvalid: 'Please enter a valid email address.',
+        verificationFormat: 'Enter the 6-digit verification code.',
+        passwordWeak: 'Use letters in both cases plus numbers without sequential characters.',
+        sendCodeFailed: 'Failed to send verification code. Please try again later.',
         captchaRequired: 'Please solve the verification question first.',
         captchaInvalid: 'Incorrect answer. Please try again.'
       }

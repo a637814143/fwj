@@ -31,6 +31,11 @@ public record HouseOrderResponse(
         String viewingMessage,
         boolean buyerViewingConfirmed,
         boolean sellerViewingConfirmed,
+        boolean sellerRepayRequired,
+        BigDecimal sellerRepayAmount,
+        String sellerRepayReference,
+        String sellerRepayDescription,
+        OffsetDateTime sellerRepaySettledAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
@@ -61,6 +66,11 @@ public record HouseOrderResponse(
                 order.getViewingMessage(),
                 order.isBuyerViewingConfirmed(),
                 order.isSellerViewingConfirmed(),
+                order.isSellerRepayRequired(),
+                order.getSellerRepayAmount(),
+                order.getSellerRepayReference(),
+                order.getSellerRepayDescription(),
+                order.getSellerRepaySettledAt(),
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );

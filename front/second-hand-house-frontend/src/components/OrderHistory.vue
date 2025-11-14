@@ -75,6 +75,12 @@
               <dd>{{ order.returnReason }}</dd>
             </div>
           </dl>
+          <p v-if="isSellerViewer(order) && hasSellerRepay(order)" class="seller-repay-alert">
+            {{ sellerRepayPending(order) }}
+          </p>
+          <p v-else-if="isSellerViewer(order) && order.sellerRepaySettledAt" class="seller-repay-info">
+            {{ sellerRepayCompleted(order) }}
+          </p>
           <section class="progress-tracker">
             <h4>{{ t('orders.history.progressTitle') }}</h4>
             <ol class="progress-steps">
@@ -438,6 +444,26 @@ const shouldShowPlatformFee = (order) => toNumberSafe(order?.platformFee) > 0;
 
 const shouldShowReleasedAmount = (order) => toNumberSafe(order?.releasedAmount) > 0;
 
+const hasSellerRepay = (order) => Boolean(order?.sellerRepayRequired);
+
+const sellerRepayPending = (order) => {
+  if (!order) {
+    return '';
+  }
+  return t('orders.history.repayment.pending', {
+    amount: formatAmount(order.sellerRepayAmount)
+  });
+};
+
+const sellerRepayCompleted = (order) => {
+  if (!order?.sellerRepaySettledAt) {
+    return '';
+  }
+  return t('orders.history.repayment.completed', {
+    time: formatTime(order.sellerRepaySettledAt)
+  });
+};
+
 const maskName = (value) => {
   if (!value) {
     return fallbackText.value;
@@ -478,6 +504,13 @@ const shouldMaskSeller = (order) => {
     return false;
   }
   return !props.canViewSensitiveInfo;
+};
+
+const isSellerViewer = (order) => {
+  if (!order || !props.currentUser) {
+    return false;
+  }
+  return order.sellerUsername === props.currentUser.username;
 };
 
 const buyerDisplayName = (order) => {
@@ -778,6 +811,26 @@ const confirmViewing = (order) => {
 .escrow-tag.warning {
   background: rgba(245, 158, 11, 0.18);
   color: #92400e;
+}
+
+.seller-repay-alert {
+  margin: 0.9rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(235, 202, 195, 0.6);
+  border: 1px solid rgba(222, 180, 170, 0.45);
+  color: #b4534b;
+  font-weight: 600;
+}
+
+.seller-repay-info {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(204, 236, 228, 0.5);
+  border: 1px solid rgba(150, 210, 200, 0.4);
+  color: #276764;
+  font-weight: 500;
 }
 
 .escrow-supplement {

@@ -18,11 +18,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
-import java.util.Optional;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -287,6 +287,7 @@ public class HouseOrderService {
         order.setAdminReviewed(false);
         order.setAdminReviewedBy(null);
         order.setAdminReviewedAt(null);
+        order.clearSellerRepayment();
         order = orderRepository.save(order);
 
         markHouseAsSold(house, "系统自动下架：房源已售出");
@@ -319,6 +320,7 @@ public class HouseOrderService {
         order.markReturnRequested(reason);
         order.setAdminHoldAmount(holdAmount);
         order.setReleasedAmount(BigDecimal.ZERO);
+        order.clearSellerRepayment();
         order = orderRepository.save(order);
         return HouseOrderResponse.fromEntity(order);
     }
@@ -391,6 +393,9 @@ public class HouseOrderService {
             int penalty = Math.min(20, buyer.getReturnCount() * 5);
             buyer.decreaseReputation(penalty);
             userAccountRepository.save(buyer);
+            String repayReference = reference + "-RECOVER";
+            String repayDescription = String.format("平台垫付退款，卖家归还订单《%s》", order.getHouse().getTitle());
+            order.requireSellerRepayment(releaseAmount, repayReference, repayDescription);
         } else {
             if (order.getStatus() == OrderStatus.RETURN_REQUESTED) {
                 order.setStatus(OrderStatus.PAID);
@@ -401,8 +406,45 @@ public class HouseOrderService {
                         : appendSystemNote(existingReason, note));
             }
             markHouseAsSold(order.getHouse(), "Admin review completed, listing remains unavailable");
+            order.clearSellerRepayment();
         }
         order.markAdminReviewCompleted(admin.getUsername(), releaseAmount, platformFee, recipient);
+        HouseOrder saved = orderRepository.save(order);
+        return HouseOrderResponse.fromEntity(saved);
+    }
+
+    public HouseOrderResponse settleSellerRepayment(Long orderId, SellerRepayRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家账号不能为空");
+        }
+        String username = normalizeUsername(request.sellerUsername());
+        if (username.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家账号不能为空");
+        }
+        HouseOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
+        UserAccount seller = order.getSeller();
+        if (!seller.getUsername().equals(username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅房源卖家可以归还垫付金额");
+        }
+        if (!order.isSellerRepayRequired()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前订单暂无待归还金额");
+        }
+        BigDecimal amount = order.getSellerRepayAmount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "归还金额无效");
+        }
+        UserAccount adminAccount = requireAdminAccount();
+        String reference = Optional.ofNullable(order.getSellerRepayReference())
+                .filter(value -> !value.isBlank())
+                .orElse("ORDER-" + order.getId() + "-RECOVER");
+        String description = Optional.ofNullable(order.getSellerRepayDescription())
+                .filter(value -> !value.isBlank())
+                .orElse(String.format("订单《%s》卖家归还平台垫付", order.getHouse().getTitle()));
+
+        walletService.settleSellerRepayment(seller, adminAccount, amount, reference, description);
+        order.markSellerRepaymentCompleted();
+        order.setReturnReason(appendSystemNote(order.getReturnReason(), "卖家已归还平台垫付金额"));
         HouseOrder saved = orderRepository.save(order);
         return HouseOrderResponse.fromEntity(saved);
     }
@@ -567,6 +609,7 @@ public class HouseOrderService {
         walletService.releaseEscrow(reservation, reference, message, adminAccount, reservation.getBuyer(), releaseAmount, platformFee, WalletTransactionType.REFUND);
         reservation.markReturned(message);
         reservation.markAdminReviewCompleted(adminAccount.getUsername(), releaseAmount, platformFee, PayoutRecipient.BUYER);
+        reservation.clearSellerRepayment();
         orderRepository.save(reservation);
 
         seller.recordReservationBreach();

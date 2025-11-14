@@ -103,6 +103,29 @@ public class WalletService {
         }
     }
 
+    public void settleSellerRepayment(UserAccount seller,
+                                      UserAccount adminAccount,
+                                      BigDecimal amount,
+                                      String reference,
+                                      String description) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "归还金额无效");
+        }
+        BigDecimal normalizedAmount = amount.setScale(2, RoundingMode.HALF_UP);
+        UserWallet sellerWallet = ensureWallet(seller);
+        if (sellerWallet.getBalance().compareTo(normalizedAmount) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "卖家钱包余额不足，无法归还垫付金额");
+        }
+        UserWallet adminWallet = ensureWallet(adminAccount);
+        sellerWallet.decrease(normalizedAmount);
+        adminWallet.increase(normalizedAmount);
+        walletRepository.save(sellerWallet);
+        walletRepository.save(adminWallet);
+        String normalizedReference = normalizeReference(reference);
+        createTransaction(sellerWallet, WalletTransactionType.PAYMENT, normalizedAmount.negate(), normalizedReference, description);
+        createTransaction(adminWallet, WalletTransactionType.RECEIVE, normalizedAmount, normalizedReference, description);
+    }
+
     private UserAccount getAccount(String username) {
         return userAccountRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到指定用户账号"));

@@ -24,10 +24,10 @@
         </p>
         <div class="task-actions">
           <button type="button" class="open" @click="openTask(task)">
-            {{ t('orders.urgent.openTarget') }}
+            {{ task.actionLabel || t('orders.urgent.openTarget') }}
           </button>
           <button type="button" class="mark-read" @click="markRead(task)">
-            {{ t('orders.urgent.markRead') }}
+            {{ task.dismissLabel || t('orders.urgent.markRead') }}
           </button>
         </div>
       </li>
@@ -197,6 +197,18 @@ const openTask = (task) => {
   display: flex;
   justify-content: flex-end;
   gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .task-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .task-actions button {
+    width: 100%;
+  }
 }
 
 .open {

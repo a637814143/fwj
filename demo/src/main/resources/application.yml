@@ -4,6 +4,20 @@ spring:
     username: root
     password: qiQi1314**00
     driver-class-name: com.mysql.cj.jdbc.Driver
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: 3486656812@qq.com
+    password: lgadgnzvmhslcjib
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+          starttls:
+            enable: true
+            required: true
   flyway:
     baseline-on-migrate: true
     default-schema: h01

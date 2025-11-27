@@ -353,18 +353,21 @@ const formatTime = (value) => {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .amount-yuan {
   font-size: 1.85rem;
   color: var(--color-text-strong);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .amount-points {
   font-size: 1.65rem;
   color: var(--wallet-points-color);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .summary-card.points {
@@ -378,6 +381,7 @@ const formatTime = (value) => {
 .summary-card.port code {
   font-family: 'Fira Code', 'SFMono-Regular', monospace;
   font-size: 1.1rem;
+  overflow-wrap: anywhere;
 }
 
 .summary-card.port small {
@@ -471,6 +475,7 @@ const formatTime = (value) => {
   border-radius: var(--radius-lg);
   background: var(--wallet-card-bg);
   border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  min-width: 0;
 }
 
 .transaction-main {
@@ -496,11 +501,13 @@ const formatTime = (value) => {
   font-weight: 600;
   font-size: 1.05rem;
   color: var(--color-text-strong);
+  min-width: 0;
 }
 
 .transaction-amount .amount {
   display: inline-flex;
   align-items: baseline;
+  overflow-wrap: anywhere;
 }
 
 .transaction.positive .transaction-amount {

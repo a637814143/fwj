@@ -1133,6 +1133,8 @@ const translations = {
         username: '用户名',
         password: '密码',
         displayName: '昵称',
+        email: '邮箱',
+        emailCode: '邮箱验证码',
         confirmPassword: '确认密码',
         role: '选择角色',
         captcha: '验证码'
@@ -1142,6 +1144,8 @@ const translations = {
         password: '请输入密码',
         passwordWithHint: '请输入密码（至少6位）',
         displayName: '请输入昵称',
+        email: '请输入邮箱地址',
+        emailCode: '请输入邮箱验证码',
         confirmPassword: '请再次输入密码',
         captchaAnswer: '请输入答案'
       },
@@ -1153,7 +1157,9 @@ const translations = {
         login: '登录',
         loggingIn: '登录中...',
         register: '注册并登录',
-        registering: '注册中...'
+        registering: '注册中...',
+        sendEmailCode: '发送验证码',
+        sending: '发送中...'
       },
       captcha: {
         refresh: '换一题'
@@ -1166,7 +1172,9 @@ const translations = {
         passwordLength: '请输入至少6位密码',
         registerFailed: '注册失败，请稍后重试',
         captchaRequired: '请先完成验证码',
-        captchaInvalid: '验证码回答不正确，请重试'
+        captchaInvalid: '验证码回答不正确，请重试',
+        emailInvalid: '请输入有效的邮箱地址',
+        emailSendFailed: '验证码发送失败，请稍后再试'
       }
     },
     success: {
@@ -2313,6 +2321,8 @@ const translations = {
         username: 'Username',
         password: 'Password',
         displayName: 'Display name',
+        email: 'Email',
+        emailCode: 'Email code',
         confirmPassword: 'Confirm password',
         role: 'Choose role',
         captcha: 'Verification question'
@@ -2322,6 +2332,8 @@ const translations = {
         password: 'Enter password',
         passwordWithHint: 'Enter password (min. 6 characters)',
         displayName: 'Enter display name',
+        email: 'Enter your email',
+        emailCode: 'Enter the email code',
         confirmPassword: 'Re-enter password',
         captchaAnswer: 'Enter the answer'
       },
@@ -2333,7 +2345,9 @@ const translations = {
         login: 'Log in',
         loggingIn: 'Logging in...',
         register: 'Register & log in',
-        registering: 'Registering...'
+        registering: 'Registering...',
+        sendEmailCode: 'Send code',
+        sending: 'Sending...'
       },
       captcha: {
         refresh: 'Try another question'
@@ -2346,7 +2360,9 @@ const translations = {
         passwordLength: 'Please enter a password with at least 6 characters.',
         registerFailed: 'Registration failed. Please try again later.',
         captchaRequired: 'Please solve the verification question first.',
-        captchaInvalid: 'Incorrect answer. Please try again.'
+        captchaInvalid: 'Incorrect answer. Please try again.',
+        emailInvalid: 'Please enter a valid email address.',
+        emailSendFailed: 'Failed to send the code. Please try again later.'
       }
     },
     success: {

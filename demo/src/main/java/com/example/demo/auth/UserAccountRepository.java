@@ -14,6 +14,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     boolean existsByUsername(String username);
 
+    boolean existsByEmail(String email);
+
     List<UserAccount> findByRoleOrderByReputationScoreDesc(UserRole role);
 
     List<UserAccount> findByRoleInOrderByReputationScoreDesc(Collection<UserRole> roles);

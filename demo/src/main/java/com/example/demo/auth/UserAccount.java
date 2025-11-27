@@ -33,6 +33,9 @@ public class UserAccount {
     @Column(nullable = false, length = 100)
     private String displayName;
 
+    @Column(length = 150, unique = true)
+    private String email;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role;
@@ -96,6 +99,14 @@ public class UserAccount {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public UserRole getRole() {

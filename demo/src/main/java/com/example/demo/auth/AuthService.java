@@ -17,19 +17,23 @@ public class AuthService {
 
     private final UserAccountRepository userAccountRepository;
     private final WalletService walletService;
+    private final VerificationCodeService verificationCodeService;
 
-    public AuthService(UserAccountRepository userAccountRepository, WalletService walletService) {
+    public AuthService(UserAccountRepository userAccountRepository,
+                       WalletService walletService,
+                       VerificationCodeService verificationCodeService) {
         this.userAccountRepository = userAccountRepository;
         this.walletService = walletService;
+        this.verificationCodeService = verificationCodeService;
     }
 
     @PostConstruct
     public void preloadDemoUsers() {
         migrateLegacyLandlords();
         if (userAccountRepository.count() == 0) {
-            createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李");
-            createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
-            createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员");
+            createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李", "seller01@example.com");
+            createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王", "buyer01@example.com");
+            createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员", "admin@example.com");
         }
     }
 
@@ -61,29 +65,43 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        if (normalizedEmail == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "邮箱不能为空");
+        }
+
         if (userAccountRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateUsernameException(request.getUsername());
         }
+        if (userAccountRepository.existsByEmail(normalizedEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该邮箱已被注册，请更换邮箱后重试。");
+        }
         if (request.getRole() == UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "暂不支持自助注册管理员账号，请联系系统管理员开通。");
+        }
+
+        if (!verificationCodeService.validateCode(normalizedEmail, request.getEmailCode())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "邮箱验证码不正确或已过期，请重新获取。");
         }
 
         UserAccount account = createUser(
                 request.getRole(),
                 request.getUsername(),
                 request.getPassword(),
-                request.getDisplayName()
+                request.getDisplayName(),
+                normalizedEmail
         );
 
         return toResponse(account, "注册成功，已为您自动登录。");
     }
 
-    private UserAccount createUser(UserRole role, String username, String password, String displayName) {
+    private UserAccount createUser(UserRole role, String username, String password, String displayName, String email) {
         UserAccount account = new UserAccount();
         account.setRole(role);
         account.setUsername(username);
         account.setPassword(password);
         account.setDisplayName(displayName);
+        account.setEmail(email);
         UserAccount saved = userAccountRepository.save(account);
         walletService.ensureWallet(saved);
         return saved;
@@ -219,5 +237,13 @@ public class AuthService {
             return null;
         }
         return normalized;
+    }
+
+    private String normalizeEmail(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+        return normalized.toLowerCase();
     }
 }

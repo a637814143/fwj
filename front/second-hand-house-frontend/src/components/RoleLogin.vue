@@ -102,6 +102,44 @@
         </div>
 
         <div class="field">
+          <label for="register-email">{{ t('auth.fields.email') }}</label>
+          <input
+            id="register-email"
+            v-model.trim="registerForm.email"
+            type="email"
+            autocomplete="email"
+            :placeholder="t('auth.placeholders.email')"
+            :disabled="loading"
+            required
+          />
+        </div>
+
+        <div class="field code-field">
+          <label for="register-email-code">{{ t('auth.fields.emailCode') }}</label>
+          <div class="code-input-group">
+            <input
+              id="register-email-code"
+              v-model.trim="registerForm.emailCode"
+              type="text"
+              maxlength="6"
+              inputmode="numeric"
+              :placeholder="t('auth.placeholders.emailCode')"
+              :disabled="loading"
+              required
+            />
+            <button
+              type="button"
+              class="code-button"
+              :disabled="loading || emailSending || emailCountdown > 0"
+              @click="sendEmailCode"
+            >
+              <span v-if="emailCountdown > 0">{{ emailCountdown }}s</span>
+              <span v-else>{{ emailSending ? t('auth.actions.sending') : t('auth.actions.sendEmailCode') }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
           <label for="register-password">{{ t('auth.fields.password') }}</label>
           <input
             id="register-password"
@@ -152,7 +190,7 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref, onMounted } from 'vue';
+import { computed, inject, onBeforeUnmount, reactive, ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -178,8 +216,14 @@ const registerForm = reactive({
   password: '',
   confirm: '',
   displayName: '',
+  email: '',
+  emailCode: '',
   role: 'SELLER'
 });
+
+const emailSending = ref(false);
+const emailCountdown = ref(0);
+let countdownTimer = null;
 
 const captcha = reactive({ question: '', answer: '0' });
 
@@ -247,6 +291,61 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+const isValidEmail = (value) => {
+  if (!value) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+};
+
+const stopCountdown = () => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+};
+
+const startCountdown = () => {
+  emailCountdown.value = 60;
+  stopCountdown();
+  countdownTimer = setInterval(() => {
+    if (emailCountdown.value > 0) {
+      emailCountdown.value -= 1;
+    }
+    if (emailCountdown.value <= 0) {
+      stopCountdown();
+    }
+  }, 1000);
+};
+
+const sendEmailCode = async () => {
+  if (emailSending.value || emailCountdown.value > 0) {
+    return;
+  }
+  if (!isValidEmail(registerForm.email)) {
+    registerError.value = t('auth.errors.emailInvalid');
+    return;
+  }
+  try {
+    emailSending.value = true;
+    registerError.value = '';
+    await client.post('/auth/email-code', { email: registerForm.email });
+    startCountdown();
+  } catch (err) {
+    const detail = err.response?.data;
+    if (detail?.errors) {
+      const firstError = Object.values(detail.errors)[0];
+      registerError.value = Array.isArray(firstError) ? firstError[0] : firstError;
+    } else {
+      registerError.value = detail?.detail ?? t('auth.errors.emailSendFailed');
+    }
+  } finally {
+    emailSending.value = false;
+  }
+};
+
+onBeforeUnmount(() => {
+  stopCountdown();
+});
+
 onMounted(refreshCaptcha);
 
 const resetForms = () => {
@@ -257,7 +356,12 @@ const resetForms = () => {
   registerForm.password = '';
   registerForm.confirm = '';
   registerForm.displayName = '';
+  registerForm.email = '';
+  registerForm.emailCode = '';
   registerForm.role = 'SELLER';
+  emailCountdown.value = 0;
+  emailSending.value = false;
+  stopCountdown();
 };
 
 const switchMode = (value) => {
@@ -311,13 +415,25 @@ const submitLogin = async () => {
 };
 
 const submitRegister = async () => {
-  if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName) {
+  if (
+    !registerForm.username ||
+    !registerForm.password ||
+    !registerForm.confirm ||
+    !registerForm.displayName ||
+    !registerForm.email ||
+    !registerForm.emailCode
+  ) {
     registerError.value = t('auth.errors.registerRequired');
     return;
   }
 
   if (registerForm.password !== registerForm.confirm) {
     registerError.value = t('auth.errors.passwordMismatch');
+    return;
+  }
+
+  if (!isValidEmail(registerForm.email)) {
+    registerError.value = t('auth.errors.emailInvalid');
     return;
   }
 
@@ -334,6 +450,8 @@ const submitRegister = async () => {
       username: registerForm.username,
       password: registerForm.password,
       displayName: registerForm.displayName,
+      email: registerForm.email,
+      emailCode: registerForm.emailCode,
       role: registerForm.role
     });
     emit('login-success', data);
@@ -442,6 +560,46 @@ const submitRegister = async () => {
 .field {
   display: grid;
   gap: 0.55rem;
+}
+
+.code-field {
+  gap: 0.4rem;
+}
+
+.code-input-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.code-input-group input {
+  width: 100%;
+}
+
+.code-button {
+  border: none;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, #b48c6e, #9aa1a8);
+  color: #fff;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base), opacity var(--transition-base);
+  box-shadow: 0 10px 20px rgba(165, 137, 114, 0.28);
+}
+
+.code-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.code-button:not(:disabled):hover,
+.code-button:not(:disabled):focus {
+  transform: translateY(-1px);
+  outline: none;
+  box-shadow: 0 14px 26px rgba(165, 137, 114, 0.32);
 }
 
 .captcha-display {

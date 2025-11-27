@@ -16,11 +16,21 @@ public class MailConfig {
     @Bean
     public JavaMailSender javaMailSender(MailProperties mailProperties) {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(mailProperties.getHost());
-        mailSender.setPort(mailProperties.getPort());
-        mailSender.setUsername(mailProperties.getUsername());
-        mailSender.setPassword(mailProperties.getPassword());
-        mailSender.setProtocol(mailProperties.getProtocol());
+        if (mailProperties.getHost() != null) {
+            mailSender.setHost(mailProperties.getHost());
+        }
+        if (mailProperties.getPort() != null) {
+            mailSender.setPort(mailProperties.getPort());
+        }
+        if (mailProperties.getUsername() != null) {
+            mailSender.setUsername(mailProperties.getUsername());
+        }
+        if (mailProperties.getPassword() != null) {
+            mailSender.setPassword(mailProperties.getPassword());
+        }
+        if (mailProperties.getProtocol() != null) {
+            mailSender.setProtocol(mailProperties.getProtocol());
+        }
         if (mailProperties.getDefaultEncoding() != null) {
             mailSender.setDefaultEncoding(mailProperties.getDefaultEncoding().name());
         }

@@ -18,9 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final VerificationCodeService verificationCodeService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, VerificationCodeService verificationCodeService) {
         this.authService = authService;
+        this.verificationCodeService = verificationCodeService;
     }
 
     @PostMapping("/login")
@@ -33,6 +35,12 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public LoginResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @PostMapping("/email-code")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void sendEmailCode(@Valid @RequestBody EmailCodeRequest request) {
+        verificationCodeService.sendEmailCode(request.getEmail());
     }
 
     @GetMapping("/profile/{username}")

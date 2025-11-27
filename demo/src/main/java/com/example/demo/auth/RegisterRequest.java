@@ -1,5 +1,6 @@
 package com.example.demo.auth;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -20,6 +21,14 @@ public class RegisterRequest {
 
     @NotNull(message = "请选择注册角色")
     private UserRole role;
+
+    @NotBlank(message = "邮箱不能为空")
+    @Email(message = "请输入有效的邮箱地址")
+    private String email;
+
+    @NotBlank(message = "邮箱验证码不能为空")
+    @Size(min = 6, max = 6, message = "请输入6位邮箱验证码")
+    private String emailCode;
 
     public String getUsername() {
         return username;
@@ -51,5 +60,21 @@ public class RegisterRequest {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getEmailCode() {
+        return emailCode;
+    }
+
+    public void setEmailCode(String emailCode) {
+        this.emailCode = emailCode;
     }
 }

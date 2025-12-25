@@ -70,7 +70,7 @@
           </transition>
         </div>
 
-        <section class="workspace">
+        <section class="workspace" :class="{ 'home-bleed': activeTab === 'home' }">
         <section v-if="messages.error" class="alert">
           <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
         </section>
@@ -5445,6 +5445,25 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+}
+
+.workspace.home-bleed {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: clamp(1.15rem, 3vw, 2.35rem);
+  border-radius: calc(var(--radius-xl) + 0.35rem);
+  box-shadow: 0 30px 65px rgba(73, 128, 189, 0.18);
+}
+
+.workspace.home-bleed :deep(.explorer-header) {
+  border-radius: calc(var(--radius-xl) + 0.25rem);
+  padding: clamp(1.35rem, 3vw, 2.2rem);
+}
+
+.workspace.home-bleed :deep(.house-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: clamp(1.15rem, 2vw, 1.8rem);
 }
 
 .menu {

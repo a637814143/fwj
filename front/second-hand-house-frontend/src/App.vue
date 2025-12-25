@@ -5437,23 +5437,15 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1.6rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  background: color-mix(in srgb, var(--panel-card-bg) 92%, transparent);
-  border-radius: var(--radius-xl);
-  padding: 1.25rem 1.5rem;
-  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-}
-
-.workspace.home-bleed {
-  max-width: none;
   width: 100%;
+  max-width: none;
   margin: 0;
-  padding: clamp(1.15rem, 3vw, 2.35rem);
-  border-radius: calc(var(--radius-xl) + 0.35rem);
+  background: color-mix(in srgb, var(--panel-card-bg) 94%, transparent);
+  border-radius: calc(var(--radius-xl) + 0.2rem);
+  padding: clamp(1.2rem, 2.6vw, 2.4rem);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
   box-shadow: 0 30px 65px rgba(73, 128, 189, 0.18);
+  overflow: hidden;
 }
 
 .workspace.home-bleed :deep(.explorer-header) {

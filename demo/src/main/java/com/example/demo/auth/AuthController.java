@@ -35,6 +35,12 @@ public class AuthController {
         return authService.register(request);
     }
 
+    @PostMapping("/register/verification-code")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void sendRegisterVerificationCode(@Valid @RequestBody SendVerificationCodeRequest request) {
+        authService.sendRegistrationVerificationCode(request.getEmail());
+    }
+
     @GetMapping("/profile/{username}")
     public LoginResponse profile(@PathVariable String username) {
         return authService.profile(username);

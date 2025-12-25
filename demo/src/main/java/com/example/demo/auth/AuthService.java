@@ -1,5 +1,6 @@
 package com.example.demo.auth;
 
+import com.example.demo.common.EmailService;
 import com.example.demo.common.MaskingUtils;
 import com.example.demo.wallet.WalletService;
 import jakarta.annotation.PostConstruct;
@@ -11,25 +12,33 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Locale;
 
 @Service
 public class AuthService {
 
     private final UserAccountRepository userAccountRepository;
     private final WalletService walletService;
+    private final VerificationCodeService verificationCodeService;
+    private final EmailService emailService;
 
-    public AuthService(UserAccountRepository userAccountRepository, WalletService walletService) {
+    public AuthService(UserAccountRepository userAccountRepository,
+                       WalletService walletService,
+                       VerificationCodeService verificationCodeService,
+                       EmailService emailService) {
         this.userAccountRepository = userAccountRepository;
         this.walletService = walletService;
+        this.verificationCodeService = verificationCodeService;
+        this.emailService = emailService;
     }
 
     @PostConstruct
     public void preloadDemoUsers() {
         migrateLegacyLandlords();
         if (userAccountRepository.count() == 0) {
-            createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李");
-            createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王");
-            createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员");
+            createUser(UserRole.SELLER, "seller01", "seller123", "卖家小李", "seller01@example.com");
+            createUser(UserRole.BUYER, "buyer01", "buyer123", "买家小王", "buyer01@example.com");
+            createUser(UserRole.ADMIN, "admin", "admin123", "系统管理员", "admin@example.com");
         }
     }
 
@@ -61,29 +70,69 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
-        if (userAccountRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateUsernameException(request.getUsername());
+        String normalizedUsername = normalize(request.getUsername());
+        if (normalizedUsername == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "用户名不能为空");
+        }
+        if (userAccountRepository.existsByUsername(normalizedUsername)) {
+            throw new DuplicateUsernameException(normalizedUsername);
         }
         if (request.getRole() == UserRole.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "暂不支持自助注册管理员账号，请联系系统管理员开通。");
         }
 
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        if (normalizedEmail == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请输入有效的邮箱地址");
+        }
+        if (userAccountRepository.existsByEmail(normalizedEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该邮箱已注册账号，请直接登录或更换邮箱。");
+        }
+
+        String normalizedPassword = normalizePassword(request.getPassword());
+        if (normalizedPassword == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "密码不能为空");
+        }
+
+        String verificationCode = normalizeVerificationCode(request.getVerificationCode());
+        verificationCodeService.verifyAndConsume(normalizedEmail, verificationCode);
+
+        String displayName = normalize(request.getDisplayName());
+        if (displayName == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "昵称不能为空");
+        }
+
         UserAccount account = createUser(
                 request.getRole(),
-                request.getUsername(),
-                request.getPassword(),
-                request.getDisplayName()
+                normalizedUsername,
+                normalizedPassword,
+                displayName,
+                normalizedEmail
         );
 
         return toResponse(account, "注册成功，已为您自动登录。");
     }
 
-    private UserAccount createUser(UserRole role, String username, String password, String displayName) {
+    @Transactional(readOnly = true)
+    public void sendRegistrationVerificationCode(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请输入有效的邮箱地址");
+        }
+        if (userAccountRepository.existsByEmail(normalizedEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该邮箱已注册账号，请直接登录或更换邮箱。");
+        }
+        String code = verificationCodeService.createCode(normalizedEmail);
+        emailService.sendVerificationCode(normalizedEmail, code);
+    }
+
+    private UserAccount createUser(UserRole role, String username, String password, String displayName, String email) {
         UserAccount account = new UserAccount();
         account.setRole(role);
         account.setUsername(username);
         account.setPassword(password);
         account.setDisplayName(displayName);
+        account.setEmail(email);
         UserAccount saved = userAccountRepository.save(account);
         walletService.ensureWallet(saved);
         return saved;
@@ -161,7 +210,7 @@ public class AuthService {
 
         String desiredPassword = normalizePassword(request.newPassword());
         if (desiredPassword != null) {
-            String currentPassword = normalizePassword(request.currentPassword());
+            String currentPassword = normalize(request.currentPassword());
             if (currentPassword == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "修改密码需提供当前密码。");
             }
@@ -218,6 +267,83 @@ public class AuthService {
         if (normalized == null) {
             return null;
         }
+        validatePasswordStrength(normalized);
         return normalized;
+    }
+
+    private String normalizeEmail(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+        return normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeVerificationCode(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请输入验证码");
+        }
+        return normalized;
+    }
+
+    private void validatePasswordStrength(String password) {
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        for (char ch : password.toCharArray()) {
+            if (Character.isUpperCase(ch)) {
+                hasUpper = true;
+            } else if (Character.isLowerCase(ch)) {
+                hasLower = true;
+            } else if (Character.isDigit(ch)) {
+                hasDigit = true;
+            }
+        }
+        if (!hasUpper || !hasLower || !hasDigit) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "密码需包含大小写字母与数字的组合。");
+        }
+        if (containsSequentialPattern(password)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "密码中不允许出现连续的数字或字母序列。");
+        }
+    }
+
+    private boolean containsSequentialPattern(String value) {
+        char[] chars = value.toCharArray();
+        int ascendingRun = 1;
+        int descendingRun = 1;
+        for (int i = 1; i < chars.length; i++) {
+            char prev = chars[i - 1];
+            char current = chars[i];
+
+            if (isSequential(prev, current, 1)) {
+                ascendingRun++;
+            } else {
+                ascendingRun = 1;
+            }
+
+            if (isSequential(prev, current, -1)) {
+                descendingRun++;
+            } else {
+                descendingRun = 1;
+            }
+
+            if (ascendingRun >= 3 || descendingRun >= 3) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isSequential(char prev, char current, int step) {
+        if (Character.isDigit(prev) && Character.isDigit(current)) {
+            return current - prev == step;
+        }
+        if (Character.isLetter(prev) && Character.isLetter(current)) {
+            char prevLower = Character.toLowerCase(prev);
+            char currentLower = Character.toLowerCase(current);
+            return currentLower - prevLower == step;
+        }
+        return false;
     }
 }

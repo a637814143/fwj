@@ -84,6 +84,21 @@ public class HouseOrder {
     @Column(name = "viewing_message", length = 255)
     private String viewingMessage;
 
+    @Column(name = "seller_repay_required", nullable = false)
+    private boolean sellerRepayRequired = false;
+
+    @Column(name = "seller_repay_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal sellerRepayAmount = BigDecimal.ZERO;
+
+    @Column(name = "seller_repay_reference", length = 50)
+    private String sellerRepayReference;
+
+    @Column(name = "seller_repay_description", length = 255)
+    private String sellerRepayDescription;
+
+    @Column(name = "seller_repay_settled_at")
+    private OffsetDateTime sellerRepaySettledAt;
+
     @Column(name = "buyer_viewing_confirmed", nullable = false)
     private boolean buyerViewingConfirmed = false;
 
@@ -256,6 +271,46 @@ public class HouseOrder {
         this.viewingMessage = viewingMessage;
     }
 
+    public boolean isSellerRepayRequired() {
+        return sellerRepayRequired;
+    }
+
+    public void setSellerRepayRequired(boolean sellerRepayRequired) {
+        this.sellerRepayRequired = sellerRepayRequired;
+    }
+
+    public BigDecimal getSellerRepayAmount() {
+        return sellerRepayAmount;
+    }
+
+    public void setSellerRepayAmount(BigDecimal sellerRepayAmount) {
+        this.sellerRepayAmount = sellerRepayAmount == null ? BigDecimal.ZERO : sellerRepayAmount;
+    }
+
+    public String getSellerRepayReference() {
+        return sellerRepayReference;
+    }
+
+    public void setSellerRepayReference(String sellerRepayReference) {
+        this.sellerRepayReference = sellerRepayReference;
+    }
+
+    public String getSellerRepayDescription() {
+        return sellerRepayDescription;
+    }
+
+    public void setSellerRepayDescription(String sellerRepayDescription) {
+        this.sellerRepayDescription = sellerRepayDescription;
+    }
+
+    public OffsetDateTime getSellerRepaySettledAt() {
+        return sellerRepaySettledAt;
+    }
+
+    public void setSellerRepaySettledAt(OffsetDateTime sellerRepaySettledAt) {
+        this.sellerRepaySettledAt = sellerRepaySettledAt;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -311,6 +366,29 @@ public class HouseOrder {
             this.progressStage = OrderProgressStage.FUNDS_RELEASED;
         }
         this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void requireSellerRepayment(BigDecimal amount, String reference, String description) {
+        setSellerRepayAmount(amount);
+        setSellerRepayReference(reference);
+        setSellerRepayDescription(description);
+        this.sellerRepayRequired = true;
+        this.sellerRepaySettledAt = null;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void clearSellerRepayment() {
+        this.sellerRepayRequired = false;
+        setSellerRepayAmount(BigDecimal.ZERO);
+        setSellerRepayReference(null);
+        setSellerRepayDescription(null);
+        this.sellerRepaySettledAt = null;
+    }
+
+    public void markSellerRepaymentCompleted() {
+        this.sellerRepayRequired = false;
+        this.sellerRepaySettledAt = OffsetDateTime.now();
+        setSellerRepayAmount(BigDecimal.ZERO);
     }
 
     @PrePersist

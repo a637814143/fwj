@@ -30,6 +30,9 @@ public class UserAccount {
     @Column(nullable = false, length = 100)
     private String password;
 
+    @Column(nullable = false, length = 255, unique = true)
+    private String email;
+
     @Column(nullable = false, length = 100)
     private String displayName;
 
@@ -104,6 +107,14 @@ public class UserAccount {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public LocalDateTime getCreatedAt() {

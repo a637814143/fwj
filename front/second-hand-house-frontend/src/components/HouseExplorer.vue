@@ -785,11 +785,11 @@ const statusClass = (house) => {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
-  background: linear-gradient(135deg, rgba(246, 240, 234, 0.92), rgba(232, 225, 218, 0.88));
+  background: linear-gradient(135deg, rgba(236, 246, 255, 0.96), rgba(214, 233, 255, 0.9));
   border-radius: var(--radius-lg);
   padding: 1.9rem;
-  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
-  box-shadow: 0 22px 48px rgba(150, 132, 118, 0.28);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+  box-shadow: 0 22px 48px rgba(73, 128, 189, 0.18);
   backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 
@@ -826,9 +826,9 @@ const statusClass = (house) => {
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+  background: rgba(246, 250, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .search-field input {
@@ -846,8 +846,8 @@ const statusClass = (house) => {
 
 .history-toggle {
   border: none;
-  background: rgba(180, 140, 110, 0.18);
-  color: #8c6545;
+  background: rgba(72, 139, 214, 0.14);
+  color: #1f5f9e;
   border-radius: var(--radius-pill);
   padding: 0.45rem 0.95rem;
   font-weight: 600;
@@ -856,7 +856,7 @@ const statusClass = (house) => {
 }
 
 .history-toggle:hover {
-  background: rgba(180, 140, 110, 0.28);
+  background: rgba(72, 139, 214, 0.24);
 }
 
 .search-submit {
@@ -866,7 +866,7 @@ const statusClass = (house) => {
   background: var(--gradient-primary);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 18px 38px rgba(150, 132, 118, 0.28);
+  box-shadow: 0 18px 38px rgba(73, 128, 189, 0.2);
   cursor: pointer;
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
@@ -881,10 +881,10 @@ const statusClass = (house) => {
   top: calc(100% + 0.35rem);
   left: 0;
   width: min(520px, 100%);
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(248, 252, 255, 0.98);
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 18px 36px rgba(73, 128, 189, 0.18);
   padding: 0.6rem;
   list-style: none;
   margin: 0;
@@ -901,14 +901,14 @@ const statusClass = (house) => {
   background: transparent;
   padding: 0.55rem 0.65rem;
   border-radius: var(--radius-md);
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
   cursor: pointer;
   transition: background var(--transition-base), color var(--transition-base);
 }
 
 .history-dropdown li button:hover {
-  background: rgba(180, 140, 110, 0.22);
-  color: #8c6545;
+  background: rgba(72, 139, 214, 0.12);
+  color: #1f5f9e;
 }
 
 .fade-enter-active,
@@ -956,12 +956,12 @@ const statusClass = (house) => {
   cursor: pointer;
   background: var(--gradient-primary);
   color: #fff;
-  box-shadow: 0 18px 35px rgba(150, 132, 118, 0.26);
+  box-shadow: 0 18px 35px rgba(73, 128, 189, 0.22);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .actions button.secondary {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(240, 247, 255, 0.96);
   color: var(--color-text-strong);
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   box-shadow: none;
@@ -979,11 +979,11 @@ const statusClass = (house) => {
 }
 
 .recommendation {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(246, 250, 255, 0.96);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
-  box-shadow: 0 20px 45px rgba(130, 120, 110, 0.16);
-  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  box-shadow: 0 20px 45px rgba(73, 128, 189, 0.15);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
 .recommendation h3 {
@@ -1027,8 +1027,8 @@ const statusClass = (house) => {
   gap: 0.75rem;
   padding: 0.9rem 1.1rem;
   border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  background: rgba(236, 246, 255, 0.98);
   text-align: left;
   cursor: default;
 }
@@ -1059,7 +1059,7 @@ const statusClass = (house) => {
   padding: 0.65rem 1.1rem;
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-  background: rgba(222, 214, 205, 0.6);
+  background: rgba(210, 231, 255, 0.6);
   color: var(--color-text-strong);
 }
 
@@ -1089,11 +1089,11 @@ const statusClass = (house) => {
 .house-card {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(248, 252, 255, 0.96);
   border-radius: var(--radius-xl);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
-  box-shadow: 0 22px 45px rgba(150, 132, 118, 0.24);
+  box-shadow: 0 22px 45px rgba(73, 128, 189, 0.2);
 }
 
 .status {
@@ -1104,22 +1104,22 @@ const statusClass = (house) => {
 }
 
 .status.pending {
-  background: rgba(214, 189, 120, 0.2);
-  color: #8f6a2a;
+  background: rgba(104, 180, 255, 0.16);
+  color: #0f549c;
 }
 
 .status.approved {
-  background: rgba(176, 196, 186, 0.22);
-  color: #3f6650;
+  background: rgba(130, 214, 186, 0.18);
+  color: #0f6b52;
 }
 
 .status.rejected {
-  background: rgba(198, 132, 122, 0.22);
-  color: #8a3f38;
+  background: rgba(255, 196, 196, 0.2);
+  color: #a43131;
 }
 
 .status.sold {
-  background: rgba(188, 182, 174, 0.24);
+  background: rgba(186, 198, 214, 0.26);
   color: var(--color-text-strong);
 }
 
@@ -1168,7 +1168,7 @@ const statusClass = (house) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(226, 218, 209, 0.6);
+  background: rgba(214, 233, 255, 0.6);
   color: var(--color-text-muted);
   font-size: 0.95rem;
 }
@@ -1270,11 +1270,11 @@ const statusClass = (house) => {
 }
 
 .keyword-list li {
-  background: rgba(180, 140, 110, 0.18);
-  color: #8c6545;
-  padding: 0.3rem 0.65rem;
+  background: rgba(72, 139, 214, 0.14);
+  color: #1f5f9e;
+  padding: 0.32rem 0.75rem;
   border-radius: var(--radius-pill);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 
 .card-actions {
@@ -1284,7 +1284,7 @@ const statusClass = (house) => {
   flex-direction: column;
   gap: 0.75rem;
   border-top: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
-  background: rgba(248, 244, 239, 0.88);
+  background: rgba(236, 246, 255, 0.9);
 }
 
 .favorite-toggle {
@@ -1340,6 +1340,42 @@ const statusClass = (house) => {
   gap: 0.55rem;
 }
 
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.detail-actions button {
+  padding: 0.78rem 1.4rem;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  min-width: 140px;
+  box-shadow: 0 14px 24px rgba(73, 128, 189, 0.18);
+}
+
+.detail-actions .ghost {
+  background: rgba(72, 139, 214, 0.12);
+  color: #1f5f9e;
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+}
+
+.detail-actions .secondary {
+  background: rgba(104, 180, 255, 0.16);
+  color: #0f549c;
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+}
+
+.detail-actions .primary {
+  background: var(--gradient-primary);
+  color: #0a1a2f;
+  border: none;
+  box-shadow: 0 18px 32px rgba(73, 128, 189, 0.22);
+}
+
 .action-buttons button {
   padding: 0.6rem 0.9rem;
   border-radius: var(--radius-pill);
@@ -1350,19 +1386,19 @@ const statusClass = (house) => {
 }
 
 .action-buttons .contact {
-  background: rgba(180, 140, 110, 0.18);
-  color: #8c6545;
+  background: rgba(72, 139, 214, 0.14);
+  color: #1f5f9e;
 }
 
 .action-buttons .reserve {
-  background: rgba(250, 204, 21, 0.18);
-  color: #b45309;
+  background: rgba(98, 206, 255, 0.14);
+  color: #0b6a8f;
 }
 
 .action-buttons .purchase {
   background: var(--gradient-primary);
-  color: #fff;
-  box-shadow: 0 15px 30px rgba(150, 132, 118, 0.24);
+  color: #0a1a2f;
+  box-shadow: 0 15px 30px rgba(73, 128, 189, 0.22);
 }
 
 .action-buttons button:disabled {

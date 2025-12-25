@@ -10,30 +10,30 @@
   --font-sans: 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans SC', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
   --base-font-size: 16px;
-  --color-text-strong: #d7e7ff;
-  --color-text-muted: #9fb8e0;
-  --color-text-soft: #7ea1cc;
-  --color-background: #0b1220;
-  --color-surface: rgba(24, 32, 52, 0.92);
-  --color-surface-soft: rgba(18, 26, 44, 0.82);
-  --color-surface-tint: rgba(64, 102, 180, 0.32);
-  --color-border: rgba(92, 126, 192, 0.35);
-  --color-border-strong: rgba(124, 168, 255, 0.55);
-  --color-text-on-emphasis: #0b1220;
-  --color-accent: #5ddcff;
-  --color-accent-soft: rgba(93, 220, 255, 0.28);
-  --glass-blur: 26px;
-  --shadow-sm: 0 12px 28px rgba(95, 85, 76, 0.12);
-  --shadow-md: 0 22px 48px rgba(105, 95, 86, 0.18);
-  --shadow-lg: 0 32px 80px rgba(120, 110, 100, 0.22);
-  --shadow-xl: 0 45px 100px rgba(120, 110, 100, 0.28);
+  --color-text-strong: #0f213a;
+  --color-text-muted: #32567a;
+  --color-text-soft: #5a7594;
+  --color-background: #e9f3ff;
+  --color-surface: rgba(255, 255, 255, 0.94);
+  --color-surface-soft: rgba(237, 245, 255, 0.92);
+  --color-surface-tint: rgba(118, 169, 255, 0.3);
+  --color-border: rgba(97, 140, 196, 0.3);
+  --color-border-strong: rgba(61, 126, 204, 0.6);
+  --color-text-on-emphasis: #0a1a2f;
+  --color-accent: #3ba3ff;
+  --color-accent-soft: rgba(59, 163, 255, 0.18);
+  --glass-blur: 24px;
+  --shadow-sm: 0 12px 28px rgba(46, 88, 140, 0.12);
+  --shadow-md: 0 22px 48px rgba(36, 76, 126, 0.16);
+  --shadow-lg: 0 32px 80px rgba(28, 64, 118, 0.18);
+  --shadow-xl: 0 45px 100px rgba(28, 64, 118, 0.22);
   --radius-md: 0.85rem;
   --radius-lg: 1.35rem;
   --radius-xl: 1.85rem;
   --radius-pill: 999px;
-  --gradient-primary: linear-gradient(135deg, #5ddcff 0%, #7f6bff 45%, #00c2ff 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(93, 220, 255, 0.18), rgba(127, 107, 255, 0.2));
-  --gradient-surface: linear-gradient(160deg, rgba(12, 18, 32, 0.96), rgba(16, 28, 52, 0.9));
+  --gradient-primary: linear-gradient(135deg, #7ed0ff 0%, #6aa8ff 40%, #48c4ff 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(126, 208, 255, 0.2), rgba(106, 168, 255, 0.18));
+  --gradient-surface: linear-gradient(160deg, #f6fbff 0%, #e8f3ff 45%, #dcefff 100%);
   --transition-base: 0.22s ease;
   --panel-card-bg: color-mix(in srgb, var(--color-surface) 94%, transparent);
   --panel-card-soft-bg: color-mix(in srgb, var(--color-surface-soft) 92%, transparent);
@@ -110,10 +110,10 @@ body {
   font-family: var(--font-sans);
   font-size: var(--base-font-size);
   color: var(--color-text-strong);
-  background: radial-gradient(circle at 15% 20%, rgba(193, 178, 165, 0.25), transparent 60%),
-    radial-gradient(circle at 80% 18%, rgba(166, 176, 186, 0.22), transparent 65%),
-    radial-gradient(circle at 45% 85%, rgba(200, 178, 156, 0.18), transparent 62%),
-    linear-gradient(180deg, #f8f4ef 0%, #ebe4dd 45%, #ded7d0 100%);
+  background: radial-gradient(circle at 12% 18%, rgba(167, 214, 255, 0.35), transparent 58%),
+    radial-gradient(circle at 82% 20%, rgba(142, 192, 255, 0.32), transparent 60%),
+    radial-gradient(circle at 48% 85%, rgba(126, 181, 255, 0.28), transparent 62%),
+    linear-gradient(180deg, #f7fbff 0%, #e8f3ff 45%, #dcefff 100%);
   background-attachment: fixed;
   position: relative;
   overflow-x: hidden;
@@ -128,7 +128,7 @@ body::after {
   height: 520px;
   border-radius: 50%;
   filter: blur(80px);
-  opacity: 0.55;
+  opacity: 0.48;
   pointer-events: none;
   z-index: -1;
 }
@@ -136,13 +136,13 @@ body::after {
 body::before {
   top: -140px;
   left: -160px;
-  background: radial-gradient(circle, rgba(196, 178, 162, 0.55), rgba(196, 178, 162, 0));
+  background: radial-gradient(circle, rgba(155, 203, 255, 0.58), rgba(155, 203, 255, 0));
 }
 
 body::after {
   bottom: -160px;
   right: -120px;
-  background: radial-gradient(circle, rgba(172, 182, 192, 0.45), rgba(172, 182, 192, 0));
+  background: radial-gradient(circle, rgba(134, 187, 255, 0.45), rgba(134, 187, 255, 0));
 }
 
 body[data-theme='dark'] {

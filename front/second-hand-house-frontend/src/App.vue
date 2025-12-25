@@ -70,7 +70,7 @@
           </transition>
         </div>
 
-        <section class="workspace">
+        <section class="workspace" :class="{ 'home-bleed': activeTab === 'home' }">
         <section v-if="messages.error" class="alert">
           <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
         </section>
@@ -5214,7 +5214,7 @@ onBeforeUnmount(() => {
 .app::before {
   width: 420px;
   height: 420px;
-  background: radial-gradient(circle, rgba(204, 188, 172, 0.45), rgba(204, 188, 172, 0));
+  background: radial-gradient(circle, rgba(152, 200, 255, 0.42), rgba(152, 200, 255, 0));
   top: -160px;
   right: -110px;
 }
@@ -5222,18 +5222,20 @@ onBeforeUnmount(() => {
 .app::after {
   width: 360px;
   height: 360px;
-  background: radial-gradient(circle, rgba(168, 178, 188, 0.35), rgba(168, 178, 188, 0));
+  background: radial-gradient(circle, rgba(120, 176, 255, 0.35), rgba(120, 176, 255, 0));
   bottom: -140px;
   left: -100px;
 }
 
 .header {
-  background: linear-gradient(130deg, rgba(180, 140, 110, 0.92), rgba(154, 161, 168, 0.9));
+  background: linear-gradient(135deg, rgba(132, 194, 255, 0.96), rgba(94, 149, 233, 0.9));
   color: var(--color-text-on-emphasis);
   padding: 2.35rem;
   border-radius: calc(var(--radius-lg) + 0.35rem);
-  box-shadow: 0 26px 60px rgba(150, 132, 118, 0.28);
+  box-shadow: 0 26px 60px rgba(63, 123, 191, 0.24);
   display: grid;
+  grid-template-columns: minmax(320px, 1fr) auto;
+  align-items: center;
   gap: 1.5rem;
   position: relative;
   overflow: visible;
@@ -5252,7 +5254,7 @@ onBeforeUnmount(() => {
 .header::before {
   width: 320px;
   height: 320px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.45), transparent 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.4), transparent 70%);
   top: -160px;
   left: -80px;
 }
@@ -5260,7 +5262,7 @@ onBeforeUnmount(() => {
 .header::after {
   width: 380px;
   height: 380px;
-  background: radial-gradient(circle at top right, rgba(196, 178, 162, 0.55), transparent 70%);
+  background: radial-gradient(circle at top right, rgba(144, 198, 255, 0.65), transparent 70%);
   top: -180px;
   right: -120px;
 }
@@ -5272,14 +5274,16 @@ onBeforeUnmount(() => {
 
 .branding h1 {
   margin: 0;
-  font-size: 2.55rem;
-  letter-spacing: 0.02em;
+  font-size: 2.65rem;
+  letter-spacing: 0.01em;
+  text-shadow: 0 10px 28px rgba(32, 74, 132, 0.18);
 }
 
 .branding p {
   margin: 0.35rem 0 0;
-  font-size: 1.02rem;
-  opacity: 0.92;
+  font-size: 1.06rem;
+  opacity: 0.96;
+  color: rgba(10, 26, 47, 0.86);
 }
 
 .header-actions {
@@ -5292,34 +5296,37 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
+
 .header-actions :deep(.settings-toggle) {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   color: var(--color-text-on-emphasis);
-  box-shadow: 0 12px 28px rgba(120, 110, 100, 0.22);
+  box-shadow: 0 12px 28px rgba(55, 112, 178, 0.18);
 }
 
 .header-actions :deep(.settings-toggle:hover) {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.4);
   color: var(--color-text-on-emphasis);
 }
 
 .messages-trigger {
-  background: linear-gradient(135deg, rgba(180, 140, 110, 0.28), rgba(154, 161, 168, 0.32));
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(198, 228, 255, 0.7));
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--radius-pill);
   color: var(--color-text-on-emphasis);
-  font-weight: 600;
-  padding: 0.6rem 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 0.72rem 1.8rem;
   transition: background var(--transition-base), transform var(--transition-base),
     box-shadow var(--transition-base);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 32px rgba(55, 112, 178, 0.2);
 }
 
 .messages-trigger:hover {
-  background: linear-gradient(135deg, rgba(180, 140, 110, 0.38), rgba(154, 161, 168, 0.42));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(187, 221, 255, 0.85));
   transform: translateY(-1px);
-  box-shadow: 0 14px 26px rgba(150, 132, 118, 0.22);
+  box-shadow: 0 18px 36px rgba(55, 112, 178, 0.25);
 }
 
 .login-section {
@@ -5430,14 +5437,25 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1.6rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  background: color-mix(in srgb, var(--panel-card-bg) 92%, transparent);
-  border-radius: var(--radius-xl);
-  padding: 1.25rem 1.5rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  background: color-mix(in srgb, var(--panel-card-bg) 94%, transparent);
+  border-radius: calc(var(--radius-xl) + 0.2rem);
+  padding: clamp(1.2rem, 2.6vw, 2.4rem);
   border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 30px 65px rgba(73, 128, 189, 0.18);
   overflow: hidden;
+}
+
+.workspace.home-bleed :deep(.explorer-header) {
+  border-radius: calc(var(--radius-xl) + 0.25rem);
+  padding: clamp(1.35rem, 3vw, 2.2rem);
+}
+
+.workspace.home-bleed :deep(.house-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: clamp(1.15rem, 2vw, 1.8rem);
 }
 
 .menu {

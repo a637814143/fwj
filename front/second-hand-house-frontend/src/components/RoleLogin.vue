@@ -585,9 +585,9 @@ const requestVerificationCode = async () => {
 .brand-showcase {
   border-radius: var(--radius-lg);
   min-height: 420px;
-  background: linear-gradient(145deg, rgba(255, 250, 244, 0.92), rgba(239, 223, 210, 0.92));
-  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-  box-shadow: 0 28px 45px rgba(150, 140, 130, 0.18);
+  background: linear-gradient(145deg, rgba(241, 249, 255, 0.96), rgba(214, 234, 255, 0.94));
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  box-shadow: 0 28px 45px rgba(73, 128, 189, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -602,7 +602,7 @@ const requestVerificationCode = async () => {
   gap: 1.25rem;
   font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', '楷体', serif;
   font-size: 1.55rem;
-  color: rgba(98, 74, 56, 0.92);
+  color: rgba(24, 76, 120, 0.95);
   line-height: 1.45;
   text-align: left;
   letter-spacing: 0.015em;
@@ -610,16 +610,16 @@ const requestVerificationCode = async () => {
 
 .brand-copy p {
   margin: 0;
-  text-shadow: 0 12px 24px rgba(120, 95, 75, 0.25);
+  text-shadow: 0 12px 24px rgba(61, 112, 168, 0.2);
 }
 
 .auth-panel {
   position: relative;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   border-radius: var(--radius-lg);
   padding: 2rem;
-  box-shadow: 0 24px 50px rgba(120, 110, 100, 0.2);
-  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  box-shadow: 0 24px 50px rgba(73, 128, 189, 0.16);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
   display: grid;
   gap: 1.75rem;
   width: 100%;
@@ -634,10 +634,10 @@ const requestVerificationCode = async () => {
 }
 
 .mode-tab {
-  background: rgba(248, 244, 239, 0.9);
-  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  background: rgba(240, 247, 255, 0.96);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
   border-radius: var(--radius-pill);
-  color: var(--color-text-strong);
+  color: var(--color-text-muted);
   cursor: pointer;
   font-weight: 600;
   padding: 0.75rem 1rem;
@@ -647,15 +647,15 @@ const requestVerificationCode = async () => {
 .mode-tab:hover,
 .mode-tab:focus {
   outline: none;
-  color: #a06f4c;
-  border-color: rgba(176, 132, 99, 0.6);
-  box-shadow: 0 16px 30px rgba(176, 132, 99, 0.22);
+  color: #1f70c8;
+  border-color: rgba(80, 140, 210, 0.7);
+  box-shadow: 0 16px 30px rgba(80, 140, 210, 0.16);
 }
 
 .mode-tab.active {
-  background: linear-gradient(135deg, #b48c6e, #9aa1a8);
-  color: #fff;
-  box-shadow: 0 20px 36px rgba(165, 137, 114, 0.3);
+  background: linear-gradient(135deg, #6db7ff, #5a94ff);
+  color: #0a1a2f;
+  box-shadow: 0 20px 36px rgba(80, 140, 210, 0.28);
   border-color: transparent;
 }
 

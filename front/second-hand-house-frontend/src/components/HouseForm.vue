@@ -431,8 +431,6 @@ const form = reactive({
   contactNumber: '',
   listingDate: '',
   floor: '',
-  installmentMonthlyPayment: '',
-  installmentMonths: '',
   imageUrls: []
 });
 
@@ -533,49 +531,6 @@ const isListingDateFuture = (value) => {
   return target.getTime() > today.getTime();
 };
 
-const parsePositiveNumber = (value) => {
-  if (value === '' || value == null) {
-    return null;
-  }
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-};
-
-const calculatedInstallment = computed(() => {
-  const price = parsePositiveNumber(form.price);
-  const downPayment = parsePositiveNumber(form.downPayment);
-  const months = parsePositiveNumber(form.installmentMonths);
-  if (!price || !downPayment || !months || months <= 0) {
-    return null;
-  }
-  const totalWithPremium = price * premiumRate;
-  const remaining = totalWithPremium - downPayment;
-  if (remaining <= 0) {
-    return null;
-  }
-  const monthly = remaining / months;
-  return Number.isFinite(monthly) && monthly > 0 ? Number(monthly.toFixed(2)) : null;
-});
-
-watch(
-  calculatedInstallment,
-  (value) => {
-    if (value == null) {
-      form.installmentMonthlyPayment = '';
-    } else {
-      form.installmentMonthlyPayment = value;
-    }
-  },
-  { immediate: true }
-);
-
-const formattedInstallment = computed(() => {
-  if (calculatedInstallment.value == null) {
-    return '';
-  }
-  return calculatedInstallment.value.toFixed(2);
-});
-
 const applyImageUrls = (images = []) => {
   const sanitized = Array.isArray(images)
     ? images
@@ -600,8 +555,6 @@ const setFormDefaults = () => {
   form.contactNumber = '';
   form.listingDate = '';
   form.floor = '';
-  form.installmentMonthlyPayment = '';
-  form.installmentMonths = '';
   applyImageUrls();
   keywordInput.value = '';
   formError.value = '';
@@ -635,8 +588,6 @@ const fillFromHouse = (house) => {
   form.contactNumber = house.contactNumber ?? '';
   form.listingDate = house.listingDate ?? '';
   form.floor = house.floor ?? '';
-  form.installmentMonthlyPayment = house.installmentMonthlyPayment ?? '';
-  form.installmentMonths = house.installmentMonths ?? '';
   applyImageUrls(house.imageUrls ?? []);
   keywordInput.value = Array.isArray(house.keywords)
     ? house.keywords.join(keywordSeparator.value)

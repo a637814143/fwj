@@ -27,10 +27,6 @@
             <span class="info-value">{{ formattedDownPayment }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">{{ t('houseDetail.installment') }}</span>
-            <span class="info-value">{{ formattedInstallment }}</span>
-          </div>
-          <div class="info-item">
             <span class="info-label">{{ t('houseDetail.area') }}</span>
             <span class="info-value">{{ formattedArea }}</span>
           </div>
@@ -75,6 +71,9 @@
       </section>
 
       <footer class="modal__footer">
+        <div class="action-slot">
+          <slot name="actions"></slot>
+        </div>
         <div class="contact">
           <span>{{ sellerLabel }}</span>
           <span>{{ contactLabel }}</span>
@@ -163,17 +162,6 @@ const formatDateValue = (value) => {
 
 const formattedPrice = computed(() => formatCurrencyValue(props.house?.price));
 const formattedDownPayment = computed(() => formatCurrencyValue(props.house?.downPayment));
-const formattedInstallment = computed(() => {
-  const monthly = formatCurrencyValue(props.house?.installmentMonthlyPayment);
-  if (monthly === unknownValue) {
-    return unknownValue;
-  }
-  const months = props.house?.installmentMonths;
-  if (months == null || months === '') {
-    return monthly;
-  }
-  return t('houseDetail.installmentValue', { amount: monthly, months });
-});
 const formattedArea = computed(() => {
   const area = formatNumberValue(props.house?.area, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   return area === unknownValue ? area : t('houseDetail.areaValue', { area });
@@ -454,6 +442,51 @@ function maskName(value) {
   gap: 1rem;
   border-top: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(255, 255, 255, 0.65);
+}
+
+.action-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.action-slot .primary,
+.action-slot .secondary,
+.action-slot .ghost {
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.2rem;
+  border: 1px solid color-mix(in srgb, var(--color-border, rgba(148, 163, 184, 0.4)) 85%, transparent);
+  background: color-mix(in srgb, var(--color-surface, #fff) 90%, transparent);
+  color: var(--color-text-strong, #0f172a);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.action-slot .primary {
+  background: var(--gradient-primary, linear-gradient(135deg, #5ddcff, #7f6bff));
+  color: var(--color-text-on-emphasis, #0b1220);
+  box-shadow: 0 18px 36px rgba(93, 220, 255, 0.28);
+  border: none;
+}
+
+.action-slot .secondary {
+  background: color-mix(in srgb, var(--color-accent, #5ddcff) 12%, transparent);
+  color: var(--color-text-strong, #0f172a);
+}
+
+.action-slot .ghost {
+  background: transparent;
+}
+
+.action-slot button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.action-slot button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(127, 107, 255, 0.24);
 }
 
 .contact {

@@ -99,8 +99,6 @@ const formatTime = (value) => {
 
 const paymentMethodLabel = (value) => {
   switch (value) {
-    case 'INSTALLMENT':
-      return t('adminOrders.payment.installment');
     case 'FULL':
     default:
       return t('adminOrders.payment.full');

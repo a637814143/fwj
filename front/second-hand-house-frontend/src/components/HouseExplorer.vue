@@ -124,150 +124,90 @@
     <div v-else-if="!displayedHouses.length" class="empty">{{ emptyStateMessage }}</div>
 
     <div v-else class="house-grid">
-      <article v-for="house in paginatedHouses" :key="house.id" class="house-card">
+      <article
+        v-for="house in paginatedHouses"
+        :key="house.id"
+        class="house-card"
+        @click="openDetail(house)"
+      >
         <div class="status" :class="statusClass(house)">{{ statusLabel(house) }}</div>
         <div class="cover" v-if="coverImage(house)">
           <img :src="coverImage(house)" :alt="house.title" loading="lazy" />
+          <div class="image-overlay">
+            <div class="overlay-text">{{ house.title }}</div>
+            <span class="overlay-action">{{ t('explorer.actions.viewDetail') }}</span>
+          </div>
         </div>
         <div class="cover placeholder" v-else>
           <span>{{ t('explorer.labels.noImage') }}</span>
         </div>
-        <div class="details">
-          <header class="card-header">
-            <div class="card-title">
-              <h3>{{ house.title }}</h3>
-              <p class="address">{{ house.address }}</p>
-            </div>
-            <button
-              type="button"
-              class="favorite-toggle"
-              :class="{ active: isFavorite(house) }"
-              :aria-label="favoriteButtonLabel(house)"
-              :title="favoriteButtonLabel(house)"
-              @click.stop="toggleFavorite(house)"
-            >
-              {{ isFavorite(house) ? '⭐' : '☆' }}
-            </button>
-          </header>
-          <div class="pricing">
-            <div class="pricing-item">
-              <span class="label">{{ t('explorer.labels.fullPrice') }}</span>
-              <strong>￥{{ formatCurrency(house.price) }}</strong>
-            </div>
-            <div class="pricing-item" v-if="house.downPayment">
-              <span class="label">{{ t('explorer.labels.downPayment') }}</span>
-              <strong>￥{{ formatCurrency(house.downPayment) }}</strong>
-            </div>
-            <div class="pricing-item" v-if="house.installmentMonthlyPayment">
-              <span class="label">{{ t('explorer.labels.installment') }}</span>
-              <strong>
-                ￥{{ formatCurrency(house.installmentMonthlyPayment) }}
-                <small v-if="house.installmentMonths">
-                  {{ t('explorer.labels.installmentMonths', { count: house.installmentMonths }) }}
-                </small>
-              </strong>
-            </div>
-          </div>
-          <p class="description" v-if="house.description">{{ house.description }}</p>
-          <dl class="meta">
-            <div>
-              <dt>{{ t('explorer.labels.area') }}</dt>
-              <dd>{{ formatNumber(house.area) }} ㎡</dd>
-            </div>
-            <div>
-              <dt>{{ t('explorer.labels.listingDate') }}</dt>
-              <dd>{{ formatDate(house.listingDate) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('explorer.labels.seller') }}</dt>
-              <dd>{{ sellerNameDisplay(house) }}（{{ sellerUsernameDisplay(house) }}）</dd>
-            </div>
-            <div>
-              <dt>{{ t('explorer.labels.contact') }}</dt>
-              <dd>{{ contactNumberDisplay(house) }}</dd>
-            </div>
-          </dl>
-          <ul v-if="house.keywords && house.keywords.length" class="keyword-list">
-            <li v-for="keyword in house.keywords" :key="`${house.id}-${keyword}`">#{{ keyword }}</li>
-          </ul>
-        </div>
-        <footer class="card-actions">
-          <template v-if="canOperate">
-            <div class="payment" v-if="isApproved(house)">
-              <label>{{ t('explorer.labels.paymentMethod') }}</label>
-              <select v-model="selectedPayments[house.id]">
-                <option value="FULL">{{ t('explorer.payment.full') }}</option>
-                <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
-                  {{ t('explorer.payment.installment') }}
-                </option>
-              </select>
-              <div
-                v-if="selectedPayments[house.id] === 'INSTALLMENT'"
-                class="installment-card-input"
-              >
-                <label :for="`installment-card-${house.id}`">
-                  {{ t('explorer.labels.installmentCard') }}
-                </label>
-                <input
-                  :id="`installment-card-${house.id}`"
-                  type="text"
-                  :value="cardNumberFor(house)"
-                  inputmode="numeric"
-                  maxlength="19"
-                  :placeholder="t('explorer.inputs.installmentCard')"
-                  @input="updateCardNumber(house, $event.target.value)"
-                />
-                <p v-if="hasCardError(house)" class="card-error">
-                  {{ t('explorer.tips.installmentCardError') }}
-                </p>
-              </div>
-            </div>
-            <div class="action-buttons">
-              <button
-                type="button"
-                class="contact"
-                :disabled="contactDisabled || !isApproved(house)"
-                @click="contactSeller(house)"
-              >
-                {{ t('explorer.actions.contactSeller') }}
-              </button>
-              <button
-                class="reserve"
-                :disabled="reservationDisabled(house)"
-                @click="$emit('reserve', house)"
-              >
-                {{
-                  isReservingCurrent(house)
-                    ? t('explorer.actions.reserving')
-                    : t('explorer.actions.reserve', { deposit: depositAmount(house) })
-                }}
-              </button>
-              <button
-                class="purchase"
-                :disabled="purchaseDisabled || !isApproved(house)"
-                @click="purchase(house)"
-              >
-                {{ purchaseDisabled ? t('explorer.actions.processing') : t('explorer.actions.purchase') }}
-              </button>
-            </div>
-            <p v-if="house.reservationActive" class="verification-tip">
-              {{ reservationNotice(house) }}
-            </p>
-            <p v-else-if="requiresVerification" class="verification-tip">
-              {{ t('explorer.tips.requireVerification') }}
-            </p>
-            <p v-else-if="house.status === 'SOLD'" class="verification-tip">
-              {{ t('explorer.tips.soldOut') }}
-            </p>
-            <p v-else-if="!isApproved(house)" class="verification-tip">
-              {{ t('explorer.tips.awaitingApproval') }}
-            </p>
-          </template>
-          <span v-else class="hint">{{ t('explorer.tips.loginAsBuyer') }}</span>
+        <footer class="card-footer">
+          <button
+            type="button"
+            class="favorite-toggle"
+            :class="{ active: isFavorite(house) }"
+            :aria-label="favoriteButtonLabel(house)"
+            :title="favoriteButtonLabel(house)"
+            @click.stop="toggleFavorite(house)"
+          >
+            {{ isFavorite(house) ? '⭐' : '☆' }}
+          </button>
+          <span class="cta">{{ t('explorer.actions.tapForInfo') }}</span>
         </footer>
       </article>
     </div>
 
+    <HouseDetailModal
+      v-if="activeHouse"
+      :house="activeHouse"
+      :can-view-sensitive-info="canViewSensitiveInfo"
+      @close="activeHouse = null"
+    >
+      <template #actions>
+        <div v-if="canOperate" class="detail-actions">
+          <button
+            type="button"
+            class="ghost"
+            :disabled="contactDisabled || !isApproved(activeHouse)"
+            @click.stop="contactSeller(activeHouse)"
+          >
+            {{ t('explorer.actions.contactSeller') }}
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            :disabled="reservationDisabled(activeHouse)"
+            @click.stop="emit('reserve', activeHouse)"
+          >
+            {{
+              isReservingCurrent(activeHouse)
+                ? t('explorer.actions.reserving')
+                : t('explorer.actions.reserve', { deposit: depositAmount(activeHouse) })
+            }}
+          </button>
+          <button
+            type="button"
+            class="primary"
+            :disabled="purchaseDisabled || !isApproved(activeHouse)"
+            @click.stop="purchase(activeHouse)"
+          >
+            {{ purchaseDisabled ? t('explorer.actions.processing') : t('explorer.actions.purchase') }}
+          </button>
+        </div>
+        <p v-if="activeHouse?.reservationActive" class="verification-tip">
+          {{ reservationNotice(activeHouse) }}
+        </p>
+        <p v-else-if="requiresVerification" class="verification-tip">
+          {{ t('explorer.tips.requireVerification') }}
+        </p>
+        <p v-else-if="activeHouse?.status === 'SOLD'" class="verification-tip">
+          {{ t('explorer.tips.soldOut') }}
+        </p>
+        <p v-else-if="!isApproved(activeHouse)" class="verification-tip">
+          {{ t('explorer.tips.awaitingApproval') }}
+        </p>
+      </template>
+    </HouseDetailModal>
     <div v-if="showPagination" class="pagination">
       <button type="button" class="page-btn" :disabled="!canGoPrevious" @click="goToPreviousPage">
         {{ t('explorer.pagination.prev') }}
@@ -284,6 +224,7 @@
 
 <script setup>
 import { computed, inject, reactive, watch, ref, onMounted, onBeforeUnmount } from 'vue';
+import HouseDetailModal from './HouseDetailModal.vue';
 
 const props = defineProps({
   houses: {
@@ -376,16 +317,13 @@ const localFilters = reactive({
 });
 
 const selectedSeller = ref(null);
+const activeHouse = ref(null);
 
 const historyStorageKey = 'house-search-history';
 const historyVisible = ref(false);
 const searchHistory = ref([]);
 const searchContainerRef = ref(null);
 const keywordInputRef = ref(null);
-
-const selectedPayments = reactive({});
-const installmentCards = reactive({});
-const cardErrors = reactive({});
 
 const canOperate = computed(() => props.currentUser?.role === 'BUYER');
 const requiresVerification = computed(
@@ -492,59 +430,6 @@ watch(
     }
   },
   { immediate: true, deep: true }
-);
-
-watch(
-  () => props.houses,
-  (list) => {
-    const ids = new Set();
-    (list ?? []).forEach((house) => {
-      if (!house?.id) {
-        return;
-      }
-      const key = String(house.id);
-      ids.add(key);
-      if (!selectedPayments[key]) {
-        selectedPayments[key] = 'FULL';
-      }
-      if (selectedPayments[key] === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
-        selectedPayments[key] = 'FULL';
-      }
-      if (!(key in installmentCards)) {
-        installmentCards[key] = '';
-      }
-      if (!(key in cardErrors)) {
-        cardErrors[key] = false;
-      }
-      if (selectedPayments[key] !== 'INSTALLMENT') {
-        cardErrors[key] = false;
-      }
-    });
-    Object.keys(selectedPayments).forEach((key) => {
-      if (!ids.has(String(key))) {
-        delete selectedPayments[key];
-      }
-    });
-    Object.keys(installmentCards).forEach((key) => {
-      if (!ids.has(String(key))) {
-        delete installmentCards[key];
-        delete cardErrors[key];
-      }
-    });
-  },
-  { immediate: true }
-);
-
-watch(
-  selectedPayments,
-  (methods) => {
-    Object.entries(methods).forEach(([key, method]) => {
-      if (method !== 'INSTALLMENT') {
-        cardErrors[key] = false;
-      }
-    });
-  },
-  { deep: true }
 );
 
 watch(
@@ -797,37 +682,6 @@ const maskPhone = (value) => {
   return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
 };
 
-const sanitizeCardNumber = (value) => (value == null ? '' : String(value).replace(/\D/g, '').slice(0, 19));
-
-const cardKey = (house) => {
-  if (!house || house.id == null) {
-    return '';
-  }
-  return String(house.id);
-};
-
-const cardNumberFor = (house) => {
-  const key = cardKey(house);
-  return key ? installmentCards[key] ?? '' : '';
-};
-
-const updateCardNumber = (house, value) => {
-  const key = cardKey(house);
-  if (!key) {
-    return;
-  }
-  const sanitized = sanitizeCardNumber(value);
-  installmentCards[key] = sanitized;
-  if (sanitized.length === 19) {
-    cardErrors[key] = false;
-  }
-};
-
-const hasCardError = (house) => {
-  const key = cardKey(house);
-  return key ? Boolean(cardErrors[key]) : false;
-};
-
 const shouldMask = (house) => {
   if (props.canViewSensitiveInfo) {
     return false;
@@ -893,32 +747,15 @@ const reservationNotice = (house) => {
     : t('explorer.tips.reservedByOthers');
 };
 
+const openDetail = (house) => {
+  activeHouse.value = house;
+};
+
 const purchase = (house) => {
   if (!isApproved(house)) {
     return;
   }
-  const key = cardKey(house);
-  const method = (key && selectedPayments[key] !== undefined)
-    ? selectedPayments[key]
-    : selectedPayments[house?.id] || 'FULL';
-  if (method === 'INSTALLMENT') {
-    const cardNumber = cardNumberFor(house);
-    if (cardNumber.length !== 19) {
-      if (key) {
-        cardErrors[key] = true;
-      }
-      return;
-    }
-    if (key) {
-      cardErrors[key] = false;
-    }
-    emit('purchase', { house, paymentMethod: method, installmentCardNumber: cardNumber });
-    return;
-  }
-  if (key) {
-    cardErrors[key] = false;
-  }
-  emit('purchase', { house, paymentMethod: method });
+  emit('purchase', { house, paymentMethod: 'FULL' });
 };
 
 const statusLabel = (house) => statusLabels.value[house?.status] ?? t('statuses.pending');
@@ -1489,30 +1326,6 @@ const statusClass = (house) => {
   padding: 0.55rem 0.75rem;
   border-radius: var(--radius-md);
   border: 1px solid rgba(148, 163, 184, 0.35);
-}
-
-.installment-card-input {
-  display: grid;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
-}
-
-.installment-card-input label {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-}
-
-.installment-card-input input {
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.installment-card-input input:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .card-error {

@@ -39,10 +39,6 @@
               <dd>￥{{ formatCurrency(house.downPayment) }}</dd>
             </div>
             <div>
-              <dt>{{ t('adminReview.fields.installment') }}</dt>
-              <dd>{{ installmentLabel(house) }}</dd>
-            </div>
-            <div>
               <dt>{{ t('adminReview.fields.area') }}</dt>
               <dd>{{ formatNumber(house.area) }} ㎡</dd>
             </div>
@@ -163,18 +159,6 @@ const formatFloor = (value) => {
     return '—';
   }
   return t('adminReview.floorValue', { floor: value });
-};
-
-const installmentLabel = (house) => {
-  if (!house?.installmentMonthlyPayment) {
-    return t('adminReview.installmentUnavailable');
-  }
-  const amount = formatCurrency(house.installmentMonthlyPayment);
-  const months =
-    house.installmentMonths && Number(house.installmentMonths) > 0
-      ? house.installmentMonths
-      : t('adminReview.installmentUnknownMonths');
-  return t('adminReview.installmentValue', { amount, months });
 };
 
 const firstImage = (house) => {

@@ -71,11 +71,33 @@
         </div>
 
         <section class="workspace">
-          <section v-if="messages.error" class="alert">
-            <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
+        <section v-if="messages.error" class="alert">
+          <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
+        </section>
+
+          <section v-if="contractDownload" class="contract-download">
+            <div>
+              <h3>{{ t('contracts.generated.downloadTitle') }}</h3>
+              <p class="contract-download__meta">
+                {{ t('contracts.generated.summary', {
+                  title: contractDownload.title,
+                  buyer: contractDownload.buyerName,
+                  seller: contractDownload.sellerName,
+                  amount: contractDownload.amount
+                }) }}
+              </p>
+            </div>
+            <div class="contract-download__actions">
+              <a :href="contractDownload.url" :download="contractDownload.buyerFileName" class="cta primary">
+                {{ t('contracts.generated.downloadBuyer') }}
+              </a>
+              <a :href="contractDownload.url" :download="contractDownload.sellerFileName" class="cta ghost">
+                {{ t('contracts.generated.downloadSeller') }}
+              </a>
+            </div>
           </section>
 
-          <main class="main-content">
+        <main class="main-content">
         <HouseExplorer
           v-if="activeTab === 'home'"
           :houses="houses"
@@ -90,7 +112,7 @@
           :api-base-url="apiBaseUrl"
           :favorite-ids="favoriteIdList"
           :can-favorite="Boolean(currentUser)"
-          :page-size="6"
+          :page-size="4"
           @search="handleFilterSearch"
           @reserve="handleReserve"
           @purchase="handlePurchase"
@@ -112,7 +134,7 @@
           :api-base-url="apiBaseUrl"
           :favorite-ids="favoriteIdList"
           :can-favorite="Boolean(currentUser)"
-          :page-size="6"
+          :page-size="4"
           :show-filters="false"
           :show-recommendations="false"
           :empty-message="t('favorites.empty')"
@@ -345,6 +367,7 @@ const reservationLoading = ref(false);
 const reservationTarget = ref(null);
 const purchaseContractVisible = ref(false);
 const pendingPurchaseOptions = ref(null);
+const contractDownload = ref(null);
 const dismissedUrgentTaskKeys = ref([]);
 const messages = reactive({ error: '', success: '' });
 const accountSaving = ref(false);
@@ -588,7 +611,9 @@ const translations = {
           default: '我已阅读并同意合同条款',
           buyer: '我已阅读并同意，继续购买',
           seller: '我已阅读并同意，提交房源'
-        }
+        },
+        buyer: '买方',
+        seller: '卖方'
       },
       status: {
         accepted: '已确认合同条款',
@@ -610,6 +635,19 @@ const translations = {
           notice:
             '下单前请完整阅读合同条款，确认自身符合当地购房资格、资信条件及资金监管要求。'
         }
+      },
+      generated: {
+        downloadTitle: '电子购房合同已生成',
+        summary: '《{title}》签署双方：甲方（卖方）{seller} / 乙方（买方）{buyer}，交易金额 {amount}。',
+        downloadBuyer: '下载乙方签署版',
+        downloadSeller: '下载甲方签署版',
+        title: '电子购房合同',
+        parties: '甲方（卖方）：{seller}（账号：{sellerAccount}）\n乙方（买方）：{buyer}（账号：{buyerAccount}）',
+        house: '房屋信息：{address}，建筑面积 {area}，成交价款 {price}',
+        commitments:
+          '双方承诺所填信息真实、遵守平台监管与预约看房安排，并在资金监管与线下交接完成后共同确认交易状态。',
+        signatures: '请在下方留出甲乙双方签字及日期位置：',
+        signatureLines: '甲方（卖方）签字：_____________   日期：__________\n乙方（买方）签字：_____________   日期：__________'
       },
       secondHand: {
         title: '二手房买卖合同（平台示范文本）',
@@ -1203,11 +1241,11 @@ const translations = {
       houseCreatedApproved: '已新增房源《{title}》，已通过审核并上架。',
       houseCreatedPending: '已提交房源《{title}》，当前状态：{status}。',
       houseDraftCreated: '已保存房源《{title}》草稿。',
-      purchase: '成功以{method}方式购买房源《{title}》，支付金额 ￥{amount}。',
+      purchaseWithReminder: '成功以{method}方式购买房源《{title}》，支付金额 ￥{amount}，请按预约时间完成线下看房。',
       reservation: '已成功预定房源《{title}》，定金 ￥{amount}。',
       orderReleasedSeller: '订单资金已发放给卖家。',
       orderReleasedBuyer: '订单资金已退回买家。',
-      walletTopUp: '钱包充值成功，充值金额 ￥{amount}，获赠 {points} 积分。',
+      walletTopUpPending: '已提交钱包充值 ￥{amount}（含赠送 {points} 积分），资金将汇入管理员账户等待审核。',
       accountUpdated: '账号信息已更新。',
       orderReturned: '订单《{title}》已退换成功。',
       viewingScheduled: '已为房源《{title}》安排看房，时间 {time}。',
@@ -1253,14 +1291,13 @@ const translations = {
       purchaseBuyerOnly: '只有买家角色可以发起购买。',
       purchaseVerifyFirst: '购买前请先完成实名认证。',
       purchaseNotApproved: '房源尚未通过审核，暂不可购买。',
-      purchaseSelectMethod: '请选择支付方式后再尝试购买。',
+      purchaseReserveFirst: '请先预约并确认看房后再进行全款支付。',
       purchaseOwnListing: '不能购买自己发布的房源。',
       purchaseFailed: '支付失败，请稍后再试。',
       reserveBuyerOnly: '只有买家角色可以预定房源。',
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
-      installmentCardRequired: '填写19位数字',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
       consumePoints: '扣减积分失败，请稍后重试。',
@@ -1397,7 +1434,7 @@ const translations = {
       },
       topUp: {
         title: '充值钱包',
-        hint: '系统以人民币元为结算单位，每充值 100 元获赠 10 积分。',
+        hint: '充值款项将先汇入管理员账户并等待审核；系统以人民币元为结算单位，每充值 100 元获赠 10 积分。',
         amountLabel: '充值金额（元）',
         amountPlaceholder: '例如：5000',
         referenceLabel: '备注（选填）',
@@ -1804,7 +1841,9 @@ const translations = {
           default: 'I have read and agree to the terms',
           buyer: 'I agree and continue to purchase',
           seller: 'I agree and submit the listing'
-        }
+        },
+        buyer: 'Buyer',
+        seller: 'Seller'
       },
       status: {
         accepted: 'Agreement confirmed',
@@ -1826,6 +1865,19 @@ const translations = {
           notice:
             'Read the agreement carefully before ordering and confirm that you satisfy local purchase qualifications, credit requirements, and escrow rules.'
         }
+      },
+      generated: {
+        downloadTitle: 'Digital purchase contract ready',
+        summary: 'Contract for “{title}”: Seller (Party A) {seller} / Buyer (Party B) {buyer}, amount {amount}.',
+        downloadBuyer: 'Download buyer copy',
+        downloadSeller: 'Download seller copy',
+        title: 'Digital housing purchase contract',
+        parties: 'Party A (Seller): {seller} (account: {sellerAccount})\nParty B (Buyer): {buyer} (account: {buyerAccount})',
+        house: 'Property: {address}, Area: {area}, Price: {price}',
+        commitments:
+          'Both parties confirm the information is accurate, will follow platform escrow and viewing appointments, and will jointly confirm status after offline handover.',
+        signatures: 'Please reserve space below for signatures and dates:',
+        signatureLines: 'Seller signature: ______________   Date: __________\nBuyer signature: ______________   Date: __________'
       },
       secondHand: {
         title: 'Second-hand Housing Sale Agreement (Sample)',
@@ -2420,11 +2472,11 @@ const translations = {
       houseCreatedApproved: 'Listing “{title}” has been created and approved.',
       houseCreatedPending: 'Listing “{title}” has been submitted. Current status: {status}.',
       houseDraftCreated: 'Draft for “{title}” saved successfully.',
-      purchase: 'Successfully purchased “{title}” via {method}, amount paid ¥{amount}.',
+      purchaseWithReminder: 'Successfully purchased “{title}” via {method}, amount paid ¥{amount}. Please attend your scheduled viewing.',
       reservation: 'Successfully reserved “{title}” with a deposit of ¥{amount}.',
       orderReleasedSeller: 'Funds released to the seller.',
       orderReleasedBuyer: 'Funds returned to the buyer.',
-      walletTopUp: 'Wallet top-up successful: ¥{amount} added, {points} points awarded.',
+      walletTopUpPending: 'Top-up submitted: ¥{amount} (+{points} pts). Funds will be sent to the admin account for approval.',
       accountUpdated: 'Account details updated successfully.',
       orderReturned: 'Order “{title}” has been refunded.',
       viewingScheduled: 'Viewing for “{title}” has been scheduled at {time}.',
@@ -2470,14 +2522,13 @@ const translations = {
       purchaseBuyerOnly: 'Only buyers can make purchases.',
       purchaseVerifyFirst: 'Please complete real-name verification before purchasing.',
       purchaseNotApproved: 'The listing has not been approved yet.',
-      purchaseSelectMethod: 'Please choose a payment method first.',
+      purchaseReserveFirst: 'Please book and confirm a viewing before paying in full.',
       purchaseOwnListing: 'You cannot purchase your own listing.',
       purchaseFailed: 'Payment failed. Please try again later.',
       reserveBuyerOnly: 'Only buyers can reserve listings.',
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
-      installmentCardRequired: 'Please enter a 19-digit card number.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
       consumePoints: 'Failed to deduct points. Please try again later.',
@@ -2610,7 +2661,7 @@ const translations = {
       },
       topUp: {
         title: 'Top up wallet',
-        hint: 'Balances are stored in Chinese Yuan. Earn 10 points for every ¥100 top-up.',
+        hint: 'Funds are routed to the admin account for approval. Balances are stored in Chinese Yuan. Earn 10 points for every ¥100 top-up.',
         amountLabel: 'Amount (CNY)',
         amountPlaceholder: 'e.g. 5000',
         referenceLabel: 'Reference (optional)',
@@ -3000,7 +3051,6 @@ const serverMessageKeyMap = Object.freeze({
   '房源尚未通过审核，暂不可购买。': 'errors.purchaseNotApproved',
   '积分不足': 'prediction.errors.pointsInsufficient',
   '请求参数校验失败': 'serverMessages.generic.validationFailed',
-  '填写19位数字': 'errors.installmentCardRequired'
 });
 
 const containsCJK = (text) => /[\u3400-\u9FFF]/.test(text);
@@ -4375,7 +4425,7 @@ const handleAdminUnlist = async (house) => {
   }
 };
 
-const preparePurchase = ({ house, paymentMethod, installmentCardNumber }) => {
+const preparePurchase = ({ house, paymentMethod }) => {
   if (!isBuyer.value) {
     messages.error = t('errors.purchaseBuyerOnly');
     messages.success = '';
@@ -4391,19 +4441,10 @@ const preparePurchase = ({ house, paymentMethod, installmentCardNumber }) => {
     messages.success = '';
     return null;
   }
-  if (!paymentMethod) {
-    messages.error = t('errors.purchaseSelectMethod');
+  if (!house.reservationActive || !house.reservationOwnedByRequester) {
+    messages.error = t('errors.purchaseReserveFirst');
     messages.success = '';
     return null;
-  }
-  let sanitizedCardNumber = '';
-  if (paymentMethod === 'INSTALLMENT') {
-    sanitizedCardNumber = sanitizeDigits(installmentCardNumber);
-    if (sanitizedCardNumber.length !== 19) {
-      messages.error = t('errors.installmentCardRequired');
-      messages.success = '';
-      return null;
-    }
   }
   const username = currentUser.value?.username;
   if (isSeller.value && username && username === house.sellerUsername) {
@@ -4413,10 +4454,10 @@ const preparePurchase = ({ house, paymentMethod, installmentCardNumber }) => {
   }
   messages.error = '';
   messages.success = '';
-  return { house, paymentMethod, installmentCardNumber: sanitizedCardNumber };
+  return { house, paymentMethod: paymentMethod || 'FULL' };
 };
 
-const executePurchase = async ({ house, paymentMethod, installmentCardNumber }) => {
+const executePurchase = async ({ house, paymentMethod }) => {
   if (!house?.id || !currentUser.value?.username) {
     return;
   }
@@ -4427,20 +4468,17 @@ const executePurchase = async ({ house, paymentMethod, installmentCardNumber }) 
     const payload = {
       houseId: house.id,
       buyerUsername: currentUser.value.username,
-      paymentMethod
+      paymentMethod: paymentMethod || 'FULL'
     };
-    if (paymentMethod === 'INSTALLMENT') {
-      payload.installmentCardNumber = installmentCardNumber;
-    }
     const { data } = await client.post('/orders', payload);
     const payment = formatCurrencyYuan(data.amount);
-    const methodLabel =
-      data.paymentMethod === 'INSTALLMENT' ? t('payments.installment') : t('payments.full');
-    messages.success = t('success.purchase', {
+    const methodLabel = t('payments.full');
+    messages.success = t('success.purchaseWithReminder', {
       method: methodLabel,
       title: data.houseTitle,
       amount: payment
     });
+    buildContractDownload({ house, amount: payment });
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -4477,6 +4515,47 @@ const handlePurchaseAgreementReject = () => {
   pendingPurchaseOptions.value = null;
   messages.error = t('contracts.errors.purchaseDeclined');
   messages.success = '';
+};
+
+const revokeContractDownload = () => {
+  if (contractDownload.value?.url) {
+    URL.revokeObjectURL(contractDownload.value.url);
+  }
+  contractDownload.value = null;
+};
+
+const buildContractDownload = ({ house, amount }) => {
+  if (!house) {
+    return;
+  }
+  revokeContractDownload();
+  const buyerName = currentUser.value?.displayName || currentUser.value?.username || t('contracts.common.buyer');
+  const sellerName = house.sellerName || house.sellerUsername || t('contracts.common.seller');
+  const sellerUsername = house.sellerUsername ? `@${house.sellerUsername}` : t('contracts.common.seller');
+  const buyerUsername = currentUser.value?.username ? `@${currentUser.value.username}` : t('contracts.common.buyer');
+  const contractText = [
+    t('contracts.generated.title', { title: house.title ?? '' }),
+    '',
+    t('contracts.generated.parties', { seller: sellerName, sellerAccount: sellerUsername, buyer: buyerName, buyerAccount: buyerUsername }),
+    t('contracts.generated.house', { address: house.address ?? '', area: house.area ?? '—', price: amount ?? formatCurrencyYuan(house.price) }),
+    t('contracts.generated.commitments'),
+    '',
+    t('contracts.generated.signatures'),
+    '',
+    t('contracts.generated.signatureLines')
+  ].join('\n');
+  const blob = new Blob([contractText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const base = `contract-${house.id ?? Date.now()}`;
+  contractDownload.value = {
+    url,
+    buyerFileName: `${base}-buyer.txt`,
+    sellerFileName: `${base}-seller.txt`,
+    title: house.title ?? '',
+    buyerName,
+    sellerName,
+    amount: amount ?? formatCurrencyYuan(house.price)
+  };
 };
 
 const handleUrgentTaskRead = (taskKey) => {
@@ -4615,7 +4694,7 @@ const handleTopUp = async ({ amount, reference }) => {
     const { data } = response;
     wallet.value = normalizeWallet(data, wallet.value);
     const bonusPoints = Math.floor((Number(amount) || 0) / 100) * 10;
-    messages.success = t('success.walletTopUp', {
+    messages.success = t('success.walletTopUpPending', {
       amount: formatCurrencyYuan(amount),
       points: bonusPoints
     });
@@ -5025,6 +5104,7 @@ const handleLoginSuccess = (user) => {
 };
 
 const handleLogout = () => {
+  revokeContractDownload();
   currentUser.value = null;
   houses.value = [];
   selectedHouse.value = null;
@@ -5098,6 +5178,7 @@ onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateMenuForViewport);
   }
+  revokeContractDownload();
 });
 </script>
 
@@ -5349,6 +5430,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1.6rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: color-mix(in srgb, var(--panel-card-bg) 92%, transparent);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
 .menu {
@@ -5449,6 +5538,50 @@ onBeforeUnmount(() => {
   padding: 0.9rem 1.2rem;
   border: 1px solid rgba(146, 174, 150, 0.35);
   backdrop-filter: blur(calc(var(--glass-blur) / 3));
+}
+
+.contract-download {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  background: color-mix(in srgb, var(--panel-card-bg) 95%, transparent);
+  box-shadow: 0 20px 45px rgba(93, 220, 255, 0.18);
+}
+
+.contract-download__meta {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-soft);
+}
+
+.contract-download__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.contract-download .cta {
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.contract-download .cta.primary {
+  background: var(--gradient-primary);
+  color: var(--color-text-on-emphasis);
+  box-shadow: var(--button-primary-shadow);
+  border: none;
+}
+
+.contract-download .cta:hover {
+  transform: translateY(-1px);
 }
 
 .main-content {

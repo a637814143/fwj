@@ -45,14 +45,6 @@
               <span v-if="house.downPayment">
                 {{ t('manage.list.pricing.downPayment', { amount: formatCurrency(house.downPayment) }) }}
               </span>
-              <span v-if="house.installmentMonthlyPayment">
-                {{
-                  t('manage.list.pricing.installment', {
-                    amount: formatCurrency(house.installmentMonthlyPayment),
-                    months: house.installmentMonths || '—'
-                  })
-                }}
-              </span>
             </td>
             <td>{{ formatNumber(house.area) }} ㎡</td>
             <td>{{ formatFloor(house.floor) }}</td>
@@ -88,17 +80,6 @@
                 </button>
               </template>
               <template v-else-if="isBuyer">
-                <div class="payment-select">
-                  <label>
-                    {{ t('manage.list.actions.paymentLabel') }}
-                    <select v-model="selectedPayments[house.id]">
-                      <option value="FULL">{{ t('manage.list.actions.paymentFull') }}</option>
-                      <option value="INSTALLMENT" :disabled="!house.installmentMonthlyPayment">
-                        {{ t('manage.list.actions.paymentInstallment') }}
-                      </option>
-                    </select>
-                  </label>
-                </div>
                 <button
                   class="btn primary"
                   :disabled="ordersLoading || loading || house.status !== 'APPROVED'"
@@ -187,8 +168,6 @@ const t = (key, vars) => translate(key, vars);
 
 const settings = inject('appSettings', { language: 'zh' });
 const locale = computed(() => (settings?.language === 'en' ? 'en-US' : 'zh-CN'));
-
-const selectedPayments = reactive({});
 
 const sellerRoles = ['SELLER', 'LANDLORD'];
 const isBuyer = computed(() => props.currentUser?.role === 'BUYER');
@@ -349,50 +328,11 @@ const handleReview = (house, status) => {
   emit('review', { houseId: house.id, status });
 };
 
-watch(
-  () => props.houses,
-  (list) => {
-    const ids = new Set();
-    (list ?? []).forEach((house) => {
-      const id = house?.id;
-      if (id == null) {
-        return;
-      }
-      const key = String(id);
-      ids.add(key);
-      if (!selectedPayments[key]) {
-        selectedPayments[key] = 'FULL';
-      }
-      if (selectedPayments[key] === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
-        selectedPayments[key] = 'FULL';
-      }
-    });
-    Object.keys(selectedPayments).forEach((key) => {
-      if (!ids.has(key)) {
-        delete selectedPayments[key];
-      }
-    });
-  },
-  { immediate: true }
-);
-
-const resolvePaymentMethod = (house) => {
-  if (!house?.id) {
-    return 'FULL';
-  }
-  const key = String(house.id);
-  const method = selectedPayments[key] ?? 'FULL';
-  if (method === 'INSTALLMENT' && !house.installmentMonthlyPayment) {
-    return 'FULL';
-  }
-  return method;
-};
-
 const handlePurchase = (house) => {
   if (!isBuyer.value || house.status !== 'APPROVED') {
     return;
   }
-  emit('purchase', { house, paymentMethod: resolvePaymentMethod(house) });
+  emit('purchase', { house, paymentMethod: 'FULL' });
 };
 
 const handleContactSeller = (house) => {
@@ -620,26 +560,6 @@ tbody tr:hover {
   min-width: 150px;
 }
 
-.payment-select {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.payment-select label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-weight: 600;
-  color: var(--color-text-strong);
-}
-
-.payment-select select {
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  background: rgba(255, 255, 255, 0.92);
-}
 
 .btn {
   padding: 0.45rem 0.95rem;

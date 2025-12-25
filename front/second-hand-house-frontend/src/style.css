@@ -10,18 +10,18 @@
   --font-sans: 'SF Pro Display', 'SF Pro Text', 'Inter', 'Noto Sans SC', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
   --base-font-size: 16px;
-  --color-text-strong: #3f352c;
-  --color-text-muted: #746a5e;
-  --color-text-soft: #8c8276;
-  --color-background: #f5f1eb;
-  --color-surface: rgba(255, 255, 255, 0.94);
-  --color-surface-soft: rgba(247, 242, 236, 0.82);
-  --color-surface-tint: rgba(236, 230, 223, 0.72);
-  --color-border: rgba(199, 189, 178, 0.42);
-  --color-border-strong: rgba(189, 177, 165, 0.55);
-  --color-text-on-emphasis: #faf7f3;
-  --color-accent: #b48c6e;
-  --color-accent-soft: rgba(180, 140, 110, 0.22);
+  --color-text-strong: #d7e7ff;
+  --color-text-muted: #9fb8e0;
+  --color-text-soft: #7ea1cc;
+  --color-background: #0b1220;
+  --color-surface: rgba(24, 32, 52, 0.92);
+  --color-surface-soft: rgba(18, 26, 44, 0.82);
+  --color-surface-tint: rgba(64, 102, 180, 0.32);
+  --color-border: rgba(92, 126, 192, 0.35);
+  --color-border-strong: rgba(124, 168, 255, 0.55);
+  --color-text-on-emphasis: #0b1220;
+  --color-accent: #5ddcff;
+  --color-accent-soft: rgba(93, 220, 255, 0.28);
   --glass-blur: 26px;
   --shadow-sm: 0 12px 28px rgba(95, 85, 76, 0.12);
   --shadow-md: 0 22px 48px rgba(105, 95, 86, 0.18);
@@ -31,23 +31,23 @@
   --radius-lg: 1.35rem;
   --radius-xl: 1.85rem;
   --radius-pill: 999px;
-  --gradient-primary: linear-gradient(135deg, #b48c6e 0%, #9aa1a8 55%, #7c8c99 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(180, 140, 110, 0.18), rgba(154, 161, 168, 0.16));
-  --gradient-surface: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(245, 238, 231, 0.84));
+  --gradient-primary: linear-gradient(135deg, #5ddcff 0%, #7f6bff 45%, #00c2ff 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(93, 220, 255, 0.18), rgba(127, 107, 255, 0.2));
+  --gradient-surface: linear-gradient(160deg, rgba(12, 18, 32, 0.96), rgba(16, 28, 52, 0.9));
   --transition-base: 0.22s ease;
-  --panel-card-bg: color-mix(in srgb, var(--color-surface) 96%, transparent);
-  --panel-card-soft-bg: color-mix(in srgb, var(--color-surface-soft) 94%, transparent);
+  --panel-card-bg: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  --panel-card-soft-bg: color-mix(in srgb, var(--color-surface-soft) 92%, transparent);
   --panel-card-tint: color-mix(in srgb, var(--color-surface-tint) 90%, transparent);
   --wallet-card-bg: var(--panel-card-bg);
   --wallet-card-points-bg: var(--panel-card-tint);
-  --wallet-card-shadow: 0 20px 45px rgba(140, 126, 112, 0.2);
-  --wallet-points-color: #b78460;
-  --wallet-positive-color: #6c9a8b;
-  --wallet-negative-color: #c47f74;
-  --wallet-button-shadow: 0 15px 30px rgba(150, 132, 118, 0.26);
-  --wallet-button-shadow-hover: 0 18px 36px rgba(150, 132, 118, 0.3);
-  --button-primary-shadow: 0 18px 32px rgba(150, 132, 118, 0.3);
-  --button-primary-shadow-hover: 0 20px 36px rgba(150, 132, 118, 0.34);
+  --wallet-card-shadow: 0 20px 45px rgba(0, 255, 255, 0.18);
+  --wallet-points-color: #7f6bff;
+  --wallet-positive-color: #5ddcff;
+  --wallet-negative-color: #ff6ba3;
+  --wallet-button-shadow: 0 15px 30px rgba(0, 255, 255, 0.24);
+  --wallet-button-shadow-hover: 0 18px 36px rgba(127, 107, 255, 0.3);
+  --button-primary-shadow: 0 18px 32px rgba(127, 107, 255, 0.35);
+  --button-primary-shadow-hover: 0 20px 36px rgba(93, 220, 255, 0.32);
 }
 
 :root[data-font='small'] {

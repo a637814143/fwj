@@ -28,13 +28,42 @@
       <label>
         {{ t('manage.form.fields.address') }}
         <input
-          v-model.trim="form.address"
+          v-model.trim="form.addressDetail"
           type="text"
           required
           :placeholder="t('manage.form.placeholders.address')"
           :disabled="disabled"
         />
       </label>
+
+      <div class="location-group" aria-label="地段选择">
+        <label>
+          省份
+          <select v-model="form.location.province" :disabled="disabled">
+            <option value="云南省">云南省</option>
+          </select>
+        </label>
+        <label>
+          地州
+          <select v-model="form.location.city" :disabled="disabled">
+            <option value="" disabled>请选择地州</option>
+            <option v-for="city in Object.keys(yunnanRegions)" :key="city" :value="city">{{ city }}</option>
+          </select>
+        </label>
+        <label>
+          县区
+          <select v-model="form.location.county" :disabled="disabled || !form.location.city">
+            <option value="" disabled>请选择县区</option>
+            <option
+              v-for="county in (yunnanRegions[form.location.city] || [])"
+              :key="county"
+              :value="county"
+            >
+              {{ county }}
+            </option>
+          </select>
+        </label>
+      </div>
 
       <label>
         {{ t('manage.form.fields.price') }}
@@ -71,30 +100,6 @@
           step="0.01"
           required
           :placeholder="t('manage.form.placeholders.area')"
-          :disabled="disabled"
-        />
-      </label>
-
-      <label>
-        {{ t('manage.form.fields.installmentMonthly') }}
-        <input
-          :value="formattedInstallment"
-          type="text"
-          readonly
-          :placeholder="t('manage.form.placeholders.installmentMonthly')"
-          :disabled="disabled"
-        />
-        <small class="hint">{{ t('manage.form.hints.installmentCalculation') }}</small>
-      </label>
-
-      <label>
-        {{ t('manage.form.fields.installmentMonths') }}
-        <input
-          v-model.number="form.installmentMonths"
-          type="number"
-          min="1"
-          required
-          :placeholder="t('manage.form.placeholders.installmentMonths')"
           :disabled="disabled"
         />
       </label>
@@ -324,6 +329,25 @@ const keywordSeparator = computed(() => {
 
 const sellerRoles = ['SELLER', 'LANDLORD'];
 
+const yunnanRegions = {
+  昆明市: ['五华区', '盘龙区', '官渡区', '西山区', '呈贡区', '东川区', '晋宁区', '安宁市', '富民县', '嵩明县', '宜良县', '石林彝族自治县', '禄劝彝族苗族自治县', '寻甸回族彝族自治县'],
+  曲靖市: ['麒麟区', '沾益区', '马龙区', '宣威市', '陆良县', '师宗县', '罗平县', '富源县', '会泽县'],
+  玉溪市: ['红塔区', '江川区', '通海县', '华宁县', '易门县', '峨山彝族自治县', '新平彝族傣族自治县', '元江哈尼族彝族傣族自治县'],
+  保山市: ['隆阳区', '施甸县', '龙陵县', '昌宁县', '腾冲市'],
+  昭通市: ['昭阳区', '水富市', '鲁甸县', '巧家县', '盐津县', '大关县', '永善县', '绥江县', '镇雄县', '彝良县', '威信县'],
+  丽江市: ['古城区', '永胜县', '华坪县', '玉龙纳西族自治县', '宁蒗彝族自治县'],
+  普洱市: ['思茅区', '宁洱哈尼族彝族自治县', '墨江哈尼族自治县', '景东彝族自治县', '景谷傣族彝族自治县', '镇沅彝族哈尼族拉祜族自治县', '江城哈尼族彝族自治县', '孟连傣族拉祜族佤族自治县', '澜沧拉祜族自治县', '西盟佤族自治县'],
+  临沧市: ['临翔区', '凤庆县', '云县', '永德县', '镇康县', '双江拉祜族佤族布朗族傣族自治县', '耿马傣族佤族自治县', '沧源佤族自治县'],
+  文山壮族苗族自治州: ['文山市', '砚山县', '西畴县', '麻栗坡县', '马关县', '丘北县', '广南县', '富宁县'],
+  红河哈尼族彝族自治州: ['蒙自市', '个旧市', '开远市', '弥勒市', '绿春县', '建水县', '石屏县', '泸西县', '元阳县', '红河县', '金平苗族瑶族傣族自治县', '河口瑶族自治县', '屏边苗族自治县'],
+  西双版纳傣族自治州: ['景洪市', '勐海县', '勐腊县'],
+  楚雄彝族自治州: ['楚雄市', '双柏县', '牟定县', '南华县', '姚安县', '大姚县', '永仁县', '元谋县', '武定县', '禄丰县'],
+  大理白族自治州: ['大理市', '祥云县', '宾川县', '弥渡县', '永平县', '云龙县', '洱源县', '剑川县', '鹤庆县', '漾濞彝族自治县', '南涧彝族自治县', '巍山彝族回族自治县'],
+  德宏傣族景颇族自治州: ['芒市', '瑞丽市', '梁河县', '盈江县', '陇川县'],
+  怒江傈僳族自治州: ['泸水市', '福贡县', '贡山独龙族怒族自治县', '兰坪白族普米族自治县'],
+  迪庆藏族自治州: ['香格里拉市', '德钦县', '维西傈僳族自治县']
+};
+
 const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 const formatDate = (date) => {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
@@ -392,7 +416,12 @@ const resolveAssetUrl = (raw) => {
 
 const form = reactive({
   title: '',
-  address: '',
+  addressDetail: '',
+  location: {
+    province: '云南省',
+    city: '',
+    county: ''
+  },
   price: '',
   downPayment: '',
   area: '',
@@ -454,7 +483,9 @@ const sanitizedImageUrls = computed(() =>
 const formHasContent = computed(() => {
   return Boolean(
     form.title ||
-      form.address ||
+      form.addressDetail ||
+      form.location.city ||
+      form.location.county ||
       form.price ||
       form.downPayment ||
       form.area ||
@@ -464,8 +495,6 @@ const formHasContent = computed(() => {
       form.contactNumber ||
       form.listingDate ||
       form.floor ||
-      form.installmentMonthlyPayment ||
-      form.installmentMonths ||
       keywordInput.value ||
       form.imageUrls.length
   );
@@ -558,7 +587,10 @@ const applyImageUrls = (images = []) => {
 
 const setFormDefaults = () => {
   form.title = '';
-  form.address = '';
+  form.addressDetail = '';
+  form.location.province = '云南省';
+  form.location.city = '';
+  form.location.county = '';
   form.price = '';
   form.downPayment = '';
   form.area = '';
@@ -581,7 +613,19 @@ const setFormDefaults = () => {
 
 const fillFromHouse = (house) => {
   form.title = house.title ?? '';
-  form.address = house.address ?? '';
+  const addressText = house.address ?? '';
+  if (typeof addressText === 'string' && addressText.includes('云南省')) {
+    const parts = addressText.split(/-/);
+    form.location.province = parts[0] || '云南省';
+    form.location.city = parts[1] || '';
+    form.location.county = parts[2] || '';
+    form.addressDetail = parts.slice(3).join('-') || '';
+  } else {
+    form.addressDetail = addressText;
+    form.location.province = '云南省';
+    form.location.city = '';
+    form.location.county = '';
+  }
   form.price = house.price ?? '';
   form.downPayment = house.downPayment ?? '';
   form.area = house.area ?? '';
@@ -761,7 +805,15 @@ const removeImage = (index) => {
 };
 
 const validateForm = ({ draft = false } = {}) => {
-  if (!form.title || !form.address || !form.sellerUsername || !form.sellerName || !form.contactNumber) {
+  if (
+    !form.title ||
+    !form.addressDetail ||
+    !form.location.city ||
+    !form.location.county ||
+    !form.sellerUsername ||
+    !form.sellerName ||
+    !form.contactNumber
+  ) {
     formError.value = t('manage.form.validation.required');
     return false;
   }
@@ -794,14 +846,6 @@ const validateForm = ({ draft = false } = {}) => {
     formError.value = t('manage.form.validation.area');
     return false;
   }
-  if (!ensurePositive(form.installmentMonthlyPayment)) {
-    formError.value = t('manage.form.validation.installmentMonthly');
-    return false;
-  }
-  if (!ensurePositive(form.installmentMonths)) {
-    formError.value = t('manage.form.validation.installmentMonths');
-    return false;
-  }
   formError.value = '';
   return true;
 };
@@ -829,9 +873,12 @@ const submitForm = (maybeOptions) => {
     sellerContractVisible.value = true;
     return;
   }
+  const address = [form.location.province, form.location.city, form.location.county, form.addressDetail]
+    .filter(Boolean)
+    .join('-');
   const payload = {
     title: form.title.trim(),
-    address: form.address.trim(),
+    address,
     price: normalizeNumber(form.price),
     downPayment: normalizeNumber(form.downPayment),
     area: normalizeNumber(form.area),
@@ -842,9 +889,7 @@ const submitForm = (maybeOptions) => {
     listingDate: form.listingDate,
     floor: normalizeNumber(form.floor),
     keywords: [...keywordsPreview.value],
-    imageUrls: sanitizedImageUrls.value,
-    installmentMonthlyPayment: normalizeNumber(form.installmentMonthlyPayment),
-    installmentMonths: normalizeNumber(form.installmentMonths)
+    imageUrls: sanitizedImageUrls.value
   };
   emit('submit', { payload, draft });
 };
@@ -981,6 +1026,16 @@ label {
   gap: 0.45rem;
   font-weight: 600;
   color: var(--color-text-strong);
+}
+
+.location-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel-card-bg) 90%, transparent);
+  border: 1px dashed rgba(59, 130, 246, 0.35);
 }
 
 input,

@@ -752,8 +752,6 @@ const translations = {
     houseDetail: {
       price: '总价',
       downPayment: '首付款',
-      installment: '分期计划（已停用）',
-      installmentValue: '分期功能已停用',
       area: '建筑面积',
       areaValue: '{area} ㎡',
       listedOn: '上架日期',
@@ -855,14 +853,10 @@ const translations = {
       fields: {
         price: '总价',
         downPayment: '首付',
-        installment: '分期方案（已停用）',
         area: '建筑面积',
         listedOn: '上架时间',
         floor: '楼层'
       },
-      installmentUnavailable: '分期功能已停用',
-      installmentUnknownMonths: '',
-      installmentValue: '分期功能已停用',
       floorValue: '第 {floor} 层',
       sellerAccount: '卖家账号',
       contactName: '联系人',
@@ -924,7 +918,6 @@ const translations = {
       platformFee: '手续费：￥{amount}',
       payment: {
         full: '全款支付',
-        installment: '分期支付（已停用）'
       },
       actions: {
         accept: '接受',
@@ -1018,8 +1011,6 @@ const translations = {
           price: '房源总价（元）',
           downPayment: '首付款（元）',
           area: '建筑面积（㎡）',
-          installmentMonthly: '（分期功能已删除，无需填写）',
-          installmentMonths: '（分期功能已删除，无需填写）',
           sellerUsername: '卖家账号',
           sellerName: '卖家昵称',
           contactNumber: '联系方式',
@@ -1035,8 +1026,6 @@ const translations = {
           price: '例如 2000000',
           downPayment: '例如 600000',
           area: '例如 89',
-          installmentMonthly: '分期功能已删除，无需填写',
-          installmentMonths: '分期功能已删除，无需填写',
           sellerUsername: '请输入卖家账号',
           sellerName: '请输入卖家昵称',
           contactNumber: '请输入联系电话',
@@ -1045,7 +1034,6 @@ const translations = {
           keywords: '例如 市中心、近地铁、朝南'
         },
         hints: {
-          installmentCalculation: '分期功能已删除，表单不再需要填写任何分期相关信息。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
           noImages: '尚未上传图片。'
@@ -1075,9 +1063,7 @@ const translations = {
           price: '请输入有效的房源总价。',
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，请检查金额输入是否合理。',
-          area: '请输入有效的建筑面积。',
-          installmentMonthly: '分期功能已删除，无需填写任何分期信息。',
-          installmentMonths: '分期功能已删除，无需填写任何分期信息。'
+          area: '请输入有效的建筑面积。'
         }
       },
       list: {
@@ -1102,8 +1088,7 @@ const translations = {
         photoCount: '{count} 张图片',
         pricing: {
           full: '总价：￥{price}',
-          downPayment: '首付：￥{amount}',
-          installment: '分期功能已停用'
+          downPayment: '首付：￥{amount}'
         },
         keywordPlaceholder: '未设置',
         actions: {
@@ -1113,7 +1098,6 @@ const translations = {
           reject: '驳回',
           paymentLabel: '支付方式',
           paymentFull: '全款',
-          paymentInstallment: '分期（已停用）',
           sold: '已售出',
           processing: '处理中…',
           purchase: '立即购买',
@@ -1334,7 +1318,6 @@ const translations = {
       unlistDefaultReason: '管理员手动下架'
     },
     payments: {
-      installment: '分期（已停用）',
       full: '全款'
     },
     explorer: {
@@ -1366,21 +1349,14 @@ const translations = {
         noImage: '暂无图片',
         fullPrice: '全款价格',
         downPayment: '首付',
-        installment: '分期功能已停用',
-        installmentMonths: '',
         area: '面积',
         listingDate: '挂牌日期',
         seller: '卖家',
         contact: '联系方式',
-        paymentMethod: '支付方式',
-        installmentCard: '分期功能已停用'
-      },
-      inputs: {
-        installmentCard: '分期功能已下线，无需填写'
+        paymentMethod: '支付方式'
       },
       payment: {
-        full: '全款支付',
-        installment: '分期付款（已停用）'
+        full: '全款支付'
       },
       states: {
         loading: '房源数据加载中…',
@@ -1410,8 +1386,7 @@ const translations = {
         soldOut: '该房源已售出，系统已自动下架。',
         loginAsBuyer: '登录买家账号后可进行预定或购买。',
         reservedByYou: '您已预定该房源，请留意卖家安排。',
-        reservedByOthers: '该房源已被其他买家预定，暂不可再次预定。',
-        installmentCardError: '分期功能已停用，无需填写'
+        reservedByOthers: '该房源已被其他买家预定，暂不可再次预定。'
       }
     },
     wallet: {
@@ -1681,8 +1656,7 @@ const translations = {
           REFUNDED: '已退款'
         },
         paymentMethods: {
-          FULL: '一次性付清',
-          INSTALLMENT: '分期付款（已停用）'
+          FULL: '一次性付清'
         },
         viewing: {
           title: '看房安排',
@@ -1982,8 +1956,6 @@ const translations = {
     houseDetail: {
       price: 'Total price',
       downPayment: 'Down payment',
-      installment: 'Instalment plan (disabled)',
-      installmentValue: 'Instalment payments are disabled',
       area: 'Floor area',
       areaValue: '{area} ㎡',
       listedOn: 'Listed on',
@@ -2085,14 +2057,10 @@ const translations = {
       fields: {
         price: 'Total price',
         downPayment: 'Down payment',
-        installment: 'Instalment plan (disabled)',
         area: 'Floor area',
         listedOn: 'Listed on',
         floor: 'Floor'
       },
-      installmentUnavailable: 'Instalment plan disabled',
-      installmentUnknownMonths: '',
-      installmentValue: 'Instalment plan disabled',
       floorValue: 'Level {floor}',
       sellerAccount: 'Seller account',
       contactName: 'Contact name',
@@ -2153,8 +2121,7 @@ const translations = {
       escrowBalance: 'Escrow: ¥{amount}',
       platformFee: 'Fee: ¥{amount}',
       payment: {
-        full: 'Full payment',
-        installment: 'Instalments (disabled)'
+        full: 'Full payment'
       },
       actions: {
         accept: 'Accept',
@@ -2249,8 +2216,6 @@ const translations = {
           price: 'Total price (CNY)',
           downPayment: 'Down payment (CNY)',
           area: 'Floor area (㎡)',
-          installmentMonthly: '(Installments removed; no input needed)',
-          installmentMonths: '(Installments removed; no input needed)',
           sellerUsername: 'Seller username',
           sellerName: 'Seller display name',
           contactNumber: 'Contact number',
@@ -2266,8 +2231,6 @@ const translations = {
           price: 'e.g. 2000000',
           downPayment: 'e.g. 600000',
           area: 'e.g. 89',
-          installmentMonthly: 'Installments have been removed; no monthly amount is needed',
-          installmentMonths: 'Installments have been removed; no term is needed',
           sellerUsername: 'Enter seller username',
           sellerName: 'Enter seller display name',
           contactNumber: 'Enter contact number',
@@ -2276,7 +2239,6 @@ const translations = {
           keywords: 'e.g. city centre, subway nearby, south-facing'
         },
         hints: {
-          installmentCalculation: 'Installment payments have been removed; no related inputs are required.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
           noImages: 'No images uploaded yet.'
@@ -2306,9 +2268,7 @@ const translations = {
           price: 'Enter a valid total price.',
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price; please review the amount.',
-          area: 'Enter a valid floor area.',
-          installmentMonthly: 'Installment payments have been removed; no installment info is required.',
-          installmentMonths: 'Installment payments have been removed; no installment info is required.'
+          area: 'Enter a valid floor area.'
         }
       },
       list: {
@@ -2333,8 +2293,7 @@ const translations = {
         photoCount: '{count} photos',
         pricing: {
           full: 'Full price: ￥{price}',
-          downPayment: 'Down payment: ￥{amount}',
-          installment: 'Instalment payments disabled'
+          downPayment: 'Down payment: ￥{amount}'
         },
         keywordPlaceholder: 'Not set',
         actions: {
@@ -2344,7 +2303,6 @@ const translations = {
           reject: 'Reject',
           paymentLabel: 'Payment method',
           paymentFull: 'Full',
-          paymentInstallment: 'Instalments (disabled)',
           sold: 'Sold',
           processing: 'Processing…',
           purchase: 'Purchase now',
@@ -2565,7 +2523,6 @@ const translations = {
       unlistDefaultReason: 'Admin manual unlisting'
     },
     payments: {
-      installment: 'instalments (disabled)',
       full: 'full payment'
     },
     explorer: {
@@ -2597,21 +2554,14 @@ const translations = {
         noImage: 'No image',
         fullPrice: 'Full payment price',
         downPayment: 'Down payment',
-        installment: 'Instalments (disabled)',
-        installmentMonths: '',
         area: 'Area',
         listingDate: 'Listed on',
         seller: 'Seller',
         contact: 'Contact',
-        paymentMethod: 'Payment method',
-        installmentCard: 'Instalment payments disabled'
-      },
-      inputs: {
-        installmentCard: 'Instalment payments are disabled; no card is needed'
+        paymentMethod: 'Payment method'
       },
       payment: {
-        full: 'Full payment',
-        installment: 'Instalments (disabled)'
+        full: 'Full payment'
       },
       states: {
         loading: 'Loading listings…',
@@ -2638,8 +2588,7 @@ const translations = {
         soldOut: 'This listing has been sold and automatically removed from the storefront.',
         loginAsBuyer: 'Sign in with a buyer account to reserve or purchase listings.',
         reservedByYou: 'You have already reserved this listing. Please watch for the seller’s updates.',
-        reservedByOthers: 'Another buyer has reserved this listing. Reservations are temporarily unavailable.',
-        installmentCardError: 'Instalment payments are disabled; card entry is not required'
+        reservedByOthers: 'Another buyer has reserved this listing. Reservations are temporarily unavailable.'
       }
     },
     wallet: {
@@ -3757,33 +3706,34 @@ const generateReviewId = () => {
   return `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const normalizeHouse = (house) => {
-  const {
-    installment,
-    installmentMonthly,
-    installmentMonths,
-    installmentCard,
-    paymentMethod,
-    ...rest
-  } = house ?? {};
-
-  return {
-    ...rest,
-    price: rest?.price != null ? Number(rest.price) : null,
-    downPayment: rest?.downPayment != null ? Number(rest.downPayment) : null,
-    floor: rest?.floor != null ? Number(rest.floor) : null,
-    latitude: rest?.latitude != null ? Number(rest.latitude) : null,
-    longitude: rest?.longitude != null ? Number(rest.longitude) : null,
-    listingDate: rest?.listingDate ?? '',
-    imageUrls: Array.isArray(rest?.imageUrls) ? rest.imageUrls : [],
-    keywords: Array.isArray(rest?.keywords) ? rest.keywords : [],
-    status: rest?.status ?? 'PENDING_REVIEW',
-    reviewMessage: rest?.reviewMessage ?? '',
-    reviewedBy: rest?.reviewedBy ?? '',
-    reviewedAt: rest?.reviewedAt ?? '',
-    sensitiveMasked: Boolean(rest?.sensitiveMasked)
-  };
-};
+const normalizeHouse = (house = {}) => ({
+  id: house.id,
+  title: house.title ?? '',
+  address: house.address ?? '',
+  price: house.price != null ? Number(house.price) : null,
+  downPayment: house.downPayment != null ? Number(house.downPayment) : null,
+  area: house.area != null ? Number(house.area) : null,
+  description: house.description ?? '',
+  sellerUsername: house.sellerUsername ?? '',
+  sellerName: house.sellerName ?? '',
+  contactNumber: house.contactNumber ?? '',
+  listingDate: house.listingDate ?? '',
+  floor: house.floor != null ? Number(house.floor) : null,
+  latitude: house.latitude != null ? Number(house.latitude) : null,
+  longitude: house.longitude != null ? Number(house.longitude) : null,
+  imageUrls: Array.isArray(house.imageUrls) ? house.imageUrls : [],
+  keywords: Array.isArray(house.keywords) ? house.keywords : [],
+  status: house.status ?? 'PENDING_REVIEW',
+  reviewMessage: house.reviewMessage ?? '',
+  reviewedBy: house.reviewedBy ?? '',
+  reviewedAt: house.reviewedAt ?? '',
+  sensitiveMasked: Boolean(house.sensitiveMasked),
+  updatedAt: house.updatedAt ?? '',
+  createdAt: house.createdAt ?? '',
+  reservationActive: Boolean(house.reservationActive),
+  reservationOwnedByRequester: Boolean(house.reservationOwnedByRequester),
+  reservationBuyerUsername: house.reservationBuyerUsername ?? ''
+});
 
 const buildFilterParams = (filters) => {
   const params = {};
@@ -4246,39 +4196,53 @@ const guardReadOnly = () => {
 };
 
 const normalizeHousePayload = (payload, { draft = false } = {}) => {
-  const {
-    installment,
-    installmentMonthly,
-    installmentMonths,
-    installmentCard,
-    paymentMethod,
-    ...rest
-  } = payload ?? {};
+  const safePayload = payload ?? {};
 
-  const result = { ...rest };
-  result.imageUrls = Array.isArray(result.imageUrls)
-    ? result.imageUrls.map((url) => (url ?? '').trim()).filter((url) => url.length > 0)
-    : [];
-  result.keywords = Array.isArray(result.keywords)
-    ? result.keywords
-        .map((keyword) => (keyword ?? '').trim())
-        .filter((keyword) => keyword.length > 0)
-    : [];
-  result.price = Number(result.price ?? 0);
-  result.downPayment = Number(result.downPayment ?? 0);
+  const result = {
+    title: (safePayload.title ?? '').trim(),
+    address: safePayload.address ?? '',
+    price: Number(safePayload.price ?? 0),
+    downPayment: Number(safePayload.downPayment ?? 0),
+    area: Number(safePayload.area ?? 0),
+    description: safePayload.description ? safePayload.description.trim() : '',
+    sellerUsername: (safePayload.sellerUsername ?? '').trim(),
+    sellerName: (safePayload.sellerName ?? '').trim(),
+    contactNumber: (safePayload.contactNumber ?? '').trim(),
+    listingDate: safePayload.listingDate ?? '',
+    floor: safePayload.floor != null ? Number(safePayload.floor) : null,
+    imageUrls: Array.isArray(safePayload.imageUrls)
+      ? safePayload.imageUrls
+          .map((url) => (url ?? '').trim())
+          .filter((url) => url.length > 0)
+      : [],
+    keywords: Array.isArray(safePayload.keywords)
+      ? safePayload.keywords
+          .map((keyword) => (keyword ?? '').trim())
+          .filter((keyword) => keyword.length > 0)
+      : [],
+    saveAsDraft: draft
+  };
+
   if (!Number.isFinite(result.price)) {
     result.price = 0;
   }
   if (!Number.isFinite(result.downPayment)) {
     result.downPayment = 0;
   }
+  if (!Number.isFinite(result.area)) {
+    result.area = 0;
+  }
+  if (!Number.isFinite(result.floor)) {
+    result.floor = null;
+  }
+
   if (isSeller.value) {
     result.sellerUsername = currentUser.value.username;
     if (!result.sellerName) {
       result.sellerName = currentUser.value.displayName ?? '';
     }
   }
-  result.saveAsDraft = draft;
+
   return result;
 };
 

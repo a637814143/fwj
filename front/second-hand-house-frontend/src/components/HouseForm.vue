@@ -442,6 +442,7 @@ const fileInputRef = ref(null);
 const maxImageCount = 10;
 const sellerContractVisible = ref(false);
 const sellerContractAccepted = ref(false);
+const suppressAutoDownPayment = ref(false);
 
 const uploadEndpoint = computed(() => {
   const base = props.apiBaseUrl?.replace(/\/$/, '') ?? '';
@@ -579,6 +580,7 @@ const fillFromHouse = (house) => {
     form.location.city = '';
     form.location.county = '';
   }
+  suppressAutoDownPayment.value = true;
   form.price = house.price ?? '';
   form.downPayment = house.downPayment ?? '';
   form.area = house.area ?? '';
@@ -635,6 +637,22 @@ watch(
   () => {
     if (!props.initialHouse) {
       setFormDefaults();
+    }
+  }
+);
+
+watch(
+  () => form.price,
+  (value) => {
+    if (suppressAutoDownPayment.value) {
+      suppressAutoDownPayment.value = false;
+      return;
+    }
+    const priceNumber = Number(value);
+    if (Number.isFinite(priceNumber) && priceNumber > 0) {
+      form.downPayment = Number((priceNumber * 0.2).toFixed(2));
+    } else {
+      form.downPayment = '';
     }
   }
 );
@@ -981,12 +999,19 @@ label {
 
 .location-group {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-column: 1 / -1;
   gap: 0.75rem;
   padding: 0.75rem;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--panel-card-bg) 90%, transparent);
   border: 1px dashed rgba(59, 130, 246, 0.35);
+}
+
+@media (max-width: 900px) {
+  .location-group {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
 }
 
 input,

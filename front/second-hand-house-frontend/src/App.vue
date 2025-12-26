@@ -1074,7 +1074,7 @@ const translations = {
           listingDateFuture: '挂牌日期需晚于今天，请重新选择。',
           price: '请输入有效的房源总价。',
           downPayment: '请输入有效的首付款金额。',
-          downPaymentLimit: '首付需低于总价的120%，否则无法计算分期。',
+          downPaymentLimit: '首付需低于总价的120%，请检查金额输入是否合理。',
           area: '请输入有效的建筑面积。',
           installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
           installmentMonths: '分期期限必须大于0。'
@@ -2305,7 +2305,7 @@ const translations = {
           listingDateFuture: 'Please choose a future listing date.',
           price: 'Enter a valid total price.',
           downPayment: 'Enter a valid down payment amount.',
-          downPaymentLimit: 'The down payment must be below 120% of the total price to calculate instalments.',
+          downPaymentLimit: 'The down payment must be below 120% of the total price; please review the amount.',
           area: 'Enter a valid floor area.',
           installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
           installmentMonths: 'The instalment term must be greater than zero.'

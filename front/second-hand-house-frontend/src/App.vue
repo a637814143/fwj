@@ -100,7 +100,7 @@
         <main class="main-content">
         <HouseExplorer
           v-if="activeTab === 'home'"
-          :houses="houses"
+          :houses="marketplaceHouses"
           :loading="loading"
           :current-user="currentUser"
           :can-view-sensitive-info="canViewSensitiveInfo"
@@ -3320,6 +3320,16 @@ const canViewSensitiveInfo = computed(() => {
 
 const canManageHouses = computed(() => isSeller.value);
 
+const marketableStatuses = ['APPROVED', 'SOLD'];
+const isMarketVisible = (house) => {
+  if (!house || typeof house !== 'object') {
+    return false;
+  }
+  return marketableStatuses.includes(house.status);
+};
+
+const marketplaceHouses = computed(() => houses.value.filter(isMarketVisible));
+
 const favoriteHouses = computed(() => {
   const set = favoriteHouseIds.value;
   if (!(set instanceof Set) || set.size === 0) {
@@ -3329,7 +3339,7 @@ const favoriteHouses = computed(() => {
     if (!house || house.id == null) {
       return false;
     }
-    return set.has(String(house.id));
+    return set.has(String(house.id)) && isMarketVisible(house);
   });
 });
 

@@ -752,8 +752,8 @@ const translations = {
     houseDetail: {
       price: '总价',
       downPayment: '首付款',
-      installment: '分期计划',
-      installmentValue: '{amount} × {months} 期',
+      installment: '分期计划（已停用）',
+      installmentValue: '分期功能已停用',
       area: '建筑面积',
       areaValue: '{area} ㎡',
       listedOn: '上架日期',
@@ -855,14 +855,14 @@ const translations = {
       fields: {
         price: '总价',
         downPayment: '首付',
-        installment: '分期方案',
+        installment: '分期方案（已停用）',
         area: '建筑面积',
         listedOn: '上架时间',
         floor: '楼层'
       },
-      installmentUnavailable: '未提供分期方案',
-      installmentUnknownMonths: '未提供',
-      installmentValue: '￥{amount} × {months} 期',
+      installmentUnavailable: '分期功能已停用',
+      installmentUnknownMonths: '',
+      installmentValue: '分期功能已停用',
       floorValue: '第 {floor} 层',
       sellerAccount: '卖家账号',
       contactName: '联系人',
@@ -924,7 +924,7 @@ const translations = {
       platformFee: '手续费：￥{amount}',
       payment: {
         full: '全款支付',
-        installment: '分期支付'
+        installment: '分期支付（已停用）'
       },
       actions: {
         accept: '接受',
@@ -1018,8 +1018,8 @@ const translations = {
           price: '房源总价（元）',
           downPayment: '首付款（元）',
           area: '建筑面积（㎡）',
-          installmentMonthly: '预估月供（元）',
-          installmentMonths: '分期期限（月）',
+          installmentMonthly: '（分期功能已停用）',
+          installmentMonths: '（分期功能已停用）',
           sellerUsername: '卖家账号',
           sellerName: '卖家昵称',
           contactNumber: '联系方式',
@@ -1035,8 +1035,8 @@ const translations = {
           price: '例如 2000000',
           downPayment: '例如 600000',
           area: '例如 89',
-          installmentMonthly: '系统将根据价格、首付与分期自动计算',
-          installmentMonths: '例如 24',
+          installmentMonthly: '分期功能已下线，无需填写',
+          installmentMonths: '分期功能已下线，无需填写',
           sellerUsername: '请输入卖家账号',
           sellerName: '请输入卖家昵称',
           contactNumber: '请输入联系电话',
@@ -1045,7 +1045,7 @@ const translations = {
           keywords: '例如 市中心、近地铁、朝南'
         },
         hints: {
-          installmentCalculation: '系统会根据首付与分期设置自动预估月供。',
+          installmentCalculation: '分期功能已下线，相关月供计算不再需要。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
           noImages: '尚未上传图片。'
@@ -1076,8 +1076,8 @@ const translations = {
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，请检查金额输入是否合理。',
           area: '请输入有效的建筑面积。',
-          installmentMonthly: '无法计算有效的月供，请检查首付或分期设置。',
-          installmentMonths: '分期期限必须大于0。'
+          installmentMonthly: '分期功能已停用，无需填写月供。',
+          installmentMonths: '分期功能已停用，无需填写期数。'
         }
       },
       list: {
@@ -1103,7 +1103,7 @@ const translations = {
         pricing: {
           full: '总价：￥{price}',
           downPayment: '首付：￥{amount}',
-          installment: '分期：￥{amount} × {months} 期'
+          installment: '分期功能已停用'
         },
         keywordPlaceholder: '未设置',
         actions: {
@@ -1113,7 +1113,7 @@ const translations = {
           reject: '驳回',
           paymentLabel: '支付方式',
           paymentFull: '全款',
-          paymentInstallment: '分期',
+          paymentInstallment: '分期（已停用）',
           sold: '已售出',
           processing: '处理中…',
           purchase: '立即购买',
@@ -1334,7 +1334,7 @@ const translations = {
       unlistDefaultReason: '管理员手动下架'
     },
     payments: {
-      installment: '分期',
+      installment: '分期（已停用）',
       full: '全款'
     },
     explorer: {
@@ -1366,21 +1366,21 @@ const translations = {
         noImage: '暂无图片',
         fullPrice: '全款价格',
         downPayment: '首付',
-        installment: '分期（月供）',
-        installmentMonths: '× {count} 期',
+        installment: '分期功能已停用',
+        installmentMonths: '',
         area: '面积',
         listingDate: '挂牌日期',
         seller: '卖家',
         contact: '联系方式',
         paymentMethod: '支付方式',
-        installmentCard: '分期银行卡号'
+        installmentCard: '分期功能已停用'
       },
       inputs: {
-        installmentCard: '请输入19位银行卡号'
+        installmentCard: '分期功能已下线，无需填写'
       },
       payment: {
         full: '全款支付',
-        installment: '分期付款'
+        installment: '分期付款（已停用）'
       },
       states: {
         loading: '房源数据加载中…',
@@ -1411,7 +1411,7 @@ const translations = {
         loginAsBuyer: '登录买家账号后可进行预定或购买。',
         reservedByYou: '您已预定该房源，请留意卖家安排。',
         reservedByOthers: '该房源已被其他买家预定，暂不可再次预定。',
-        installmentCardError: '填写19位数字'
+        installmentCardError: '分期功能已停用，无需填写'
       }
     },
     wallet: {
@@ -1682,7 +1682,7 @@ const translations = {
         },
         paymentMethods: {
           FULL: '一次性付清',
-          INSTALLMENT: '分期付款'
+          INSTALLMENT: '分期付款（已停用）'
         },
         viewing: {
           title: '看房安排',
@@ -1982,8 +1982,8 @@ const translations = {
     houseDetail: {
       price: 'Total price',
       downPayment: 'Down payment',
-      installment: 'Instalment plan',
-      installmentValue: '{amount} × {months} months',
+      installment: 'Instalment plan (disabled)',
+      installmentValue: 'Instalment payments are disabled',
       area: 'Floor area',
       areaValue: '{area} ㎡',
       listedOn: 'Listed on',
@@ -2085,14 +2085,14 @@ const translations = {
       fields: {
         price: 'Total price',
         downPayment: 'Down payment',
-        installment: 'Instalment plan',
+        installment: 'Instalment plan (disabled)',
         area: 'Floor area',
         listedOn: 'Listed on',
         floor: 'Floor'
       },
-      installmentUnavailable: 'No instalment plan provided',
-      installmentUnknownMonths: 'N/A',
-      installmentValue: '¥{amount} × {months} months',
+      installmentUnavailable: 'Instalment plan disabled',
+      installmentUnknownMonths: '',
+      installmentValue: 'Instalment plan disabled',
       floorValue: 'Level {floor}',
       sellerAccount: 'Seller account',
       contactName: 'Contact name',
@@ -2154,7 +2154,7 @@ const translations = {
       platformFee: 'Fee: ¥{amount}',
       payment: {
         full: 'Full payment',
-        installment: 'Instalments'
+        installment: 'Instalments (disabled)'
       },
       actions: {
         accept: 'Accept',
@@ -2249,8 +2249,8 @@ const translations = {
           price: 'Total price (CNY)',
           downPayment: 'Down payment (CNY)',
           area: 'Floor area (㎡)',
-          installmentMonthly: 'Estimated monthly instalment (CNY)',
-          installmentMonths: 'Instalment term (months)',
+          installmentMonthly: '(Instalments disabled)',
+          installmentMonths: '(Instalments disabled)',
           sellerUsername: 'Seller username',
           sellerName: 'Seller display name',
           contactNumber: 'Contact number',
@@ -2266,8 +2266,8 @@ const translations = {
           price: 'e.g. 2000000',
           downPayment: 'e.g. 600000',
           area: 'e.g. 89',
-          installmentMonthly: 'Calculated automatically from price, down payment and term',
-          installmentMonths: 'e.g. 24',
+          installmentMonthly: 'Instalment payments are disabled; no monthly amount needed',
+          installmentMonths: 'Instalment payments are disabled; no term needed',
           sellerUsername: 'Enter seller username',
           sellerName: 'Enter seller display name',
           contactNumber: 'Enter contact number',
@@ -2276,7 +2276,7 @@ const translations = {
           keywords: 'e.g. city centre, subway nearby, south-facing'
         },
         hints: {
-          installmentCalculation: 'The system estimates the monthly instalment based on your down payment and term.',
+          installmentCalculation: 'Instalment calculations are disabled and no longer required.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
           noImages: 'No images uploaded yet.'
@@ -2307,8 +2307,8 @@ const translations = {
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price; please review the amount.',
           area: 'Enter a valid floor area.',
-          installmentMonthly: 'Unable to calculate a valid monthly instalment. Please review the down payment or term.',
-          installmentMonths: 'The instalment term must be greater than zero.'
+          installmentMonthly: 'Instalment payments are disabled; monthly amounts are not required.',
+          installmentMonths: 'Instalment payments are disabled; term entry is not required.'
         }
       },
       list: {
@@ -2334,7 +2334,7 @@ const translations = {
         pricing: {
           full: 'Full price: ￥{price}',
           downPayment: 'Down payment: ￥{amount}',
-          installment: 'Instalments: ￥{amount} × {months} months'
+          installment: 'Instalment payments disabled'
         },
         keywordPlaceholder: 'Not set',
         actions: {
@@ -2344,7 +2344,7 @@ const translations = {
           reject: 'Reject',
           paymentLabel: 'Payment method',
           paymentFull: 'Full',
-          paymentInstallment: 'Instalments',
+          paymentInstallment: 'Instalments (disabled)',
           sold: 'Sold',
           processing: 'Processing…',
           purchase: 'Purchase now',
@@ -2565,7 +2565,7 @@ const translations = {
       unlistDefaultReason: 'Admin manual unlisting'
     },
     payments: {
-      installment: 'instalments',
+      installment: 'instalments (disabled)',
       full: 'full payment'
     },
     explorer: {
@@ -2597,21 +2597,21 @@ const translations = {
         noImage: 'No image',
         fullPrice: 'Full payment price',
         downPayment: 'Down payment',
-        installment: 'Installments (monthly)',
-        installmentMonths: '× {count} months',
+        installment: 'Instalments (disabled)',
+        installmentMonths: '',
         area: 'Area',
         listingDate: 'Listed on',
         seller: 'Seller',
         contact: 'Contact',
         paymentMethod: 'Payment method',
-        installmentCard: 'Installment card number'
+        installmentCard: 'Instalment payments disabled'
       },
       inputs: {
-        installmentCard: 'Enter the 19-digit card number'
+        installmentCard: 'Instalment payments are disabled; no card is needed'
       },
       payment: {
         full: 'Full payment',
-        installment: 'Installments'
+        installment: 'Instalments (disabled)'
       },
       states: {
         loading: 'Loading listings…',
@@ -2639,7 +2639,7 @@ const translations = {
         loginAsBuyer: 'Sign in with a buyer account to reserve or purchase listings.',
         reservedByYou: 'You have already reserved this listing. Please watch for the seller’s updates.',
         reservedByOthers: 'Another buyer has reserved this listing. Reservations are temporarily unavailable.',
-        installmentCardError: 'Enter a 19-digit number'
+        installmentCardError: 'Instalment payments are disabled; card entry is not required'
       }
     },
     wallet: {
@@ -2909,7 +2909,7 @@ const translations = {
         },
         paymentMethods: {
           FULL: 'Full payment',
-          INSTALLMENT: 'Installment'
+          INSTALLMENT: 'Installment (disabled)'
         },
         viewing: {
           title: 'Viewing appointment',
@@ -3751,9 +3751,7 @@ const normalizeHouse = (house) => ({
   ...house,
   price: house?.price != null ? Number(house.price) : null,
   downPayment: house?.downPayment != null ? Number(house.downPayment) : null,
-  installmentMonthlyPayment:
-    house?.installmentMonthlyPayment != null ? Number(house.installmentMonthlyPayment) : null,
-  installmentMonths: house?.installmentMonths != null ? Number(house.installmentMonths) : null,
+  floor: house?.floor != null ? Number(house.floor) : null,
   latitude: house?.latitude != null ? Number(house.latitude) : null,
   longitude: house?.longitude != null ? Number(house.longitude) : null,
   listingDate: house?.listingDate ?? '',
@@ -4238,19 +4236,11 @@ const normalizeHousePayload = (payload, { draft = false } = {}) => {
     : [];
   result.price = Number(result.price ?? 0);
   result.downPayment = Number(result.downPayment ?? 0);
-  result.installmentMonthlyPayment = Number(result.installmentMonthlyPayment ?? 0);
-  result.installmentMonths = Number.parseInt(result.installmentMonths ?? 0, 10);
   if (!Number.isFinite(result.price)) {
     result.price = 0;
   }
   if (!Number.isFinite(result.downPayment)) {
     result.downPayment = 0;
-  }
-  if (!Number.isFinite(result.installmentMonthlyPayment)) {
-    result.installmentMonthlyPayment = 0;
-  }
-  if (!Number.isFinite(result.installmentMonths)) {
-    result.installmentMonths = 0;
   }
   if (isSeller.value) {
     result.sellerUsername = currentUser.value.username;

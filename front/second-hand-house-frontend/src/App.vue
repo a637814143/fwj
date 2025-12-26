@@ -1018,8 +1018,8 @@ const translations = {
           price: '房源总价（元）',
           downPayment: '首付款（元）',
           area: '建筑面积（㎡）',
-          installmentMonthly: '（分期功能已停用）',
-          installmentMonths: '（分期功能已停用）',
+          installmentMonthly: '（分期功能已删除，无需填写）',
+          installmentMonths: '（分期功能已删除，无需填写）',
           sellerUsername: '卖家账号',
           sellerName: '卖家昵称',
           contactNumber: '联系方式',
@@ -1035,8 +1035,8 @@ const translations = {
           price: '例如 2000000',
           downPayment: '例如 600000',
           area: '例如 89',
-          installmentMonthly: '分期功能已下线，无需填写',
-          installmentMonths: '分期功能已下线，无需填写',
+          installmentMonthly: '分期功能已删除，无需填写',
+          installmentMonths: '分期功能已删除，无需填写',
           sellerUsername: '请输入卖家账号',
           sellerName: '请输入卖家昵称',
           contactNumber: '请输入联系电话',
@@ -1045,7 +1045,7 @@ const translations = {
           keywords: '例如 市中心、近地铁、朝南'
         },
         hints: {
-          installmentCalculation: '分期功能已下线，相关月供计算不再需要。',
+          installmentCalculation: '分期功能已删除，表单不再需要填写任何分期相关信息。',
           keywordPreview: '将提交的关键词：',
           uploadLimit: '最多上传 {count} 张 PNG、JPG、GIF 或 WEBP 图片。',
           noImages: '尚未上传图片。'
@@ -1076,8 +1076,8 @@ const translations = {
           downPayment: '请输入有效的首付款金额。',
           downPaymentLimit: '首付需低于总价的120%，请检查金额输入是否合理。',
           area: '请输入有效的建筑面积。',
-          installmentMonthly: '分期功能已停用，无需填写月供。',
-          installmentMonths: '分期功能已停用，无需填写期数。'
+          installmentMonthly: '分期功能已删除，无需填写任何分期信息。',
+          installmentMonths: '分期功能已删除，无需填写任何分期信息。'
         }
       },
       list: {
@@ -2249,8 +2249,8 @@ const translations = {
           price: 'Total price (CNY)',
           downPayment: 'Down payment (CNY)',
           area: 'Floor area (㎡)',
-          installmentMonthly: '(Instalments disabled)',
-          installmentMonths: '(Instalments disabled)',
+          installmentMonthly: '(Installments removed; no input needed)',
+          installmentMonths: '(Installments removed; no input needed)',
           sellerUsername: 'Seller username',
           sellerName: 'Seller display name',
           contactNumber: 'Contact number',
@@ -2266,8 +2266,8 @@ const translations = {
           price: 'e.g. 2000000',
           downPayment: 'e.g. 600000',
           area: 'e.g. 89',
-          installmentMonthly: 'Instalment payments are disabled; no monthly amount needed',
-          installmentMonths: 'Instalment payments are disabled; no term needed',
+          installmentMonthly: 'Installments have been removed; no monthly amount is needed',
+          installmentMonths: 'Installments have been removed; no term is needed',
           sellerUsername: 'Enter seller username',
           sellerName: 'Enter seller display name',
           contactNumber: 'Enter contact number',
@@ -2276,7 +2276,7 @@ const translations = {
           keywords: 'e.g. city centre, subway nearby, south-facing'
         },
         hints: {
-          installmentCalculation: 'Instalment calculations are disabled and no longer required.',
+          installmentCalculation: 'Installment payments have been removed; no related inputs are required.',
           keywordPreview: 'Keywords that will be submitted:',
           uploadLimit: 'Upload up to {count} images in PNG, JPG, GIF, or WEBP format.',
           noImages: 'No images uploaded yet.'
@@ -2307,8 +2307,8 @@ const translations = {
           downPayment: 'Enter a valid down payment amount.',
           downPaymentLimit: 'The down payment must be below 120% of the total price; please review the amount.',
           area: 'Enter a valid floor area.',
-          installmentMonthly: 'Instalment payments are disabled; monthly amounts are not required.',
-          installmentMonths: 'Instalment payments are disabled; term entry is not required.'
+          installmentMonthly: 'Installment payments have been removed; no installment info is required.',
+          installmentMonths: 'Installment payments have been removed; no installment info is required.'
         }
       },
       list: {
@@ -3747,22 +3747,33 @@ const generateReviewId = () => {
   return `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const normalizeHouse = (house) => ({
-  ...house,
-  price: house?.price != null ? Number(house.price) : null,
-  downPayment: house?.downPayment != null ? Number(house.downPayment) : null,
-  floor: house?.floor != null ? Number(house.floor) : null,
-  latitude: house?.latitude != null ? Number(house.latitude) : null,
-  longitude: house?.longitude != null ? Number(house.longitude) : null,
-  listingDate: house?.listingDate ?? '',
-  imageUrls: Array.isArray(house?.imageUrls) ? house.imageUrls : [],
-  keywords: Array.isArray(house?.keywords) ? house.keywords : [],
-  status: house?.status ?? 'PENDING_REVIEW',
-  reviewMessage: house?.reviewMessage ?? '',
-  reviewedBy: house?.reviewedBy ?? '',
-  reviewedAt: house?.reviewedAt ?? '',
-  sensitiveMasked: Boolean(house?.sensitiveMasked)
-});
+const normalizeHouse = (house) => {
+  const {
+    installment,
+    installmentMonthly,
+    installmentMonths,
+    installmentCard,
+    paymentMethod,
+    ...rest
+  } = house ?? {};
+
+  return {
+    ...rest,
+    price: rest?.price != null ? Number(rest.price) : null,
+    downPayment: rest?.downPayment != null ? Number(rest.downPayment) : null,
+    floor: rest?.floor != null ? Number(rest.floor) : null,
+    latitude: rest?.latitude != null ? Number(rest.latitude) : null,
+    longitude: rest?.longitude != null ? Number(rest.longitude) : null,
+    listingDate: rest?.listingDate ?? '',
+    imageUrls: Array.isArray(rest?.imageUrls) ? rest.imageUrls : [],
+    keywords: Array.isArray(rest?.keywords) ? rest.keywords : [],
+    status: rest?.status ?? 'PENDING_REVIEW',
+    reviewMessage: rest?.reviewMessage ?? '',
+    reviewedBy: rest?.reviewedBy ?? '',
+    reviewedAt: rest?.reviewedAt ?? '',
+    sensitiveMasked: Boolean(rest?.sensitiveMasked)
+  };
+};
 
 const buildFilterParams = (filters) => {
   const params = {};
@@ -4225,7 +4236,16 @@ const guardReadOnly = () => {
 };
 
 const normalizeHousePayload = (payload, { draft = false } = {}) => {
-  const result = { ...payload };
+  const {
+    installment,
+    installmentMonthly,
+    installmentMonths,
+    installmentCard,
+    paymentMethod,
+    ...rest
+  } = payload ?? {};
+
+  const result = { ...rest };
   result.imageUrls = Array.isArray(result.imageUrls)
     ? result.imageUrls.map((url) => (url ?? '').trim()).filter((url) => url.length > 0)
     : [];

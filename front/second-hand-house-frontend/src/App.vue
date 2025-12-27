@@ -244,24 +244,28 @@
         />
 
         <div v-else-if="activeTab === 'orders'" class="orders-grid">
-          <WalletPanel
-            :wallet="wallet"
-            :loading="walletLoading"
-            :current-user="currentUser"
-            @top-up="handleTopUp"
-          />
-          <OrderHistory
-            :orders="orders"
-            :loading="ordersLoading"
-            :current-user="currentUser"
-            :can-view-sensitive-info="canViewSensitiveInfo"
-            :progress-labels="orderProgressLabels"
-            :progress-order="orderProgressSequence"
-            @request-return="handleRequestReturn"
-            @schedule-viewing="handleScheduleViewing"
-            @advance-progress="handleAdvanceProgress"
-            @confirm-viewing="handleViewingConfirmation"
-          />
+          <div class="panel-box">
+            <WalletPanel
+              :wallet="wallet"
+              :loading="walletLoading"
+              :current-user="currentUser"
+              @top-up="handleTopUp"
+            />
+          </div>
+          <div class="panel-box">
+            <OrderHistory
+              :orders="orders"
+              :loading="ordersLoading"
+              :current-user="currentUser"
+              :can-view-sensitive-info="canViewSensitiveInfo"
+              :progress-labels="orderProgressLabels"
+              :progress-order="orderProgressSequence"
+              @request-return="handleRequestReturn"
+              @schedule-viewing="handleScheduleViewing"
+              @advance-progress="handleAdvanceProgress"
+              @confirm-viewing="handleViewingConfirmation"
+            />
+          </div>
         </div>
 
         <AccountCenter
@@ -1647,6 +1651,7 @@ const translations = {
         loading: '订单数据加载中…',
         empty: '暂无相关订单记录。',
         progressTitle: '交易进度',
+        nextStage: '下一个阶段：{stage}',
         noData: '—',
         fields: {
           orderId: '订单编号',
@@ -1690,7 +1695,9 @@ const translations = {
           confirmedSeller: '卖家已确认看房'
         },
         actions: {
-          requestReturn: '申请退换'
+          requestReturn: '申请退换',
+          expand: '展开详情',
+          collapse: '收起详情'
         },
         schedule: {
           dialogTitle: '安排看房',
@@ -2860,6 +2867,7 @@ const translations = {
         loading: 'Loading orders…',
         empty: 'No orders found yet.',
         progressTitle: 'Transaction progress',
+        nextStage: 'Next: {stage}',
         noData: '—',
         fields: {
           orderId: 'Order ID',
@@ -2904,7 +2912,9 @@ const translations = {
           confirmedSeller: 'Seller confirmed viewing'
         },
         actions: {
-          requestReturn: 'Request a return'
+          requestReturn: 'Request a return',
+          expand: 'Show details',
+          collapse: 'Hide details'
         },
         schedule: {
           dialogTitle: 'Schedule viewing',
@@ -5755,6 +5765,20 @@ onBeforeUnmount(() => {
   gap: 1.6rem;
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   align-items: stretch;
+}
+
+.panel-box {
+  background: var(--gradient-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  box-shadow: var(--shadow-lg);
+  padding: 0.6rem;
+  max-height: 82vh;
+  overflow: auto;
+}
+
+.panel-box > * {
+  height: 100%;
 }
 
 .manage-grid > *,

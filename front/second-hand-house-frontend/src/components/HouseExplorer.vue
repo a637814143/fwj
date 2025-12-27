@@ -1102,6 +1102,7 @@ const statusClass = (house) => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.25rem;
+  justify-content: center;
 }
 
 .house-card {
@@ -1112,6 +1113,8 @@ const statusClass = (house) => {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
   box-shadow: 0 22px 45px rgba(73, 128, 189, 0.2);
+  width: min(360px, 100%);
+  margin: 0 auto;
 }
 
 .status {

@@ -362,11 +362,13 @@ const formatTime = (value) => {
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
-  word-break: break-all;
-  overflow-wrap: anywhere;
   min-height: 3.25rem;
   display: flex;
   align-items: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .amount-yuan {

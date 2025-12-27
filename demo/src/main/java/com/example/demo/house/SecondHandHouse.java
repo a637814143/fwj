@@ -50,10 +50,10 @@ public class SecondHandHouse {
     @Column(name = "down_payment", nullable = false, precision = 15, scale = 2)
     private BigDecimal downPayment;
 
-    @Column(name = "installment_monthly_payment", nullable = false, precision = 15, scale = 2)
+    @Column(name = "installment_monthly_payment", precision = 15, scale = 2)
     private BigDecimal installmentMonthlyPayment;
 
-    @Column(name = "installment_months", nullable = false)
+    @Column(name = "installment_months")
     private Integer installmentMonths;
 
     @Column(nullable = false, precision = 10, scale = 2)

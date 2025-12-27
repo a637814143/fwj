@@ -179,12 +179,12 @@ const statusLabels = computed(() => {
   return labels && typeof labels === 'object' ? labels : {};
 });
 
-const statusLabel = computed(() => {
+const baseStatusLabel = computed(() => {
   const status = props.house?.status;
   return statusLabels.value?.[status] ?? statusLabels.value?.PENDING ?? unknownValue;
 });
 
-const statusClass = computed(() => {
+const baseStatusClass = computed(() => {
   switch (props.house?.status) {
     case 'DRAFT':
       return 'draft';
@@ -198,6 +198,18 @@ const statusClass = computed(() => {
       return 'pending';
   }
 });
+
+const reservationStatus = computed(() => {
+  if (!props.house?.reservationActive) {
+    return '';
+  }
+  return props.house.reservationOwnedByRequester
+    ? t('explorer.tips.reservedByYou')
+    : t('explorer.tips.reservedByOthers');
+});
+
+const statusLabel = computed(() => reservationStatus.value || baseStatusLabel.value);
+const statusClass = computed(() => (props.house?.reservationActive ? 'reserved' : baseStatusClass.value));
 
 const keywordList = computed(() => (Array.isArray(props.house?.keywords) ? props.house.keywords : []));
 const galleryCountLabel = computed(() => t('houseDetail.galleryCount', { count: images.value.length }));
@@ -261,9 +273,9 @@ function maskName(value) {
   background: var(--gradient-surface);
   border-radius: var(--radius-xl);
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.32);
-  max-width: 860px;
-  width: min(92vw, 860px);
-  max-height: 90vh;
+  max-width: 1040px;
+  width: min(96vw, 1040px);
+  max-height: 92vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -362,6 +374,11 @@ function maskName(value) {
   color: #b91c1c;
 }
 
+.status-chip.reserved {
+  background: rgba(250, 204, 21, 0.2);
+  color: #854d0e;
+}
+
 .status-chip.sold {
   background: rgba(59, 130, 246, 0.18);
   color: #1d4ed8;
@@ -423,7 +440,7 @@ function maskName(value) {
 
 .gallery__item img {
   width: 100%;
-  height: 160px;
+  height: 200px;
   object-fit: cover;
 }
 

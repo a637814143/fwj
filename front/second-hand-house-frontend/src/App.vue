@@ -838,6 +838,7 @@ const translations = {
       pending: '待审核',
       approved: '已通过',
       rejected: '已驳回',
+      reserved: '已预定',
       sold: '已售出（已下架）'
     },
     adminReview: {
@@ -2042,6 +2043,7 @@ const translations = {
       pending: 'Pending review',
       approved: 'Approved',
       rejected: 'Rejected',
+      reserved: 'Reserved',
       sold: 'Sold (unlisted)'
     },
     adminReview: {

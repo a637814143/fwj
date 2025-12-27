@@ -28,6 +28,8 @@ public record SecondHandHouseRequest(
         @NotNull @DecimalMin(value = "0.0", inclusive = false, message = "价格必须大于0") BigDecimal price,
         @NotNull @DecimalMin(value = "0.0", inclusive = false, message = "首付金额必须大于0") BigDecimal downPayment,
         @NotNull @DecimalMin(value = "0.0", inclusive = false, message = "面积必须大于0") BigDecimal area,
+        @DecimalMin(value = "0.0", inclusive = false, message = "分期月供必须大于0") BigDecimal installmentMonthlyPayment,
+        @PositiveOrZero(message = "分期月数不能为负数") Integer installmentMonths,
         String description,
         @NotBlank(message = "卖家账号不能为空") @Size(max = 50, message = "卖家账号长度不能超过50个字符") String sellerUsername,
         @NotBlank(message = "卖家姓名不能为空") String sellerName,
@@ -68,6 +70,8 @@ public record SecondHandHouseRequest(
         house.setLongitude(sanitizeLongitude(longitude));
         house.setPrice(price);
         house.setDownPayment(downPayment);
+        house.setInstallmentMonthlyPayment(sanitizeInstallmentMonthlyPayment(installmentMonthlyPayment));
+        house.setInstallmentMonths(sanitizeInstallmentMonths(installmentMonths));
         house.setArea(area);
         house.setDescription(description);
         house.setSellerUsername(sellerUsername);
@@ -105,6 +109,26 @@ public record SecondHandHouseRequest(
             return null;
         }
         return scaled;
+    }
+
+    private static BigDecimal sanitizeInstallmentMonthlyPayment(BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
+        if (value.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+        return value.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private static Integer sanitizeInstallmentMonths(Integer months) {
+        if (months == null) {
+            return null;
+        }
+        if (months <= 0) {
+            return null;
+        }
+        return months;
     }
 
 }

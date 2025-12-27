@@ -312,6 +312,9 @@ public class HouseOrderService {
         if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.RETURN_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前订单状态不支持退换");
         }
+        if (order.getProgressStage() != OrderProgressStage.FUNDS_RELEASED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "仅已完成交易的订单可申请退换");
+        }
         if (!order.getBuyer().getUsername().equals(request.requesterUsername())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅买家本人可以申请退换");
         }

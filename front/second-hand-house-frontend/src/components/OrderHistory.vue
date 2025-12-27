@@ -356,6 +356,7 @@ const canRequestReturn = (order) => {
   }
   return (
     order.status === 'PAID' &&
+    order.progressStage === 'FUNDS_RELEASED' &&
     props.currentUser &&
     order.buyerUsername === props.currentUser.username
   );

@@ -4203,8 +4203,6 @@ const normalizeHousePayload = (payload, { draft = false } = {}) => {
     address: safePayload.address ?? '',
     price: Number(safePayload.price ?? 0),
     downPayment: Number(safePayload.downPayment ?? 0),
-    installmentMonthlyPayment: Number(safePayload.installmentMonthlyPayment ?? 0),
-    installmentMonths: Number(safePayload.installmentMonths ?? 0),
     area: Number(safePayload.area ?? 0),
     description: safePayload.description ? safePayload.description.trim() : '',
     sellerUsername: (safePayload.sellerUsername ?? '').trim(),
@@ -4230,13 +4228,6 @@ const normalizeHousePayload = (payload, { draft = false } = {}) => {
   }
   if (!Number.isFinite(result.downPayment)) {
     result.downPayment = 0;
-  }
-  if (!Number.isFinite(result.installmentMonths) || result.installmentMonths <= 0) {
-    result.installmentMonths = 12;
-  }
-  if (!Number.isFinite(result.installmentMonthlyPayment) || result.installmentMonthlyPayment <= 0) {
-    const remaining = Math.max(result.price - result.downPayment, result.price * 0.1, 1);
-    result.installmentMonthlyPayment = Number((remaining / result.installmentMonths).toFixed(2));
   }
   if (!Number.isFinite(result.area)) {
     result.area = 0;

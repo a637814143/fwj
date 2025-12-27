@@ -675,18 +675,6 @@ const ensurePositive = (value) => {
   return Number.isFinite(num) && num > 0;
 };
 
-const buildInstallmentPlan = () => {
-  const months = 12;
-  const priceNumber = Number(form.price);
-  const downPaymentNumber = Number(form.downPayment);
-  const validPrice = Number.isFinite(priceNumber) ? priceNumber : 0;
-  const validDownPayment = Number.isFinite(downPaymentNumber) ? downPaymentNumber : 0;
-  const remaining = validPrice - validDownPayment;
-  const safeRemaining = Number.isFinite(remaining) && remaining > 0 ? remaining : Math.max(validPrice * 0.1, 1);
-  const monthlyPayment = months > 0 && safeRemaining > 0 ? Number((safeRemaining / months).toFixed(2)) : null;
-  return { months, monthlyPayment };
-};
-
 const maxUploadSize = 5 * 1024 * 1024;
 
 const triggerImageUpload = () => {
@@ -857,14 +845,11 @@ const submitForm = (maybeOptions) => {
   const address = [form.location.province, form.location.city, form.location.county, form.addressDetail]
     .filter(Boolean)
     .join('-');
-  const installmentPlan = buildInstallmentPlan();
   const payload = {
     title: form.title.trim(),
     address,
     price: normalizeNumber(form.price),
     downPayment: normalizeNumber(form.downPayment),
-    installmentMonthlyPayment: installmentPlan.monthlyPayment,
-    installmentMonths: installmentPlan.months,
     area: normalizeNumber(form.area),
     description: form.description ? form.description.trim() : '',
     sellerUsername: form.sellerUsername.trim(),

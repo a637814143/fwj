@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -83,7 +82,6 @@ public class SecondHandHouseService {
         if (targetStatus != ListingStatus.DRAFT) {
             ensureNotDuplicate(house, null);
         }
-        ensureInstallmentPlan(house);
         house.setId(null);
         house.setStatus(targetStatus);
         house.setReviewedAt(null);
@@ -99,13 +97,10 @@ public class SecondHandHouseService {
         if (targetStatus != ListingStatus.DRAFT) {
             ensureNotDuplicate(updatedHouse, id);
         }
-        ensureInstallmentPlan(updatedHouse);
         existing.setTitle(updatedHouse.getTitle());
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
         existing.setDownPayment(updatedHouse.getDownPayment());
-        existing.setInstallmentMonthlyPayment(updatedHouse.getInstallmentMonthlyPayment());
-        existing.setInstallmentMonths(updatedHouse.getInstallmentMonths());
         existing.setArea(updatedHouse.getArea());
         existing.setDescription(updatedHouse.getDescription());
         existing.setLatitude(updatedHouse.getLatitude());
@@ -321,30 +316,6 @@ public class SecondHandHouseService {
             return ListingStatus.DRAFT;
         }
         return ListingStatus.PENDING_REVIEW;
-    }
-
-    private void ensureInstallmentPlan(SecondHandHouse house) {
-        if (house == null) {
-            return;
-        }
-        BigDecimal price = house.getPrice() == null ? BigDecimal.ZERO : house.getPrice();
-        BigDecimal downPayment = house.getDownPayment() == null ? BigDecimal.ZERO : house.getDownPayment();
-        int months = house.getInstallmentMonths() == null || house.getInstallmentMonths() <= 0 ? 12 : house.getInstallmentMonths();
-        if (house.getInstallmentMonths() == null || house.getInstallmentMonths() <= 0) {
-            house.setInstallmentMonths(months);
-        }
-        BigDecimal monthly = house.getInstallmentMonthlyPayment();
-        if (monthly == null || monthly.compareTo(BigDecimal.ZERO) <= 0) {
-            BigDecimal remaining = price.subtract(downPayment);
-            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
-                remaining = price.multiply(BigDecimal.valueOf(0.1));
-            }
-            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
-                remaining = BigDecimal.valueOf(1L);
-            }
-            monthly = remaining.divide(BigDecimal.valueOf(months), 2, RoundingMode.HALF_UP);
-            house.setInstallmentMonthlyPayment(monthly);
-        }
     }
 
     private String normalize(String value) {

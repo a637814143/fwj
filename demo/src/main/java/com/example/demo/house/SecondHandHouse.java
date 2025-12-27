@@ -114,11 +114,13 @@ public class SecondHandHouse {
         if (status == null) {
             status = ListingStatus.PENDING_REVIEW;
         }
+        ensureInstallmentDefaults();
     }
 
     @PreUpdate
     public void onUpdate() {
         updatedAt = OffsetDateTime.now();
+        ensureInstallmentDefaults();
     }
 
     public Long getId() {
@@ -183,6 +185,15 @@ public class SecondHandHouse {
 
     public void setInstallmentMonths(Integer installmentMonths) {
         this.installmentMonths = installmentMonths;
+    }
+
+    private void ensureInstallmentDefaults() {
+        if (installmentMonthlyPayment == null) {
+            installmentMonthlyPayment = BigDecimal.ZERO;
+        }
+        if (installmentMonths == null) {
+            installmentMonths = 0;
+        }
     }
 
     public BigDecimal getDownPayment() {

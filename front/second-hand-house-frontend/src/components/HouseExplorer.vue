@@ -133,6 +133,7 @@
         <div class="status" :class="statusClass(house)">{{ statusLabel(house) }}</div>
         <div class="cover" v-if="coverImage(house)">
           <img :src="coverImage(house)" :alt="house.title" loading="lazy" />
+          <div v-if="house.reservationActive" class="reservation-flag">{{ reservationStatusText(house) }}</div>
           <div class="image-overlay">
             <div class="overlay-text">{{ house.title }}</div>
             <span class="overlay-action">{{ t('explorer.actions.viewDetail') }}</span>
@@ -747,6 +748,15 @@ const reservationNotice = (house) => {
     : t('explorer.tips.reservedByOthers');
 };
 
+const reservationStatusText = (house) => {
+  if (!house?.reservationActive) {
+    return '';
+  }
+  return house.reservationOwnedByRequester
+    ? t('explorer.tips.reservedByYou')
+    : t('explorer.tips.reservedByOthers');
+};
+
 const openDetail = (house) => {
   activeHouse.value = house;
 };
@@ -758,9 +768,17 @@ const purchase = (house) => {
   emit('purchase', { house, paymentMethod: 'FULL' });
 };
 
-const statusLabel = (house) => statusLabels.value[house?.status] ?? t('statuses.pending');
+const statusLabel = (house) => {
+  if (house?.reservationActive) {
+    return reservationStatusText(house) || t('statuses.reserved');
+  }
+  return statusLabels.value[house?.status] ?? t('statuses.pending');
+};
 
 const statusClass = (house) => {
+  if (house?.reservationActive) {
+    return 'reserved';
+  }
   switch (house?.status) {
     case 'APPROVED':
       return 'approved';
@@ -1118,6 +1136,11 @@ const statusClass = (house) => {
   color: #a43131;
 }
 
+.status.reserved {
+  background: rgba(250, 204, 21, 0.2);
+  color: #854d0e;
+}
+
 .status.sold {
   background: rgba(186, 198, 214, 0.26);
   color: var(--color-text-strong);
@@ -1144,6 +1167,11 @@ const statusClass = (house) => {
   color: #f3d6cf;
 }
 
+:global(body[data-theme='dark']) :deep(.house-explorer .status.reserved) {
+  background: rgba(250, 204, 21, 0.28);
+  color: #fcd34d;
+}
+
 :global(body[data-theme='dark']) :deep(.house-explorer .status.sold) {
   background: rgba(128, 120, 114, 0.28);
   color: rgba(244, 236, 228, 0.9);
@@ -1162,6 +1190,18 @@ const statusClass = (house) => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.reservation-flag {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-pill);
+  background: rgba(250, 204, 21, 0.95);
+  color: #7c2d12;
+  font-weight: 700;
+  box-shadow: 0 12px 28px rgba(124, 45, 18, 0.18);
 }
 
 .cover.placeholder {

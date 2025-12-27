@@ -11,7 +11,9 @@
           <div class="summary-card balance">
             <span class="label">{{ t('wallet.labels.balance') }}</span>
             <div class="figures">
-              <strong class="amount-yuan">￥{{ formatYuan(wallet.balance) }}</strong>
+              <div class="amount-box">
+                <strong class="amount-yuan">￥{{ formatYuan(wallet.balance) }}</strong>
+              </div>
             </div>
           </div>
           <div class="summary-card points">
@@ -353,6 +355,18 @@ const formatTime = (value) => {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.amount-box {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  min-height: 3.25rem;
+  display: flex;
+  align-items: center;
 }
 
 .amount-yuan {

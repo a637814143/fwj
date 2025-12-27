@@ -94,6 +94,14 @@
               <a :href="contractDownload.url" :download="contractDownload.sellerFileName" class="cta ghost">
                 {{ t('contracts.generated.downloadSeller') }}
               </a>
+              <a
+                v-if="contractDownload.imageUrl"
+                :href="contractDownload.imageUrl"
+                :download="contractDownload.imageFileName"
+                class="cta ghost"
+              >
+                {{ t('contracts.generated.downloadImage') }}
+              </a>
             </div>
           </section>
 
@@ -368,6 +376,7 @@ const reservationTarget = ref(null);
 const purchaseContractVisible = ref(false);
 const pendingPurchaseOptions = ref(null);
 const contractDownload = ref(null);
+const contractTasks = ref([]);
 const dismissedUrgentTaskKeys = ref([]);
 const messages = reactive({ error: '', success: '' });
 const accountSaving = ref(false);
@@ -641,13 +650,19 @@ const translations = {
         summary: '《{title}》签署双方：甲方（卖方）{seller} / 乙方（买方）{buyer}，交易金额 {amount}。',
         downloadBuyer: '下载乙方签署版',
         downloadSeller: '下载甲方签署版',
+        downloadImage: '下载合同图片',
         title: '电子购房合同',
-        parties: '甲方（卖方）：{seller}（账号：{sellerAccount}）\n乙方（买方）：{buyer}（账号：{buyerAccount}）',
+        partyA: '甲方（卖方）：{seller}（账号：{sellerAccount}）',
+        partyB: '乙方（买方）：{buyer}（账号：{buyerAccount}）',
         house: '房屋信息：{address}，建筑面积 {area}，成交价款 {price}',
         commitments:
           '双方承诺所填信息真实、遵守平台监管与预约看房安排，并在资金监管与线下交接完成后共同确认交易状态。',
         signatures: '请在下方留出甲乙双方签字及日期位置：',
-        signatureLines: '甲方（卖方）签字：_____________   日期：__________\n乙方（买方）签字：_____________   日期：__________'
+        signatureLines: '甲方（卖方）签字：_____________   日期：__________\n乙方（买方）签字：_____________   日期：__________',
+        escrowNotice: '交易金额将托管于平台，支付后请双方按约完成看房与交接。',
+        urgentDescription: '合同已生成，甲方 {seller} / 乙方 {buyer}，金额 {amount}。请下载留存并尽快完成线下签署。',
+        dismissLabel: '标记为已处理',
+        dateLabel: '生成时间：{date}'
       },
       secondHand: {
         title: '二手房买卖合同（平台示范文本）',
@@ -838,6 +853,7 @@ const translations = {
       pending: '待审核',
       approved: '已通过',
       rejected: '已驳回',
+      reserved: '已预定',
       sold: '已售出（已下架）'
     },
     adminReview: {
@@ -1282,6 +1298,7 @@ const translations = {
       reserveVerifyFirst: '预定前请先完成实名认证。',
       reserveNotApproved: '房源尚未通过审核，暂不可预定。',
       reserveFailed: '预定失败，请稍后再试。',
+      purchaseCancelled: '您已取消支付。',
       walletLoginRequired: '请先登录后再使用钱包功能。',
       walletTopUp: '钱包充值失败。',
       consumePoints: '扣减积分失败，请稍后重试。',
@@ -1314,6 +1331,7 @@ const translations = {
       reviewFallbackReason: '未填写',
       deleteHouseConfirm: '确定要删除房源《{title}》吗？',
       deleteAccountConfirm: '确定要删除账号 {username} 吗？该操作不可撤销。',
+      confirmPayment: '确认支付 {amount} 购买《{title}》吗？',
       unlistReason: '请输入下架原因（房源：{title}）',
       unlistDefaultReason: '管理员手动下架'
     },
@@ -1603,6 +1621,7 @@ const translations = {
         alreadyReserved: '该房源已有其他买家预定',
         reservedSelf: '您已预定该房源，请耐心等待卖家处理',
         statusUnsupported: '当前订单状态不支持退换',
+        completedOnlyReturn: '仅已完成交易的订单可申请退换',
         buyerOnlyReturn: '仅买家本人可以申请退换',
         sellerUsernameRequired: '卖家账号不能为空',
         repaySellerOnly: '仅房源卖家可以归还垫付金额',
@@ -1619,7 +1638,8 @@ const translations = {
         VIEWING_SCHEDULED: '预约看房阶段',
         FEEDBACK_SUBMITTED: '看房反馈阶段',
         HANDOVER_COMPLETED: '交房阶段',
-        FUNDS_RELEASED: '资金结算完成'
+        FUNDS_RELEASED: '资金结算完成',
+        CONTRACT_PENDING: '合同待确认'
       },
       history: {
         title: '订单记录',
@@ -1703,6 +1723,7 @@ const translations = {
         subtitle: '查看最近的预约情况与提醒。',
         empty: '最近暂无紧急事项。',
         badge: '{count} 条待办',
+        contractTitleFallback: '电子购房合同',
         awaitingScheduleSeller: '买家 {buyer} 已预定，尽快安排看房时间。',
         awaitingScheduleBuyer: '等待卖家安排看房，如有需要可主动联系。',
         scheduledReminderSeller: '已预约 {time} 看房，请准时到场并提前准备房屋。',
@@ -1845,13 +1866,19 @@ const translations = {
         summary: 'Contract for “{title}”: Seller (Party A) {seller} / Buyer (Party B) {buyer}, amount {amount}.',
         downloadBuyer: 'Download buyer copy',
         downloadSeller: 'Download seller copy',
+        downloadImage: 'Download contract image',
         title: 'Digital housing purchase contract',
-        parties: 'Party A (Seller): {seller} (account: {sellerAccount})\nParty B (Buyer): {buyer} (account: {buyerAccount})',
+        partyA: 'Party A (Seller): {seller} (account: {sellerAccount})',
+        partyB: 'Party B (Buyer): {buyer} (account: {buyerAccount})',
         house: 'Property: {address}, Area: {area}, Price: {price}',
         commitments:
           'Both parties confirm the information is accurate, will follow platform escrow and viewing appointments, and will jointly confirm status after offline handover.',
         signatures: 'Please reserve space below for signatures and dates:',
-        signatureLines: 'Seller signature: ______________   Date: __________\nBuyer signature: ______________   Date: __________'
+        signatureLines: 'Seller signature: ______________   Date: __________\nBuyer signature: ______________   Date: __________',
+        escrowNotice: 'Funds are held in escrow. Please complete viewings and handover as agreed after payment.',
+        urgentDescription: 'Contract generated for Seller {seller} / Buyer {buyer}, amount {amount}. Download and finish offline signing soon.',
+        dismissLabel: 'Mark as handled',
+        dateLabel: 'Generated at: {date}'
       },
       secondHand: {
         title: 'Second-hand Housing Sale Agreement (Sample)',
@@ -2042,6 +2069,7 @@ const translations = {
       pending: 'Pending review',
       approved: 'Approved',
       rejected: 'Rejected',
+      reserved: 'Reserved',
       sold: 'Sold (unlisted)'
     },
     adminReview: {
@@ -2487,6 +2515,7 @@ const translations = {
       reserveVerifyFirst: 'Please complete real-name verification before reserving.',
       reserveNotApproved: 'The listing has not been approved yet.',
       reserveFailed: 'Failed to reserve listing. Please try again later.',
+      purchaseCancelled: 'Payment was cancelled.',
       walletLoginRequired: 'Please sign in before using wallet features.',
       walletTopUp: 'Wallet top-up failed.',
       consumePoints: 'Failed to deduct points. Please try again later.',
@@ -2519,6 +2548,7 @@ const translations = {
       reviewFallbackReason: 'Not provided',
       deleteHouseConfirm: 'Are you sure you want to delete listing “{title}”?',
       deleteAccountConfirm: 'Delete account {username}? This action cannot be undone.',
+      confirmPayment: 'Confirm payment of {amount} for “{title}”?',
       unlistReason: 'Enter a note for unlisting (listing: “{title}”)',
       unlistDefaultReason: 'Admin manual unlisting'
     },
@@ -2804,6 +2834,7 @@ const translations = {
         alreadyReserved: 'Another buyer has already reserved this listing',
         reservedSelf: 'You have already reserved this listing. Please wait for the seller.',
         statusUnsupported: 'The current order status does not allow this action',
+        completedOnlyReturn: 'Only completed purchases can be returned',
         buyerOnlyReturn: 'Only the buyer can request a refund',
         sellerUsernameRequired: 'Seller account is required',
         repaySellerOnly: 'Only the listing seller can return the advance',
@@ -2820,7 +2851,8 @@ const translations = {
         VIEWING_SCHEDULED: 'Viewing appointment',
         FEEDBACK_SUBMITTED: 'Viewing feedback',
         HANDOVER_COMPLETED: 'Handover',
-        FUNDS_RELEASED: 'Funds released'
+        FUNDS_RELEASED: 'Funds released',
+        CONTRACT_PENDING: 'Contract pending'
       },
       history: {
         title: 'Order history',
@@ -2905,6 +2937,7 @@ const translations = {
         subtitle: 'Stay on top of the latest viewing appointments.',
         empty: 'No urgent items recently.',
         badge: '{count} tasks',
+        contractTitleFallback: 'Digital housing contract',
         awaitingScheduleSeller: 'Buyer {buyer} has reserved. Please arrange a viewing.',
         awaitingScheduleBuyer: 'Waiting for the seller to schedule a viewing. Feel free to reach out proactively.',
         scheduledReminderSeller: 'Viewing scheduled at {time}. Please prepare the property in advance.',
@@ -2989,6 +3022,7 @@ const serverMessageKeyMap = Object.freeze({
   '该房源已有其他买家预定': 'serverMessages.orders.alreadyReserved',
   '您已预定该房源，请耐心等待卖家处理': 'serverMessages.orders.reservedSelf',
   '当前订单状态不支持退换': 'serverMessages.orders.statusUnsupported',
+  '仅已完成交易的订单可申请退换': 'serverMessages.orders.completedOnlyReturn',
   '仅买家本人可以申请退换': 'serverMessages.orders.buyerOnlyReturn',
   '卖家账号不能为空': 'serverMessages.orders.sellerUsernameRequired',
   '仅房源卖家可以归还垫付金额': 'serverMessages.orders.repaySellerOnly',
@@ -3237,7 +3271,8 @@ const orderProgressLabels = computed(() => ({
   VIEWING_SCHEDULED: t('orders.progress.VIEWING_SCHEDULED'),
   FEEDBACK_SUBMITTED: t('orders.progress.FEEDBACK_SUBMITTED'),
   HANDOVER_COMPLETED: t('orders.progress.HANDOVER_COMPLETED'),
-  FUNDS_RELEASED: t('orders.progress.FUNDS_RELEASED')
+  FUNDS_RELEASED: t('orders.progress.FUNDS_RELEASED'),
+  CONTRACT_PENDING: t('orders.progress.CONTRACT_PENDING')
 }));
 
 const orderProgressSequence = Object.freeze([
@@ -3327,6 +3362,27 @@ const urgentTasks = computed(() => {
   const now = Date.now();
   const soonThreshold = now + 72 * 60 * 60 * 1000;
   const list = [];
+  const username = currentUser.value.username;
+
+  (contractTasks.value ?? []).forEach((task) => {
+    if (!task || (task.forUser && task.forUser !== username)) {
+      return;
+    }
+    list.push({
+      key: task.key,
+      houseId: task.houseId,
+      houseTitle: task.houseTitle,
+      stage: task.stage ?? 'CONTRACT_PENDING',
+      description: task.description,
+      timeLabel: task.timeLabel ?? null,
+      timeValue: task.timeValue ?? now,
+      isSoon: true,
+      action: task.action ?? 'download-contract',
+      imageUrl: task.imageUrl,
+      imageFileName: task.imageFileName,
+      dismissLabel: task.dismissLabel
+    });
+  });
   const orderList = Array.isArray(orders.value) ? orders.value : [];
 
   orderList.forEach((order) => {
@@ -4491,6 +4547,16 @@ const handlePurchaseAgreementAgree = async () => {
   if (!prepared) {
     return;
   }
+  const amountLabel = formatCurrencyYuan(prepared.house?.price);
+  const confirmMessage = t('prompts.confirmPayment', {
+    title: prepared.house?.title ?? '',
+    amount: amountLabel
+  });
+  const confirmed = window.confirm(confirmMessage);
+  if (!confirmed) {
+    messages.error = t('errors.purchaseCancelled');
+    return;
+  }
   await executePurchase(prepared);
 };
 
@@ -4517,10 +4583,13 @@ const buildContractDownload = ({ house, amount }) => {
   const sellerName = house.sellerName || house.sellerUsername || t('contracts.common.seller');
   const sellerUsername = house.sellerUsername ? `@${house.sellerUsername}` : t('contracts.common.seller');
   const buyerUsername = currentUser.value?.username ? `@${currentUser.value.username}` : t('contracts.common.buyer');
+  const partyA = t('contracts.generated.partyA', { seller: sellerName, sellerAccount: sellerUsername });
+  const partyB = t('contracts.generated.partyB', { buyer: buyerName, buyerAccount: buyerUsername });
   const contractText = [
     t('contracts.generated.title', { title: house.title ?? '' }),
     '',
-    t('contracts.generated.parties', { seller: sellerName, sellerAccount: sellerUsername, buyer: buyerName, buyerAccount: buyerUsername }),
+    partyA,
+    partyB,
     t('contracts.generated.house', { address: house.address ?? '', area: house.area ?? '—', price: amount ?? formatCurrencyYuan(house.price) }),
     t('contracts.generated.commitments'),
     '',
@@ -4531,6 +4600,56 @@ const buildContractDownload = ({ house, amount }) => {
   const blob = new Blob([contractText], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const base = `contract-${house.id ?? Date.now()}`;
+
+  const titleLine = t('contracts.generated.title', { title: house.title ?? '' });
+  const lines = [
+    titleLine,
+    partyA,
+    partyB,
+    t('contracts.generated.house', { address: house.address ?? '', area: house.area ?? '—', price: amount ?? formatCurrencyYuan(house.price) }),
+    t('contracts.generated.escrowNotice'),
+    t('contracts.generated.commitments'),
+    t('contracts.generated.signatures'),
+    t('contracts.generated.signatureLines')
+  ];
+  const canvas = document.createElement('canvas');
+  const width = 1080;
+  const padding = 48;
+  const lineHeight = 34;
+  const height = padding * 2 + lineHeight * lines.length + 120;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    contractDownload.value = {
+      url,
+      buyerFileName: `${base}-buyer.txt`,
+      sellerFileName: `${base}-seller.txt`,
+      title: house.title ?? '',
+      buyerName,
+      sellerName,
+      amount: amount ?? formatCurrencyYuan(house.price)
+    };
+    return;
+  }
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(0, 0, width, 140);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 30px "Helvetica Neue", Arial, sans-serif';
+  ctx.fillText(titleLine, padding, 96);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '600 22px "Helvetica Neue", Arial, sans-serif';
+  lines.forEach((line, index) => {
+    const y = padding + 150 + index * lineHeight;
+    ctx.fillText(line, padding, y);
+  });
+  ctx.fillStyle = '#475569';
+  ctx.font = '18px "Helvetica Neue", Arial, sans-serif';
+  ctx.fillText(t('contracts.generated.dateLabel', { date: formatLocalDateTime(new Date()) }), padding, height - padding);
+  const imageUrl = canvas.toDataURL('image/png');
+
   contractDownload.value = {
     url,
     buyerFileName: `${base}-buyer.txt`,
@@ -4538,8 +4657,33 @@ const buildContractDownload = ({ house, amount }) => {
     title: house.title ?? '',
     buyerName,
     sellerName,
-    amount: amount ?? formatCurrencyYuan(house.price)
+    amount: amount ?? formatCurrencyYuan(house.price),
+    imageUrl,
+    imageFileName: `${base}.png`
   };
+
+  contractTasks.value = [
+    ...contractTasks.value.filter((task) => task.forUser !== currentUser.value?.username || task.houseId !== house.id),
+    {
+      key: `${base}-urgent`,
+      houseId: house.id,
+      houseTitle: house.title ?? t('orders.urgent.contractTitleFallback'),
+      stage: 'CONTRACT_PENDING',
+      description: t('contracts.generated.urgentDescription', {
+        buyer: buyerName,
+        seller: sellerName,
+        amount: amount ?? formatCurrencyYuan(house.price)
+      }),
+      timeLabel: formatLocalDateTime(new Date()),
+      timeValue: Date.now(),
+      isSoon: true,
+      action: 'download-contract',
+      imageUrl,
+      imageFileName: `${base}.png`,
+      forUser: currentUser.value?.username,
+      dismissLabel: t('contracts.generated.dismissLabel')
+    }
+  ];
 };
 
 const handleUrgentTaskRead = (taskKey) => {
@@ -4560,6 +4704,19 @@ const handleUrgentTaskRead = (taskKey) => {
 
 const handleUrgentTaskNavigate = async (task) => {
   if (!task) {
+    return;
+  }
+  if (task.action === 'download-contract') {
+    if (task.imageUrl) {
+      const link = document.createElement('a');
+      link.href = task.imageUrl;
+      link.download = task.imageFileName || 'contract.png';
+      link.click();
+    }
+    if (task.key != null) {
+      handleUrgentTaskRead(task.key);
+    }
+    activeTab.value = 'orders';
     return;
   }
   if (task.action === 'seller-repay') {

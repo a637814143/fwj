@@ -44,6 +44,12 @@
               <span :class="['status-chip', statusClass]">{{ statusLabel }}</span>
             </span>
           </div>
+          <div class="info-item">
+            <span class="info-label">{{ t('houseDetail.orderState.label') }}</span>
+            <span class="info-value">
+              <span :class="['status-chip', orderState.class]">{{ orderState.label }}</span>
+            </span>
+          </div>
         </div>
 
         <p v-if="house.description" class="modal__description">{{ house.description }}</p>
@@ -197,6 +203,19 @@ const statusClass = computed(() => {
     default:
       return 'pending';
   }
+});
+
+const orderState = computed(() => {
+  if (props.house?.status === 'SOLD') {
+    return { label: t('houseDetail.orderState.sold'), class: 'sold' };
+  }
+  if (props.house?.reservationActive) {
+    const reservedLabel = props.house.reservationOwnedByRequester
+      ? t('houseDetail.orderState.reservedByYou')
+      : t('houseDetail.orderState.reserved');
+    return { label: reservedLabel, class: 'reserved' };
+  }
+  return { label: t('houseDetail.orderState.available'), class: 'available' };
 });
 
 const keywordList = computed(() => (Array.isArray(props.house?.keywords) ? props.house.keywords : []));
@@ -365,6 +384,16 @@ function maskName(value) {
 .status-chip.sold {
   background: rgba(59, 130, 246, 0.18);
   color: #1d4ed8;
+}
+
+.status-chip.reserved {
+  background: rgba(59, 130, 246, 0.18);
+  color: #1d4ed8;
+}
+
+.status-chip.available {
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
 }
 
 .modal__description {

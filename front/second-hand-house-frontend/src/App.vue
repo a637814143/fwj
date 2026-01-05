@@ -283,6 +283,12 @@
                     />
 
                     <div v-else-if="activeTab === 'admin'" class="admin-panels">
+                      <AdminTopUpReview
+                        :top-ups="adminPendingTopUps"
+                        :loading="adminTopUpsLoading"
+                        @refresh="loadAdminTopUps"
+                        @decide="handleAdminTopUpReview"
+                      />
                       <AdminOrderReview
                         :orders="adminPendingOrders"
                         :loading="adminOrdersLoading"
@@ -360,6 +366,7 @@ import HouseReviews from './components/HouseReviews.vue';
 import AdminHouseReview from './components/AdminHouseReview.vue';
 import AdminReputationBoard from './components/AdminReputationBoard.vue';
 import AdminOrderReview from './components/AdminOrderReview.vue';
+import AdminTopUpReview from './components/AdminTopUpReview.vue';
 import AdminHouseManager from './components/AdminHouseManager.vue';
 import ConversationPanel from './components/ConversationPanel.vue';
 import InterfaceSettings from './components/InterfaceSettings.vue';
@@ -396,6 +403,8 @@ const adminReputation = ref(null);
 const adminLoading = ref(false);
 const adminPendingOrders = ref([]);
 const adminOrdersLoading = ref(false);
+const adminPendingTopUps = ref([]);
+const adminTopUpsLoading = ref(false);
 const conversationPanelVisible = ref(false);
 const conversationPrefill = ref('');
 const conversations = ref([]);
@@ -775,6 +784,13 @@ const translations = {
       floor: '楼层',
       floorValue: '{floor} 层',
       status: '状态',
+      orderState: {
+        label: '交易状态',
+        reserved: '已预定',
+        reservedByYou: '您已预定',
+        sold: '已售出',
+        available: '在售'
+      },
       keywords: '房源关键词',
       gallery: '图片集',
       galleryCount: '{count} 张图片',
@@ -939,6 +955,46 @@ const translations = {
       actions: {
         accept: '接受',
         reject: '驳回'
+      }
+    },
+    adminTopUps: {
+      title: '充值审核',
+      subtitle: '确认买家与卖家的充值申请，审核通过后钱包余额才会变更。',
+      refresh: '刷新待审核列表',
+      loading: '正在加载充值审核…',
+      empty: '暂无待审核的充值记录。',
+      columns: {
+        id: '流水号',
+        user: '账户',
+        role: '角色',
+        amount: '充值金额',
+        reference: '备注/凭证',
+        createdAt: '提交时间',
+        actions: '操作'
+      },
+      actions: {
+        approve: '通过充值',
+        reject: '驳回充值'
+      }
+    },
+    adminTopUps: {
+      title: 'Top-up approval',
+      subtitle: 'Approve buyer and seller wallet top-ups so balances update only after review.',
+      refresh: 'Refresh pending list',
+      loading: 'Loading top-up requests…',
+      empty: 'No top-up requests require review.',
+      columns: {
+        id: 'Request ID',
+        user: 'Account',
+        role: 'Role',
+        amount: 'Amount',
+        reference: 'Reference',
+        createdAt: 'Submitted at',
+        actions: 'Actions'
+      },
+      actions: {
+        approve: 'Approve',
+        reject: 'Reject'
       }
     },
     adminReputation: {
@@ -1247,6 +1303,8 @@ const translations = {
       orderReleasedSeller: '订单资金已发放给卖家。',
       orderReleasedBuyer: '订单资金已退回买家。',
       walletTopUpPending: '已提交钱包充值 ￥{amount}（含赠送 {points} 积分），资金将汇入管理员账户等待审核。',
+      topUpReviewAccepted: '已通过该充值申请，资金将同步到账。',
+      topUpReviewRejected: '已驳回该充值申请，资金未入账。',
       accountUpdated: '账号信息已更新。',
       orderReturned: '订单《{title}》已退换成功。',
       viewingScheduled: '已为房源《{title}》安排看房，时间 {time}。',
@@ -1272,6 +1330,7 @@ const translations = {
       loadWallet: '加载钱包信息失败。',
       loadOrders: '加载订单信息失败。',
       loadAdminOrders: '加载待审核订单失败。',
+      loadAdminTopUps: '加载待审核充值失败。',
       loadConversations: '加载对话失败。',
       loadMessages: '加载消息失败。',
       messagingUnsupported: '当前角色暂不支持对话功能。',
@@ -1311,6 +1370,7 @@ const translations = {
       reviewRequireReason: '驳回操作需要填写原因。',
       submitReview: '提交审核结果失败。',
       reviewOrder: '审核交易资金失败。',
+      reviewTopUp: '审核充值申请失败。',
       loadReputation: '加载信誉面板失败。',
       persistSettings: '界面设置保存失败。',
       persistUser: '无法持久化登录状态。',
@@ -1687,7 +1747,9 @@ const translations = {
           confirmedSeller: '卖家已确认看房'
         },
         actions: {
-          requestReturn: '申请退换'
+          requestReturn: '申请退换',
+          viewDetails: '查看详情',
+          hideDetails: '收起详情'
         },
         schedule: {
           dialogTitle: '安排看房',
@@ -1979,6 +2041,13 @@ const translations = {
       floor: 'Floor',
       floorValue: 'Level {floor}',
       status: 'Status',
+      orderState: {
+        label: 'Order state',
+        reserved: 'Reserved',
+        reservedByYou: 'Reserved by you',
+        sold: 'Sold',
+        available: 'Available'
+      },
       keywords: 'Listing keywords',
       gallery: 'Gallery',
       galleryCount: '{count} images',
@@ -2452,6 +2521,8 @@ const translations = {
       orderReleasedSeller: 'Funds released to the seller.',
       orderReleasedBuyer: 'Funds returned to the buyer.',
       walletTopUpPending: 'Top-up submitted: ¥{amount} (+{points} pts). Funds will be sent to the admin account for approval.',
+      topUpReviewAccepted: 'Top-up approved and balance updated.',
+      topUpReviewRejected: 'Top-up request rejected. No balance change applied.',
       accountUpdated: 'Account details updated successfully.',
       orderReturned: 'Order “{title}” has been refunded.',
       viewingScheduled: 'Viewing for “{title}” has been scheduled at {time}.',
@@ -2477,6 +2548,7 @@ const translations = {
       loadWallet: 'Failed to load wallet information.',
       loadOrders: 'Failed to load orders.',
       loadAdminOrders: 'Failed to load pending orders for review.',
+      loadAdminTopUps: 'Failed to load pending top-up requests.',
       loadConversations: 'Failed to load conversations.',
       loadMessages: 'Failed to load messages.',
       messagingUnsupported: 'Messaging is not available for this role.',
@@ -2516,6 +2588,7 @@ const translations = {
       reviewRequireReason: 'A reason is required to reject a listing.',
       submitReview: 'Failed to submit review decision.',
       reviewOrder: 'Failed to review escrow transaction.',
+      reviewTopUp: 'Failed to review top-up request.',
       loadReputation: 'Failed to load reputation dashboard.',
       persistSettings: 'Failed to save interface settings.',
       persistUser: 'Unable to persist login state.',
@@ -2889,7 +2962,9 @@ const translations = {
           confirmedSeller: 'Seller confirmed viewing'
         },
         actions: {
-          requestReturn: 'Request a return'
+          requestReturn: 'Request a return',
+          viewDetails: 'View details',
+          hideDetails: 'Hide details'
         },
         schedule: {
           dialogTitle: 'Schedule viewing',
@@ -3609,6 +3684,7 @@ const switchTab = (tab) => {
   }
   if (tab === 'admin') {
     loadAdminOrders();
+    loadAdminTopUps();
   }
   if (tab === 'reputation') {
     loadAdminData();
@@ -3867,6 +3943,7 @@ const fetchOrders = async ({ silent = false } = {}) => {
   try {
     const { data } = await client.get(`/orders/by-user/${currentUser.value.username}`);
     orders.value = data;
+    maybeBuildSellerContract();
   } catch (error) {
     messages.error = resolveError(error, 'errors.loadOrders');
   } finally {
@@ -4525,15 +4602,33 @@ const revokeContractDownload = () => {
   contractDownload.value = null;
 };
 
-const buildContractDownload = ({ house, amount }) => {
+const normalizeStatusKey = (value) => {
+  if (value == null) {
+    return '';
+  }
+  const text = String(value).trim();
+  return text ? text.toUpperCase() : '';
+};
+
+const buildContractDownload = ({
+  house,
+  amount,
+  buyerNameOverride,
+  sellerNameOverride,
+  buyerUsernameOverride,
+  sellerUsernameOverride
+} = {}) => {
   if (!house) {
     return;
   }
   revokeContractDownload();
-  const buyerName = currentUser.value?.displayName || currentUser.value?.username || t('contracts.common.buyer');
-  const sellerName = house.sellerName || house.sellerUsername || t('contracts.common.seller');
-  const sellerUsername = house.sellerUsername ? `@${house.sellerUsername}` : t('contracts.common.seller');
-  const buyerUsername = currentUser.value?.username ? `@${currentUser.value.username}` : t('contracts.common.buyer');
+  const buyerName =
+    buyerNameOverride || currentUser.value?.displayName || currentUser.value?.username || t('contracts.common.buyer');
+  const sellerName = sellerNameOverride || house.sellerName || house.sellerUsername || t('contracts.common.seller');
+  const sellerUsername =
+    sellerUsernameOverride || (house.sellerUsername ? `@${house.sellerUsername}` : t('contracts.common.seller'));
+  const buyerUsername =
+    buyerUsernameOverride || (currentUser.value?.username ? `@${currentUser.value.username}` : t('contracts.common.buyer'));
   const contractText = [
     t('contracts.generated.title', { title: house.title ?? '' }),
     '',
@@ -4557,6 +4652,61 @@ const buildContractDownload = ({ house, amount }) => {
     sellerName,
     amount: amount ?? formatCurrencyYuan(house.price)
   };
+};
+
+const sellerContractStatuses = ['PAID', 'COMPLETED', 'SUCCESS', 'FUNDS_RELEASED'];
+
+const isSellerContractEligible = (order) => {
+  if (!order) {
+    return false;
+  }
+  const statusKey = normalizeStatusKey(order.status);
+  if (sellerContractStatuses.includes(statusKey)) {
+    return true;
+  }
+  if (order.adminReviewed && order.fundsReleasedTo === 'SELLER') {
+    return true;
+  }
+  return normalizeStatusKey(order.progressStage) === 'FUNDS_RELEASED';
+};
+
+const maybeBuildSellerContract = () => {
+  if (!isSeller.value || !currentUser.value) {
+    return;
+  }
+  const username = currentUser.value.username;
+  if (!username || !Array.isArray(orders.value)) {
+    return;
+  }
+  const eligible = orders.value.filter(
+    (order) => order && order.sellerUsername === username && isSellerContractEligible(order)
+  );
+  if (!eligible.length) {
+    return;
+  }
+  const latest = eligible.sort((a, b) => {
+    const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+    const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  })[0];
+
+  const buyerName = latest.buyerDisplayName || latest.buyerUsername || t('contracts.common.buyer');
+  buildContractDownload({
+    house: {
+      id: latest.houseId,
+      title: latest.houseTitle,
+      address: latest.houseAddress ?? latest.houseTitle ?? '',
+      area: latest.houseArea ?? '—',
+      price: latest.amount,
+      sellerName: latest.sellerDisplayName,
+      sellerUsername: latest.sellerUsername
+    },
+    amount: formatCurrencyYuan(latest.amount),
+    buyerNameOverride: buyerName,
+    sellerNameOverride: latest.sellerDisplayName || latest.sellerUsername,
+    buyerUsernameOverride: latest.buyerUsername ? `@${latest.buyerUsername}` : latest.buyerUsername,
+    sellerUsernameOverride: latest.sellerUsername ? `@${latest.sellerUsername}` : latest.sellerUsername
+  });
 };
 
 const handleUrgentTaskRead = (taskKey) => {
@@ -4692,9 +4842,8 @@ const handleTopUp = async ({ amount, reference }) => {
     if (!response) {
       throw lastError ?? new Error('Top-up failed');
     }
-    const { data } = response;
-    wallet.value = normalizeWallet(data, wallet.value);
     const bonusPoints = Math.floor((Number(amount) || 0) / 100) * 10;
+    await fetchWallet({ silent: true });
     messages.success = t('success.walletTopUpPending', {
       amount: formatCurrencyYuan(amount),
       points: bonusPoints
@@ -5030,6 +5179,29 @@ const loadAdminOrders = async ({ silent = false } = {}) => {
   }
 };
 
+const loadAdminTopUps = async ({ silent = false } = {}) => {
+  if (!isAdmin.value || !currentUser.value) {
+    adminPendingTopUps.value = [];
+    adminTopUpsLoading.value = false;
+    return;
+  }
+  if (!silent) {
+    adminTopUpsLoading.value = true;
+  }
+  try {
+    const { data } = await client.get('/admin/wallet-topups/pending', {
+      params: { requester: currentUser.value.username }
+    });
+    adminPendingTopUps.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.loadAdminTopUps');
+  } finally {
+    if (!silent) {
+      adminTopUpsLoading.value = false;
+    }
+  }
+};
+
 const handleAdminOrderRelease = async ({ orderId, decision }) => {
   if (!isAdmin.value || !currentUser.value || !orderId || !decision) {
     return;
@@ -5055,6 +5227,33 @@ const handleAdminOrderRelease = async ({ orderId, decision }) => {
     messages.error = resolveError(error, 'errors.reviewOrder');
   } finally {
     adminOrdersLoading.value = false;
+  }
+};
+
+const handleAdminTopUpReview = async ({ topUpId, decision }) => {
+  if (!isAdmin.value || !currentUser.value || !topUpId || !decision) {
+    return;
+  }
+  adminTopUpsLoading.value = true;
+  messages.error = '';
+  messages.success = '';
+  try {
+    await client.patch(`/admin/wallet-topups/${topUpId}/review`, {
+      requesterUsername: currentUser.value.username,
+      decision
+    });
+    messages.success =
+      decision === 'APPROVE'
+        ? t('success.topUpReviewAccepted')
+        : t('success.topUpReviewRejected');
+    await Promise.all([
+      loadAdminTopUps({ silent: true }),
+      fetchWallet({ silent: true })
+    ]);
+  } catch (error) {
+    messages.error = resolveError(error, 'errors.reviewTopUp');
+  } finally {
+    adminTopUpsLoading.value = false;
   }
 };
 
@@ -5101,6 +5300,7 @@ const handleLoginSuccess = (user) => {
   if (user.role === 'ADMIN') {
     loadAdminData();
     loadAdminOrders();
+    loadAdminTopUps();
   }
 };
 
@@ -5116,6 +5316,8 @@ const handleLogout = () => {
   adminUsers.value = [];
   adminReputation.value = null;
   adminPendingOrders.value = [];
+  adminPendingTopUps.value = [];
+  adminTopUpsLoading.value = false;
   walletLoading.value = false;
   ordersLoading.value = false;
   reservationLoading.value = false;
@@ -5134,10 +5336,12 @@ watch(
     if (role === 'ADMIN') {
       loadAdminData();
       loadAdminOrders();
+      loadAdminTopUps({ silent: true });
     } else {
       adminUsers.value = [];
       adminReputation.value = null;
       adminPendingOrders.value = [];
+      adminPendingTopUps.value = [];
     }
     if (role === 'BUYER' || isSellerRole(role)) {
       loadConversations({ silent: true });
@@ -5164,6 +5368,8 @@ onMounted(() => {
       loadRecommendations();
       if (user.role === 'ADMIN') {
         loadAdminData();
+        loadAdminTopUps();
+        loadAdminOrders();
       }
       return;
     }

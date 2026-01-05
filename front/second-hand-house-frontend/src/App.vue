@@ -5237,11 +5237,11 @@ onBeforeUnmount(() => {
 }
 
 .hero-surface {
-  background: color-mix(in srgb, rgba(255, 255, 255, 0.68) 60%, transparent);
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.4) 45%, rgba(255, 255, 255, 0.08));
+  backdrop-filter: blur(14px);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.5rem, 3vw, 2.4rem);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 16px 40px rgba(8, 28, 68, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 44px rgba(8, 28, 68, 0.12);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -5346,11 +5346,11 @@ onBeforeUnmount(() => {
 }
 
 .workspace-shell {
-  background: color-mix(in srgb, rgba(255, 255, 255, 0.9) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.52) 62%, rgba(255, 255, 255, 0.1));
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.35rem, 3.2vw, 2.4rem);
-  box-shadow: 0 28px 60px rgba(24, 48, 88, 0.15);
+  box-shadow: 0 26px 58px rgba(24, 48, 88, 0.13);
 }
 
 .workspace-layout {
@@ -5398,10 +5398,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.35rem 1.2rem;
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(calc(var(--glass-blur) / 2));
 }
 

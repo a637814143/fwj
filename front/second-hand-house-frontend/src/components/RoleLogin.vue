@@ -643,15 +643,15 @@ const requestVerificationCode = async () => {
 
 .auth-panel {
   position: relative;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.7);
   border-radius: var(--radius-lg);
-  padding: 2rem;
-  box-shadow: 0 24px 50px rgba(12, 35, 68, 0.24);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 1.9rem;
+  box-shadow: 0 20px 44px rgba(12, 35, 68, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   display: grid;
-  gap: 1.75rem;
+  gap: 1.65rem;
   width: 100%;
-  max-width: 500px;
+  max-width: 460px;
   margin: 0 auto;
   backdrop-filter: blur(12px) saturate(1.05);
 }

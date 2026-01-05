@@ -334,6 +334,7 @@ const containsSequentialPattern = (value) => {
   if (!value) {
     return false;
   }
+
   const chars = Array.from(value);
   let ascending = 1;
   let descending = 1;
@@ -363,6 +364,17 @@ const containsSequentialPattern = (value) => {
       return true;
     }
   }
+
+  const keyboardRows = ['1234567890', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+  const lower = value.toLowerCase();
+  for (let i = 0; i <= lower.length - 3; i += 1) {
+    const slice = lower.slice(i, i + 3);
+    const reversed = slice.split('').reverse().join('');
+    if (keyboardRows.some((row) => row.includes(slice) || row.includes(reversed))) {
+      return true;
+    }
+  }
+
   return false;
 };
 
@@ -657,20 +669,28 @@ const requestVerificationCode = async () => {
 }
 
 .mode-toggle {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
 }
 
 .mode-tab {
   background: rgba(240, 247, 255, 0.96);
   border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   color: var(--color-text-muted);
   cursor: pointer;
-  font-weight: 600;
-  padding: 0.75rem 1rem;
+  font-weight: 700;
+  padding: 1.4rem 2rem;
+  min-width: 160px;
+  min-height: 150px;
   transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .mode-tab:hover,
@@ -972,6 +992,16 @@ input:focus {
 
   .brand-showcase {
     padding: 2.25rem 1.75rem;
+  }
+
+  .mode-toggle {
+    gap: 0.85rem;
+  }
+
+  .mode-tab {
+    min-height: 120px;
+    padding: 1.1rem 1.25rem;
+    flex: 1;
   }
 }
 

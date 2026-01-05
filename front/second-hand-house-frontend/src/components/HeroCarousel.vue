@@ -116,11 +116,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border-radius: calc(var(--radius-lg) + 0.35rem);
   width: 100%;
-  min-height: 320px;
-  aspect-ratio: 14 / 9;
+  min-height: min(100vh, 960px);
   box-shadow: 0 26px 60px rgba(12, 35, 68, 0.22);
   color: #fff;
-  padding: 2.35rem;
+  padding: clamp(1.6rem, 4vw, 2.8rem);
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -246,6 +245,12 @@ onBeforeUnmount(() => {
 
   .carousel-overlay {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 1180px) {
+  .hero-carousel {
+    min-height: auto;
   }
 }
 </style>

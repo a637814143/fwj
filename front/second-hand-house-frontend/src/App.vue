@@ -2,315 +2,319 @@
   <div class="app">
     <header class="header">
       <HeroCarousel class="header-carousel">
-        <div class="header-foreground">
-          <div class="header-top">
-            <div class="branding">
-              <h1>{{ t('header.title') }}</h1>
-              <p>{{ t('header.subtitle') }}</p>
+        <div class="hero-surface">
+          <div class="header-foreground">
+            <div class="header-top">
+              <div class="branding">
+                <h1>{{ t('header.title') }}</h1>
+                <p>{{ t('header.subtitle') }}</p>
+              </div>
+              <div class="header-actions">
+                <button
+                  v-if="currentUser && canUseMessaging"
+                  type="button"
+                  class="messages-trigger"
+                  @click="openConversationPanel"
+                >
+                  {{ t('header.messages') }}
+                </button>
+                <InterfaceSettings />
+              </div>
             </div>
-            <div class="header-actions">
-              <button
-                v-if="currentUser && canUseMessaging"
-                type="button"
-                class="messages-trigger"
-                @click="openConversationPanel"
-              >
-                {{ t('header.messages') }}
-              </button>
-              <InterfaceSettings />
-            </div>
+            <p v-if="messages.success" class="success">{{ messages.success }}</p>
           </div>
-          <p v-if="messages.success" class="success">{{ messages.success }}</p>
+
+          <section v-if="!currentUser" class="login-section">
+            <RoleLogin :api-base-url="apiBaseUrl" @login-success="handleLoginSuccess" />
+          </section>
+
+          <template v-else>
+            <div class="workspace-shell">
+              <div class="workspace-layout" :class="{ 'menu-open': menuOpen }">
+                <div class="menu-wrapper">
+                  <button
+                    type="button"
+                    class="menu-toggle"
+                    :aria-expanded="menuOpen ? 'true' : 'false'"
+                    aria-controls="app-navigation"
+                    @click="toggleMenu"
+                  >
+                    ≡
+                  </button>
+                  <transition name="menu-fade">
+                    <aside v-if="menuOpen" id="app-navigation" class="sidebar">
+                      <div class="menu-panel">
+                        <div class="menu-header" v-if="currentUser">
+                          <div class="menu-user">
+                            <span class="menu-user-name">{{ currentUser.displayName }}</span>
+                            <span class="menu-user-role">{{ roleLabels[currentUser.role] }}</span>
+                            <span class="menu-user-account">@{{ currentUser.username }}</span>
+                          </div>
+                          <div class="menu-wallet">
+                            <div class="wallet-line">
+                              <span class="wallet-label">{{ t('menu.walletBalance') }}</span>
+                              <strong class="wallet-value">￥{{ walletBalanceLabel }}</strong>
+                            </div>
+                            <div class="wallet-line">
+                              <span class="wallet-label">{{ t('menu.walletPoints') }}</span>
+                              <strong class="wallet-value">{{ walletPointsLabel }}</strong>
+                            </div>
+                          </div>
+                        </div>
+                        <nav class="menu">
+                          <button
+                            v-for="tab in navigationTabs"
+                            :key="tab.value"
+                            type="button"
+                            :class="['menu-item', { active: tab.value === activeTab }]"
+                            :aria-label="tab.ariaLabel || tab.label"
+                            @click="switchTab(tab.value)"
+                          >
+                            <span class="menu-item__label">{{ tab.label }}</span>
+                            <span v-if="tab.alert" class="menu-item__alert" aria-hidden="true"></span>
+                          </button>
+                        </nav>
+                        <button type="button" class="menu-logout" @click="handleLogout">
+                          {{ t('header.logout') }}
+                        </button>
+                      </div>
+                    </aside>
+                  </transition>
+                </div>
+
+                <section class="workspace" :class="{ 'home-bleed': activeTab === 'home' }">
+                  <section v-if="messages.error" class="alert">
+                    <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
+                  </section>
+
+                  <section v-if="contractDownload" class="contract-download">
+                    <div>
+                      <h3>{{ t('contracts.generated.downloadTitle') }}</h3>
+                      <p class="contract-download__meta">
+                        {{ t('contracts.generated.summary', {
+                          title: contractDownload.title,
+                          buyer: contractDownload.buyerName,
+                          seller: contractDownload.sellerName,
+                          amount: contractDownload.amount
+                        }) }}
+                      </p>
+                    </div>
+                    <div class="contract-download__actions">
+                      <a :href="contractDownload.url" :download="contractDownload.buyerFileName" class="cta primary">
+                        {{ t('contracts.generated.downloadBuyer') }}
+                      </a>
+                      <a :href="contractDownload.url" :download="contractDownload.sellerFileName" class="cta ghost">
+                        {{ t('contracts.generated.downloadSeller') }}
+                      </a>
+                    </div>
+                  </section>
+
+                  <main class="main-content">
+                    <HouseExplorer
+                      v-if="activeTab === 'home'"
+                      :houses="marketplaceHouses"
+                      :loading="loading"
+                      :current-user="currentUser"
+                      :can-view-sensitive-info="canViewSensitiveInfo"
+                      :filters="houseFilters"
+                      :recommendations="recommendations"
+                      :purchase-loading="ordersLoading"
+                      :reservation-loading="reservationLoading"
+                      :reservation-target="reservationTarget"
+                      :api-base-url="apiBaseUrl"
+                      :favorite-ids="favoriteIdList"
+                      :can-favorite="Boolean(currentUser)"
+                      :page-size="4"
+                      @search="handleFilterSearch"
+                      @reserve="handleReserve"
+                      @purchase="handlePurchase"
+                      @contact-seller="handleContactSeller"
+                      @toggle-favorite="handleToggleFavorite"
+                    />
+
+                    <HouseExplorer
+                      v-else-if="activeTab === 'favorites'"
+                      :houses="favoriteHouses"
+                      :loading="loading"
+                      :current-user="currentUser"
+                      :can-view-sensitive-info="canViewSensitiveInfo"
+                      :filters="houseFilters"
+                      :recommendations="recommendations"
+                      :purchase-loading="ordersLoading"
+                      :reservation-loading="reservationLoading"
+                      :reservation-target="reservationTarget"
+                      :api-base-url="apiBaseUrl"
+                      :favorite-ids="favoriteIdList"
+                      :can-favorite="Boolean(currentUser)"
+                      :page-size="4"
+                      :show-filters="false"
+                      :show-recommendations="false"
+                      :empty-message="t('favorites.empty')"
+                      @reserve="handleReserve"
+                      @purchase="handlePurchase"
+                      @contact-seller="handleContactSeller"
+                      @toggle-favorite="handleToggleFavorite"
+                    />
+
+                    <AIAssistant
+                      v-else-if="activeTab === 'assistant'"
+                      :api-base-url="apiBaseUrl"
+                    />
+
+                    <PricePredictor
+                      v-else-if="activeTab === 'predictor'"
+                      :api-base-url="apiBaseUrl"
+                      :current-user="currentUser"
+                      :wallet="wallet"
+                      :consume-points="consumePredictionPoints"
+                    />
+
+                    <div v-else-if="activeTab === 'manage'" class="manage-grid">
+                      <HouseForm
+                        :initial-house="selectedHouse"
+                        :loading="loading"
+                        :can-manage="canManageHouses"
+                        :current-user="currentUser"
+                        :reset-key="formResetKey"
+                        :api-base-url="apiBaseUrl"
+                        @submit="handleSubmit"
+                        @cancel="handleCancel"
+                      />
+                      <HouseList
+                        :houses="houses"
+                        :loading="loading"
+                        :can-manage="canManageHouses"
+                        :current-user="currentUser"
+                        :can-view-sensitive-info="canViewSensitiveInfo"
+                        :orders-loading="ordersLoading"
+                        @edit="handleEdit"
+                        @remove="handleRemove"
+                        @review="handleReview"
+                        @purchase="handlePurchase"
+                        @contact-seller="handleContactSeller"
+                      />
+                    </div>
+
+                    <HouseList
+                      v-else-if="activeTab === 'drafts'"
+                      :houses="sellerDraftHouses"
+                      :loading="loading"
+                      :can-manage="canManageHouses"
+                      :current-user="currentUser"
+                      :can-view-sensitive-info="canViewSensitiveInfo"
+                      :orders-loading="ordersLoading"
+                      @edit="handleEdit"
+                      @remove="handleRemove"
+                      @review="handleReview"
+                      @purchase="handlePurchase"
+                      @contact-seller="handleContactSeller"
+                    />
+
+                    <HouseReviews
+                      v-else-if="activeTab === 'feedback'"
+                      :houses="houses"
+                      :reviews="houseReviews"
+                      :current-user="currentUser"
+                      :eligible-house-ids="reviewableHouseIds"
+                      @submit="handleSubmitHouseReview"
+                    />
+
+                    <AdminHouseReview
+                      v-else-if="activeTab === 'review'"
+                      :houses="pendingReviewHouses"
+                      :loading="reviewLoading"
+                      :allow-delete="isAdmin"
+                      @refresh="fetchHouses({ silent: false })"
+                      @review="handleReview"
+                      @delete-house="handleAdminDeleteRequest"
+                    />
+
+                    <AdminHouseManager
+                      v-else-if="activeTab === 'admin-houses'"
+                      :houses="houses"
+                      :loading="loading || adminLoading"
+                      :status-labels="listingStatusLabels"
+                      @refresh="fetchHouses({ silent: false })"
+                      @unlist="handleAdminUnlist"
+                      @delete="handleAdminDeleteRequest"
+                    />
+
+                    <UrgentTasks
+                      v-else-if="activeTab === 'urgent'"
+                      :tasks="urgentTasks"
+                      :progress-labels="orderProgressLabels"
+                      @mark-read="handleUrgentTaskRead"
+                      @navigate="handleUrgentTaskNavigate"
+                    />
+
+                    <div v-else-if="activeTab === 'orders'" class="orders-grid">
+                      <WalletPanel
+                        :wallet="wallet"
+                        :loading="walletLoading"
+                        :current-user="currentUser"
+                        @top-up="handleTopUp"
+                      />
+                      <OrderHistory
+                        :orders="orders"
+                        :loading="ordersLoading"
+                        :current-user="currentUser"
+                        :can-view-sensitive-info="canViewSensitiveInfo"
+                        :progress-labels="orderProgressLabels"
+                        :progress-order="orderProgressSequence"
+                        @request-return="handleRequestReturn"
+                        @schedule-viewing="handleScheduleViewing"
+                        @advance-progress="handleAdvanceProgress"
+                        @confirm-viewing="handleViewingConfirmation"
+                      />
+                    </div>
+
+                    <AccountCenter
+                      v-else-if="activeTab === 'account'"
+                      inline
+                      :visible="true"
+                      :current-user="currentUser"
+                      :wallet="wallet"
+                      :role-label="roleLabels[currentUser?.role]"
+                      :saving="accountSaving"
+                      :error="accountError"
+                      :api-base-url="apiBaseUrl"
+                      @submit="handleAccountSubmit"
+                      @verified="handleVerificationUpdate"
+                    />
+
+                    <div v-else-if="activeTab === 'admin'" class="admin-panels">
+                      <AdminOrderReview
+                        :orders="adminPendingOrders"
+                        :loading="adminOrdersLoading"
+                        @refresh="loadAdminOrders"
+                        @release="handleAdminOrderRelease"
+                      />
+                      <ReviewModeration
+                        :reviews="pendingHouseReviews"
+                        :moderating="reviewLoading"
+                        @moderate="handleModerateHouseReview"
+                      />
+                    </div>
+
+                    <div v-else-if="activeTab === 'reputation'" class="reputation-panel">
+                      <AdminReputationBoard
+                        :loading="adminLoading"
+                        :overview="adminReputation"
+                        :users="adminUsers"
+                        :current-user="currentUser"
+                        @refresh="loadAdminData"
+                        @toggle-blacklist="handleToggleBlacklist"
+                        @delete-user="handleDeleteUser"
+                      />
+                    </div>
+                  </main>
+                </section>
+              </div>
+            </div>
+          </template>
         </div>
       </HeroCarousel>
     </header>
-
-    <section v-if="!currentUser" class="login-section">
-      <RoleLogin :api-base-url="apiBaseUrl" @login-success="handleLoginSuccess" />
-    </section>
-
-    <template v-else>
-      <div class="workspace-layout" :class="{ 'menu-open': menuOpen }">
-        <div class="menu-wrapper">
-          <button
-            type="button"
-            class="menu-toggle"
-            :aria-expanded="menuOpen ? 'true' : 'false'"
-            aria-controls="app-navigation"
-            @click="toggleMenu"
-          >
-            ≡
-          </button>
-          <transition name="menu-fade">
-            <aside v-if="menuOpen" id="app-navigation" class="sidebar">
-              <div class="menu-panel">
-                <div class="menu-header" v-if="currentUser">
-                  <div class="menu-user">
-                    <span class="menu-user-name">{{ currentUser.displayName }}</span>
-                    <span class="menu-user-role">{{ roleLabels[currentUser.role] }}</span>
-                    <span class="menu-user-account">@{{ currentUser.username }}</span>
-                  </div>
-                  <div class="menu-wallet">
-                    <div class="wallet-line">
-                      <span class="wallet-label">{{ t('menu.walletBalance') }}</span>
-                      <strong class="wallet-value">￥{{ walletBalanceLabel }}</strong>
-                    </div>
-                    <div class="wallet-line">
-                      <span class="wallet-label">{{ t('menu.walletPoints') }}</span>
-                      <strong class="wallet-value">{{ walletPointsLabel }}</strong>
-                    </div>
-                  </div>
-                </div>
-                <nav class="menu">
-                  <button
-                    v-for="tab in navigationTabs"
-                    :key="tab.value"
-                    type="button"
-                    :class="['menu-item', { active: tab.value === activeTab }]"
-                    :aria-label="tab.ariaLabel || tab.label"
-                    @click="switchTab(tab.value)"
-                  >
-                    <span class="menu-item__label">{{ tab.label }}</span>
-                    <span v-if="tab.alert" class="menu-item__alert" aria-hidden="true"></span>
-                  </button>
-                </nav>
-                <button type="button" class="menu-logout" @click="handleLogout">
-                  {{ t('header.logout') }}
-                </button>
-              </div>
-            </aside>
-          </transition>
-        </div>
-
-        <section class="workspace" :class="{ 'home-bleed': activeTab === 'home' }">
-        <section v-if="messages.error" class="alert">
-          <strong>{{ t('alerts.errorPrefix') }}</strong> {{ messages.error }}
-        </section>
-
-          <section v-if="contractDownload" class="contract-download">
-            <div>
-              <h3>{{ t('contracts.generated.downloadTitle') }}</h3>
-              <p class="contract-download__meta">
-                {{ t('contracts.generated.summary', {
-                  title: contractDownload.title,
-                  buyer: contractDownload.buyerName,
-                  seller: contractDownload.sellerName,
-                  amount: contractDownload.amount
-                }) }}
-              </p>
-            </div>
-            <div class="contract-download__actions">
-              <a :href="contractDownload.url" :download="contractDownload.buyerFileName" class="cta primary">
-                {{ t('contracts.generated.downloadBuyer') }}
-              </a>
-              <a :href="contractDownload.url" :download="contractDownload.sellerFileName" class="cta ghost">
-                {{ t('contracts.generated.downloadSeller') }}
-              </a>
-            </div>
-          </section>
-
-        <main class="main-content">
-        <HouseExplorer
-          v-if="activeTab === 'home'"
-          :houses="marketplaceHouses"
-          :loading="loading"
-          :current-user="currentUser"
-          :can-view-sensitive-info="canViewSensitiveInfo"
-          :filters="houseFilters"
-          :recommendations="recommendations"
-          :purchase-loading="ordersLoading"
-          :reservation-loading="reservationLoading"
-          :reservation-target="reservationTarget"
-          :api-base-url="apiBaseUrl"
-          :favorite-ids="favoriteIdList"
-          :can-favorite="Boolean(currentUser)"
-          :page-size="4"
-          @search="handleFilterSearch"
-          @reserve="handleReserve"
-          @purchase="handlePurchase"
-          @contact-seller="handleContactSeller"
-          @toggle-favorite="handleToggleFavorite"
-        />
-
-        <HouseExplorer
-          v-else-if="activeTab === 'favorites'"
-          :houses="favoriteHouses"
-          :loading="loading"
-          :current-user="currentUser"
-          :can-view-sensitive-info="canViewSensitiveInfo"
-          :filters="houseFilters"
-          :recommendations="recommendations"
-          :purchase-loading="ordersLoading"
-          :reservation-loading="reservationLoading"
-          :reservation-target="reservationTarget"
-          :api-base-url="apiBaseUrl"
-          :favorite-ids="favoriteIdList"
-          :can-favorite="Boolean(currentUser)"
-          :page-size="4"
-          :show-filters="false"
-          :show-recommendations="false"
-          :empty-message="t('favorites.empty')"
-          @reserve="handleReserve"
-          @purchase="handlePurchase"
-          @contact-seller="handleContactSeller"
-          @toggle-favorite="handleToggleFavorite"
-        />
-
-        <AIAssistant
-          v-else-if="activeTab === 'assistant'"
-          :api-base-url="apiBaseUrl"
-        />
-
-        <PricePredictor
-          v-else-if="activeTab === 'predictor'"
-          :api-base-url="apiBaseUrl"
-          :current-user="currentUser"
-          :wallet="wallet"
-          :consume-points="consumePredictionPoints"
-        />
-
-        <div v-else-if="activeTab === 'manage'" class="manage-grid">
-          <HouseForm
-            :initial-house="selectedHouse"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            :reset-key="formResetKey"
-            :api-base-url="apiBaseUrl"
-            @submit="handleSubmit"
-            @cancel="handleCancel"
-          />
-          <HouseList
-            :houses="houses"
-            :loading="loading"
-            :can-manage="canManageHouses"
-            :current-user="currentUser"
-            :can-view-sensitive-info="canViewSensitiveInfo"
-            :orders-loading="ordersLoading"
-            @edit="handleEdit"
-            @remove="handleRemove"
-            @review="handleReview"
-            @purchase="handlePurchase"
-            @contact-seller="handleContactSeller"
-          />
-        </div>
-
-        <HouseList
-          v-else-if="activeTab === 'drafts'"
-          :houses="sellerDraftHouses"
-          :loading="loading"
-          :can-manage="canManageHouses"
-          :current-user="currentUser"
-          :can-view-sensitive-info="canViewSensitiveInfo"
-          :orders-loading="ordersLoading"
-          @edit="handleEdit"
-          @remove="handleRemove"
-          @review="handleReview"
-          @purchase="handlePurchase"
-          @contact-seller="handleContactSeller"
-        />
-
-        <HouseReviews
-          v-else-if="activeTab === 'feedback'"
-          :houses="houses"
-          :reviews="houseReviews"
-          :current-user="currentUser"
-          :eligible-house-ids="reviewableHouseIds"
-          @submit="handleSubmitHouseReview"
-        />
-
-        <AdminHouseReview
-          v-else-if="activeTab === 'review'"
-          :houses="pendingReviewHouses"
-          :loading="reviewLoading"
-          :allow-delete="isAdmin"
-          @refresh="fetchHouses({ silent: false })"
-          @review="handleReview"
-          @delete-house="handleAdminDeleteRequest"
-        />
-
-        <AdminHouseManager
-          v-else-if="activeTab === 'admin-houses'"
-          :houses="houses"
-          :loading="loading || adminLoading"
-          :status-labels="listingStatusLabels"
-          @refresh="fetchHouses({ silent: false })"
-          @unlist="handleAdminUnlist"
-          @delete="handleAdminDeleteRequest"
-        />
-
-        <UrgentTasks
-          v-else-if="activeTab === 'urgent'"
-          :tasks="urgentTasks"
-          :progress-labels="orderProgressLabels"
-          @mark-read="handleUrgentTaskRead"
-          @navigate="handleUrgentTaskNavigate"
-        />
-
-        <div v-else-if="activeTab === 'orders'" class="orders-grid">
-          <WalletPanel
-            :wallet="wallet"
-            :loading="walletLoading"
-            :current-user="currentUser"
-            @top-up="handleTopUp"
-          />
-          <OrderHistory
-            :orders="orders"
-            :loading="ordersLoading"
-            :current-user="currentUser"
-            :can-view-sensitive-info="canViewSensitiveInfo"
-            :progress-labels="orderProgressLabels"
-            :progress-order="orderProgressSequence"
-            @request-return="handleRequestReturn"
-            @schedule-viewing="handleScheduleViewing"
-            @advance-progress="handleAdvanceProgress"
-            @confirm-viewing="handleViewingConfirmation"
-          />
-        </div>
-
-        <AccountCenter
-          v-else-if="activeTab === 'account'"
-          inline
-          :visible="true"
-          :current-user="currentUser"
-          :wallet="wallet"
-          :role-label="roleLabels[currentUser?.role]"
-          :saving="accountSaving"
-          :error="accountError"
-          :api-base-url="apiBaseUrl"
-          @submit="handleAccountSubmit"
-          @verified="handleVerificationUpdate"
-        />
-
-        <div v-else-if="activeTab === 'admin'" class="admin-panels">
-          <AdminOrderReview
-            :orders="adminPendingOrders"
-            :loading="adminOrdersLoading"
-            @refresh="loadAdminOrders"
-            @release="handleAdminOrderRelease"
-          />
-          <ReviewModeration
-            :reviews="pendingHouseReviews"
-            :moderating="reviewLoading"
-            @moderate="handleModerateHouseReview"
-          />
-        </div>
-
-        <div v-else-if="activeTab === 'reputation'" class="reputation-panel">
-          <AdminReputationBoard
-            :loading="adminLoading"
-            :overview="adminReputation"
-            :users="adminUsers"
-            :current-user="currentUser"
-            @refresh="loadAdminData"
-            @toggle-blacklist="handleToggleBlacklist"
-            @delete-user="handleDeleteUser"
-          />
-        </div>
-          </main>
-        </section>
-      </div>
-    </template>
 
     <ConversationPanel
       :visible="conversationPanelVisible"
@@ -5232,12 +5236,23 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.hero-surface {
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.68) 60%, transparent);
+  backdrop-filter: blur(12px);
+  border-radius: calc(var(--radius-lg) + 0.35rem);
+  padding: clamp(1.5rem, 3vw, 2.4rem);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 16px 40px rgba(8, 28, 68, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
 .header-foreground {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   height: 100%;
-  color: #fff;
+  color: var(--color-text-strong);
 }
 
 .header-top {
@@ -5268,14 +5283,14 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 2.65rem;
   letter-spacing: 0.01em;
-  text-shadow: 0 10px 28px rgba(32, 74, 132, 0.18);
+  text-shadow: 0 10px 28px rgba(32, 74, 132, 0.14);
 }
 
 .branding p {
   margin: 0.35rem 0 0;
   font-size: 1.06rem;
-  opacity: 0.96;
-  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+  color: color-mix(in srgb, var(--color-text-strong) 88%, transparent);
 }
 
 .header-actions {
@@ -5328,6 +5343,14 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: clamp(1.5rem, 6vw, 3rem);
   box-sizing: border-box;
+}
+
+.workspace-shell {
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.9) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  border-radius: calc(var(--radius-lg) + 0.35rem);
+  padding: clamp(1.35rem, 3.2vw, 2.4rem);
+  box-shadow: 0 28px 60px rgba(24, 48, 88, 0.15);
 }
 
 .workspace-layout {

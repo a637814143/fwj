@@ -29,6 +29,6 @@ public class WalletController {
     // 为指定用户充值，并记录外部流水号
     @PostMapping("/{username}/top-up")
     public WalletSummaryResponse topUp(@PathVariable String username, @Valid @RequestBody TopUpRequest request) {
-        return walletService.topUp(username, request.getAmount(), request.getReference());
+        return walletService.submitTopUp(username, request.getAmount(), request.getReference());
     }
 }

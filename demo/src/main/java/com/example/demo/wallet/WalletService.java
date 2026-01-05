@@ -3,6 +3,7 @@ package com.example.demo.wallet;
 import com.example.demo.auth.UserAccount;
 import com.example.demo.auth.UserAccountRepository;
 import com.example.demo.order.HouseOrder;
+import com.example.demo.auth.UserRole;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +21,15 @@ public class WalletService {
 
     private final UserWalletRepository walletRepository;
     private final WalletTransactionRepository transactionRepository;
+    private final WalletTopUpRequestRepository topUpRequestRepository;
     private final UserAccountRepository userAccountRepository;
     public WalletService(UserWalletRepository walletRepository,
                          WalletTransactionRepository transactionRepository,
+                         WalletTopUpRequestRepository topUpRequestRepository,
                          UserAccountRepository userAccountRepository) {
         this.walletRepository = walletRepository;
         this.transactionRepository = transactionRepository;
+        this.topUpRequestRepository = topUpRequestRepository;
         this.userAccountRepository = userAccountRepository;
     }
 
@@ -40,25 +44,66 @@ public class WalletService {
         return toSummary(account, wallet);
     }
 
-    public WalletSummaryResponse topUp(String username, BigDecimal amount, String reference) {
+    public List<WalletTopUpView> listPendingTopUps(String requesterUsername) {
+        UserAccount admin = getAdmin(requesterUsername);
+        ensureWallet(admin);
+        return topUpRequestRepository.findByStatusOrderByCreatedAtAsc(TopUpStatus.PENDING)
+                .stream()
+                .map(WalletTopUpView::fromEntity)
+                .toList();
+    }
+
+    public WalletTopUpView reviewTopUp(Long topUpId, TopUpReviewDecision decision, String requesterUsername) {
+        if (decision == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请选择审核结果");
+        }
+        UserAccount admin = getAdmin(requesterUsername);
+        WalletTopUpRequest request = topUpRequestRepository.findById(topUpId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "充值申请不存在"));
+        if (request.getStatus() != TopUpStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "该充值申请已审核");
+        }
+        if (decision == TopUpReviewDecision.REJECT) {
+            request.markReviewed(TopUpStatus.REJECTED, admin.getUsername());
+            topUpRequestRepository.save(request);
+            return WalletTopUpView.fromEntity(request);
+        }
+        UserWallet wallet = ensureWallet(request.getUser());
+        wallet.increase(request.getAmount());
+        walletRepository.save(wallet);
+        createTransaction(wallet, WalletTransactionType.TOP_UP, request.getAmount(),
+                request.getReference(), "钱包充值审核通过");
+        request.markReviewed(TopUpStatus.APPROVED, admin.getUsername());
+        topUpRequestRepository.save(request);
+        return WalletTopUpView.fromEntity(request);
+    }
+
+    public WalletSummaryResponse submitTopUp(String username, BigDecimal amount, String reference) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "充值金额必须大于0");
         }
         amount = amount.setScale(2, RoundingMode.HALF_UP);
         UserAccount account = getAccount(username);
-        UserWallet wallet = ensureWallet(account);
-        wallet.increase(amount);
-        walletRepository.save(wallet);
-        createTransaction(wallet, WalletTransactionType.TOP_UP, amount, normalizeReference(reference), "钱包充值");
-        return toSummary(account, wallet);
+        WalletTopUpRequest request = new WalletTopUpRequest();
+        request.setUser(account);
+        request.setAmount(amount);
+        request.setReference(normalizeReference(reference));
+        topUpRequestRepository.save(request);
+        return toSummary(account, ensureWallet(account));
     }
 
-    public void processEscrowPayment(HouseOrder order, String reference, String description, UserAccount adminAccount) {
-        BigDecimal amount = order.getAmount();
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+    public void processEscrowPayment(HouseOrder order,
+                                     BigDecimal paymentAmount,
+                                     String reference,
+                                     String description,
+                                     UserAccount adminAccount) {
+        if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "支付金额必须大于0");
         }
-        amount = amount.setScale(2, RoundingMode.HALF_UP);
+        if (paymentAmount.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+        BigDecimal amount = paymentAmount.setScale(2, RoundingMode.HALF_UP);
         UserWallet buyerWallet = ensureWallet(order.getBuyer());
         if (buyerWallet.getBalance().compareTo(amount) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "买家钱包余额不足");
@@ -71,6 +116,10 @@ public class WalletService {
         String normalizedReference = normalizeReference(reference);
         createTransaction(buyerWallet, WalletTransactionType.PAYMENT, amount.negate(), normalizedReference, description);
         createTransaction(adminWallet, WalletTransactionType.RECEIVE, amount, normalizedReference, description);
+    }
+
+    public void processEscrowPayment(HouseOrder order, String reference, String description, UserAccount adminAccount) {
+        processEscrowPayment(order, order.getAmount(), reference, description, adminAccount);
     }
 
     public void releaseEscrow(HouseOrder order,
@@ -129,6 +178,20 @@ public class WalletService {
     private UserAccount getAccount(String username) {
         return userAccountRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到指定用户账号"));
+    }
+
+    private UserAccount getAdmin(String username) {
+        if (username == null || username.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "管理员账号不能为空");
+        }
+        UserAccount account = getAccount(username);
+        if (account.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅管理员可审核充值");
+        }
+        if (account.isBlacklisted()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "管理员账号已被拉黑，无法审核充值");
+        }
+        return account;
     }
 
     private WalletSummaryResponse toSummary(UserAccount account, UserWallet wallet) {

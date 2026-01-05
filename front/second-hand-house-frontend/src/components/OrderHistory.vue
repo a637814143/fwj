@@ -8,151 +8,164 @@
       <div v-else-if="!orders || orders.length === 0" class="empty">{{ t('orders.history.empty') }}</div>
       <ul v-else class="order-list">
         <li v-for="order in orders" :key="order.id" class="order-card">
-          <header>
+          <button
+            type="button"
+            class="order-summary"
+            :aria-expanded="isExpanded(order) ? 'true' : 'false'"
+            @click="toggleExpanded(order)"
+          >
             <div class="title-area">
               <h3>{{ order.houseTitle }}</h3>
               <span v-if="stageLabel(order.progressStage)" class="progress-chip">
                 {{ stageLabel(order.progressStage) }}
               </span>
             </div>
-            <span class="status" :class="statusClass(order.status)">
-              {{ statusLabel(order.status) }}
-            </span>
-          </header>
-          <dl>
-            <div>
-              <dt>{{ t('orders.history.fields.orderId') }}</dt>
-              <dd>{{ order.id }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.amount') }}</dt>
-              <dd>￥{{ formatAmount(order.amount) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.paymentMethod') }}</dt>
-              <dd>{{ paymentMethodLabel(order.paymentMethod) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.buyer') }}</dt>
-              <dd>{{ buyerDisplayName(order) }} ({{ buyerUsernameDisplay(order) }})</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.seller') }}</dt>
-              <dd>{{ sellerDisplayName(order) }} ({{ sellerUsernameDisplay(order) }})</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.createdAt') }}</dt>
-              <dd>{{ formatTime(order.createdAt) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.updatedAt') }}</dt>
-              <dd>{{ formatTime(order.updatedAt) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('orders.history.fields.escrowStatus') }}</dt>
-              <dd>
-                <span :class="['escrow-tag', escrowClass(order)]">{{ escrowStatus(order) }}</span>
-                <span v-if="escrowSupplement(order)" class="escrow-supplement">{{ escrowSupplement(order) }}</span>
-              </dd>
-            </div>
-            <div v-if="shouldShowPlatformFee(order)">
-              <dt>{{ t('orders.history.fields.platformFee') }}</dt>
-              <dd>￥{{ formatAmount(order.platformFee) }}</dd>
-            </div>
-            <div v-if="shouldShowReleasedAmount(order)">
-              <dt>{{ t('orders.history.fields.releasedAmount') }}</dt>
-              <dd>￥{{ formatAmount(order.releasedAmount) }}</dd>
-            </div>
-            <div v-if="order.adminReviewedBy">
-              <dt>{{ t('orders.history.fields.reviewedBy') }}</dt>
-              <dd>
-                {{ order.adminReviewedBy }}
-                <span v-if="order.adminReviewedAt" class="escrow-supplement">{{ formatTime(order.adminReviewedAt) }}</span>
-              </dd>
-            </div>
-            <div v-if="order.returnReason">
-              <dt>{{ t('orders.history.fields.returnReason') }}</dt>
-              <dd>{{ order.returnReason }}</dd>
-            </div>
-          </dl>
-          <p v-if="isSellerViewer(order) && hasSellerRepay(order)" class="seller-repay-alert">
-            {{ sellerRepayPending(order) }}
-          </p>
-          <p v-else-if="isSellerViewer(order) && order.sellerRepaySettledAt" class="seller-repay-info">
-            {{ sellerRepayCompleted(order) }}
-          </p>
-          <section class="progress-tracker">
-            <h4>{{ t('orders.history.progressTitle') }}</h4>
-            <ol class="progress-steps">
-              <li
-                v-for="(stage, index) in progressOrderNormalized"
-                :key="`${order.id}-${stage}`"
-                :class="['progress-step', { reached: isStageReached(order, stage), current: isCurrentStage(order, stage) }]"
-              >
-                <span class="step-index">{{ index + 1 }}</span>
-                <span class="step-label">{{ stageLabel(stage) }}</span>
-              </li>
-            </ol>
-          </section>
-          <section v-if="hasViewingSection(order)" class="viewing-section">
-            <header>
-              <h4>{{ t('orders.history.viewing.title') }}</h4>
-              <span v-if="order.viewingTime" class="viewing-time">
-                {{ t('orders.history.viewing.timeLabel', { time: viewingTimeLabel(order) }) }}
+            <div class="summary-meta">
+              <span class="status" :class="statusClass(order.status)">
+                {{ statusLabel(order.status) }}
               </span>
-            </header>
-            <p v-if="order.viewingTime" class="viewing-summary">
-              {{ t('orders.history.viewing.appointment', { time: viewingTimeLabel(order) }) }}
-              <span v-if="order.viewingMessage">
-                {{ t('orders.history.viewing.notes', { message: order.viewingMessage }) }}
-              </span>
-            </p>
-            <div
-              v-if="order.buyerViewingConfirmed || order.sellerViewingConfirmed"
-              class="viewing-status"
-            >
-              <span v-if="order.buyerViewingConfirmed" class="viewing-chip">
-                {{ t('orders.history.viewing.confirmedBuyer') }}
-              </span>
-              <span v-if="order.sellerViewingConfirmed" class="viewing-chip">
-                {{ t('orders.history.viewing.confirmedSeller') }}
-              </span>
+              <span class="summary-toggle">{{ summaryToggleLabel(order) }}</span>
             </div>
-            <div class="viewing-actions">
-              <button
-                v-if="canSchedule(order)"
-                type="button"
-                class="primary"
-                :disabled="loading"
-                @click="openScheduleDialog(order)"
-              >
-                {{ t('orders.history.viewing.schedule') }}
-              </button>
-              <button
-                v-if="canAdvance(order)"
-                type="button"
-                class="secondary"
-                :disabled="loading"
-                @click="advanceProgress(order)"
-              >
-                {{ t('orders.history.viewing.advance', { stage: nextStageLabel(order) }) }}
-              </button>
-              <button
-                v-if="canConfirmViewing(order)"
-                type="button"
-                class="secondary"
-                :disabled="loading"
-                @click="confirmViewing(order)"
-              >
-                {{ t('orders.history.viewing.markViewed') }}
-              </button>
+          </button>
+
+          <transition name="collapse">
+            <div v-if="isExpanded(order)" class="order-details">
+              <dl>
+                <div>
+                  <dt>{{ t('orders.history.fields.orderId') }}</dt>
+                  <dd>{{ order.id }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.amount') }}</dt>
+                  <dd>￥{{ formatAmount(order.amount) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.paymentMethod') }}</dt>
+                  <dd>{{ paymentMethodLabel(order.paymentMethod) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.buyer') }}</dt>
+                  <dd>{{ buyerDisplayName(order) }} ({{ buyerUsernameDisplay(order) }})</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.seller') }}</dt>
+                  <dd>{{ sellerDisplayName(order) }} ({{ sellerUsernameDisplay(order) }})</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.createdAt') }}</dt>
+                  <dd>{{ formatTime(order.createdAt) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.updatedAt') }}</dt>
+                  <dd>{{ formatTime(order.updatedAt) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('orders.history.fields.escrowStatus') }}</dt>
+                  <dd>
+                    <span :class="['escrow-tag', escrowClass(order)]">{{ escrowStatus(order) }}</span>
+                    <span v-if="escrowSupplement(order)" class="escrow-supplement">{{ escrowSupplement(order) }}</span>
+                  </dd>
+                </div>
+                <div v-if="shouldShowPlatformFee(order)">
+                  <dt>{{ t('orders.history.fields.platformFee') }}</dt>
+                  <dd>￥{{ formatAmount(order.platformFee) }}</dd>
+                </div>
+                <div v-if="shouldShowReleasedAmount(order)">
+                  <dt>{{ t('orders.history.fields.releasedAmount') }}</dt>
+                  <dd>￥{{ formatAmount(order.releasedAmount) }}</dd>
+                </div>
+                <div v-if="order.adminReviewedBy">
+                  <dt>{{ t('orders.history.fields.reviewedBy') }}</dt>
+                  <dd>
+                    {{ order.adminReviewedBy }}
+                    <span v-if="order.adminReviewedAt" class="escrow-supplement">{{ formatTime(order.adminReviewedAt) }}</span>
+                  </dd>
+                </div>
+                <div v-if="order.returnReason">
+                  <dt>{{ t('orders.history.fields.returnReason') }}</dt>
+                  <dd>{{ order.returnReason }}</dd>
+                </div>
+              </dl>
+              <p v-if="isSellerViewer(order) && hasSellerRepay(order)" class="seller-repay-alert">
+                {{ sellerRepayPending(order) }}
+              </p>
+              <p v-else-if="isSellerViewer(order) && order.sellerRepaySettledAt" class="seller-repay-info">
+                {{ sellerRepayCompleted(order) }}
+              </p>
+              <section class="progress-tracker">
+                <h4>{{ t('orders.history.progressTitle') }}</h4>
+                <ol class="progress-steps">
+                  <li
+                    v-for="(stage, index) in progressOrderNormalized"
+                    :key="`${order.id}-${stage}`"
+                    :class="['progress-step', { reached: isStageReached(order, stage), current: isCurrentStage(order, stage) }]"
+                  >
+                    <span class="step-index">{{ index + 1 }}</span>
+                    <span class="step-label">{{ stageLabel(stage) }}</span>
+                  </li>
+                </ol>
+              </section>
+              <section v-if="hasViewingSection(order)" class="viewing-section">
+                <header>
+                  <h4>{{ t('orders.history.viewing.title') }}</h4>
+                  <span v-if="order.viewingTime" class="viewing-time">
+                    {{ t('orders.history.viewing.timeLabel', { time: viewingTimeLabel(order) }) }}
+                  </span>
+                </header>
+                <p v-if="order.viewingTime" class="viewing-summary">
+                  {{ t('orders.history.viewing.appointment', { time: viewingTimeLabel(order) }) }}
+                  <span v-if="order.viewingMessage">
+                    {{ t('orders.history.viewing.notes', { message: order.viewingMessage }) }}
+                  </span>
+                </p>
+                <div
+                  v-if="order.buyerViewingConfirmed || order.sellerViewingConfirmed"
+                  class="viewing-status"
+                >
+                  <span v-if="order.buyerViewingConfirmed" class="viewing-chip">
+                    {{ t('orders.history.viewing.confirmedBuyer') }}
+                  </span>
+                  <span v-if="order.sellerViewingConfirmed" class="viewing-chip">
+                    {{ t('orders.history.viewing.confirmedSeller') }}
+                  </span>
+                </div>
+                <div class="viewing-actions">
+                  <button
+                    v-if="canSchedule(order)"
+                    type="button"
+                    class="primary"
+                    :disabled="loading"
+                    @click="openScheduleDialog(order)"
+                  >
+                    {{ t('orders.history.viewing.schedule') }}
+                  </button>
+                  <button
+                    v-if="canAdvance(order)"
+                    type="button"
+                    class="secondary"
+                    :disabled="loading"
+                    @click="advanceProgress(order)"
+                  >
+                    {{ t('orders.history.viewing.advance', { stage: nextStageLabel(order) }) }}
+                  </button>
+                  <button
+                    v-if="canConfirmViewing(order)"
+                    type="button"
+                    class="secondary"
+                    :disabled="loading"
+                    @click="confirmViewing(order)"
+                  >
+                    {{ t('orders.history.viewing.markViewed') }}
+                  </button>
+                </div>
+              </section>
+              <footer v-if="canRequestReturn(order)" class="actions">
+                <button type="button" :disabled="loading" @click="requestReturn(order)">
+                  {{ t('orders.history.actions.requestReturn') }}
+                </button>
+              </footer>
             </div>
-          </section>
-          <footer v-if="canRequestReturn(order)" class="actions">
-            <button type="button" :disabled="loading" @click="requestReturn(order)">
-              {{ t('orders.history.actions.requestReturn') }}
-            </button>
-          </footer>
+          </transition>
         </li>
       </ul>
       <transition name="fade">
@@ -250,6 +263,32 @@ const viewingTexts = computed(() => historyTexts.value.viewing ?? {});
 
 const promptTexts = computed(() => historyTexts.value.prompts ?? {});
 
+const expandedOrders = ref(new Set());
+
+const orderKey = (order) => String(order?.id ?? '');
+
+const isExpanded = (order) => {
+  const key = orderKey(order);
+  if (!key) {
+    return false;
+  }
+  return expandedOrders.value.has(key);
+};
+
+const toggleExpanded = (order) => {
+  const key = orderKey(order);
+  if (!key) {
+    return;
+  }
+  const next = new Set(expandedOrders.value);
+  if (next.has(key)) {
+    next.delete(key);
+  } else {
+    next.add(key);
+  }
+  expandedOrders.value = next;
+};
+
 const progressOrderDefault = [
   'DEPOSIT_PAID',
   'VIEWING_SCHEDULED',
@@ -307,6 +346,12 @@ const progressOrderNormalized = computed(() => {
 const stageLabel = (stage) =>
   props.progressLabels?.[stage] ?? progressLocaleLabels.value?.[stage] ?? stage ?? '';
 
+const summaryToggleLabel = (order) => {
+  return isExpanded(order)
+    ? t('orders.history.actions.hideDetails')
+    : t('orders.history.actions.viewDetails');
+};
+
 const stageIndex = (stage) => progressOrderNormalized.value.indexOf(stage);
 
 const isStageReached = (order, stage) => {
@@ -350,14 +395,36 @@ const scheduleState = reactive({
 
 const scheduleError = ref('');
 
-const canRequestReturn = (order) => {
+const settlementStatuses = ['BALANCE_PENDING', 'BALANCE_SETTLING', 'SETTLED', 'COMPLETED', 'CLOSED'];
+
+const isBeyondReturnWindow = (order) => {
   if (!order) {
+    return false;
+  }
+  const statusKey = normalizeKey(order.status);
+  if (settlementStatuses.includes(statusKey)) {
+    return true;
+  }
+  if (order.adminReviewed) {
+    return true;
+  }
+  const currentIndex = stageIndex(order.progressStage);
+  const settlementIndex = stageIndex('FUNDS_RELEASED');
+  if (settlementIndex >= 0 && currentIndex >= settlementIndex) {
+    return true;
+  }
+  const handoverIndex = stageIndex('HANDOVER_COMPLETED');
+  return handoverIndex >= 0 && currentIndex >= handoverIndex;
+};
+
+const canRequestReturn = (order) => {
+  if (!order || !props.currentUser) {
     return false;
   }
   return (
     order.status === 'PAID' &&
-    props.currentUser &&
-    order.buyerUsername === props.currentUser.username
+    order.buyerUsername === props.currentUser.username &&
+    !isBeyondReturnWindow(order)
   );
 };
 
@@ -727,11 +794,23 @@ const confirmViewing = (order) => {
   box-shadow: 0 22px 48px rgba(15, 23, 42, 0.12);
 }
 
-.order-card header {
+.order-summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  border: none;
+  background: transparent;
+  padding: 0.2rem;
+  margin: -0.2rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.order-summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
 }
 
 .title-area {
@@ -739,6 +818,14 @@ const confirmViewing = (order) => {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .progress-chip {
@@ -764,6 +851,11 @@ const confirmViewing = (order) => {
   font-weight: 600;
 }
 
+.summary-toggle {
+  color: var(--color-text-soft);
+  font-size: 0.9rem;
+}
+
 .status.paid {
   background: rgba(34, 197, 94, 0.2);
   color: #15803d;
@@ -787,6 +879,25 @@ const confirmViewing = (order) => {
 .status.cancelled {
   background: rgba(148, 163, 184, 0.28);
   color: #475569;
+}
+
+.order-details {
+  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.18s ease;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .escrow-tag {

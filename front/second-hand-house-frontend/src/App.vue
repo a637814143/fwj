@@ -5237,8 +5237,8 @@ onBeforeUnmount(() => {
 }
 
 .hero-surface {
-  background: color-mix(in srgb, rgba(255, 255, 255, 0.4) 45%, rgba(255, 255, 255, 0.08));
-  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(6px);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.5rem, 3vw, 2.4rem);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 44px rgba(8, 28, 68, 0.12);
@@ -5346,8 +5346,8 @@ onBeforeUnmount(() => {
 }
 
 .workspace-shell {
-  background: color-mix(in srgb, rgba(255, 255, 255, 0.52) 62%, rgba(255, 255, 255, 0.1));
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.35rem, 3.2vw, 2.4rem);
   box-shadow: 0 26px 58px rgba(24, 48, 88, 0.13);
@@ -5398,11 +5398,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.35rem 1.2rem;
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2));
+  border: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
 }
 
 .menu-header {
@@ -5471,10 +5471,10 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: none;
   margin: 0;
-  background: color-mix(in srgb, var(--panel-card-bg) 94%, transparent);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: calc(var(--radius-xl) + 0.2rem);
   padding: clamp(1.2rem, 2.6vw, 2.4rem);
-  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
   box-shadow: 0 30px 65px rgba(73, 128, 189, 0.18);
   overflow: hidden;
 }

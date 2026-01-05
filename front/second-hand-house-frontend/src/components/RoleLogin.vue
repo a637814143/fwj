@@ -574,11 +574,11 @@ const requestVerificationCode = async () => {
 .auth-layout {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
+  grid-template-columns: minmax(280px, 1fr) minmax(340px, 520px);
   gap: 2rem;
   align-items: stretch;
   justify-content: center;
-  width: min(100%, 1080px);
+  width: min(100%, 1120px);
   margin: 0 auto;
   padding: clamp(1.5rem, 5vw, 3rem);
   box-sizing: border-box;
@@ -645,13 +645,13 @@ const requestVerificationCode = async () => {
   position: relative;
   background: rgba(255, 255, 255, 0.7);
   border-radius: var(--radius-lg);
-  padding: 1.9rem;
+  padding: 1.55rem 2.25rem;
   box-shadow: 0 20px 44px rgba(12, 35, 68, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.45);
   display: grid;
-  gap: 1.65rem;
+  gap: 1.35rem;
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
   margin: 0 auto;
   backdrop-filter: blur(12px) saturate(1.05);
 }
@@ -690,7 +690,7 @@ const requestVerificationCode = async () => {
 
 .form {
   display: grid;
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 .field {

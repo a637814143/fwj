@@ -1,22 +1,26 @@
 <template>
   <div class="hero-carousel">
-    <div class="carousel-window">
-      <transition name="carousel-fade" mode="out-in">
-        <img
-          :key="activeSlide.src"
-          class="carousel-image"
-          :src="activeSlide.src"
-          :alt="activeSlide.alt"
-          loading="lazy"
-        />
-      </transition>
-      <div class="carousel-overlay">
+    <transition name="carousel-fade" mode="out-in">
+      <div
+        :key="activeSlide.src"
+        class="carousel-backdrop"
+        :style="{ backgroundImage: `linear-gradient(135deg, rgba(9, 24, 44, 0.55), rgba(9, 24, 44, 0.35)), url(${activeSlide.src})` }"
+        aria-hidden="true"
+      ></div>
+    </transition>
+
+    <div class="hero-content">
+      <slot />
+
+      <div v-if="!hasDefaultSlot" class="carousel-overlay">
         <h3>{{ activeSlide.title }}</h3>
         <p>{{ activeSlide.caption }}</p>
       </div>
+
       <button class="nav prev" type="button" aria-label="上一张" @click="prevSlide">‹</button>
       <button class="nav next" type="button" aria-label="下一张" @click="nextSlide">›</button>
     </div>
+
     <div class="carousel-dots" role="tablist" aria-label="示例房源展示">
       <button
         v-for="(slide, index) in slides"
@@ -32,7 +36,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, useSlots } from 'vue';
 
 const slides = [
   {
@@ -68,10 +72,12 @@ const slides = [
 ];
 
 const activeIndex = ref(0);
+const slots = useSlots();
 const intervalMs = 5000;
 let timerId;
 
 const activeSlide = computed(() => slides[activeIndex.value]);
+const hasDefaultSlot = computed(() => Boolean(slots.default));
 
 const nextSlide = () => {
   activeIndex.value = (activeIndex.value + 1) % slides.length;
@@ -106,53 +112,58 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .hero-carousel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  width: 100%;
-}
-
-.carousel-window {
   position: relative;
   overflow: hidden;
-  border-radius: calc(var(--radius-lg) + 0.25rem);
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.16), transparent 65%),
-    linear-gradient(145deg, rgba(28, 69, 120, 0.35), rgba(28, 69, 120, 0.6));
+  border-radius: calc(var(--radius-lg) + 0.35rem);
+  width: 100%;
+  min-height: 320px;
   aspect-ratio: 14 / 9;
-  min-height: 280px;
-  box-shadow: 0 24px 48px rgba(12, 35, 68, 0.18);
+  box-shadow: 0 26px 60px rgba(12, 35, 68, 0.22);
+  color: #fff;
+  padding: 2.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
-.carousel-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.carousel-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
   filter: saturate(1.02);
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  height: 100%;
 }
 
 .carousel-overlay {
-  position: absolute;
-  left: 1.4rem;
-  bottom: 1.1rem;
-  background: rgba(0, 0, 0, 0.28);
+  align-self: flex-start;
+  background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(4px);
   padding: 0.85rem 1rem;
   border-radius: calc(var(--radius-md) + 0.2rem);
-  color: #fff;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
-  max-width: min(420px, 70%);
+  max-width: min(460px, 70%);
 }
 
 .carousel-overlay h3 {
   margin: 0 0 0.25rem;
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   letter-spacing: 0.01em;
 }
 
 .carousel-overlay p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -164,7 +175,7 @@ onBeforeUnmount(() => {
   height: 42px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.86);
   color: var(--color-primary, #1d5ad7);
   font-size: 1.5rem;
   font-weight: 700;
@@ -188,6 +199,8 @@ onBeforeUnmount(() => {
 }
 
 .carousel-dots {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 0.45rem;
   align-items: center;
@@ -221,14 +234,18 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 780px) {
-  .carousel-window {
-    min-height: 200px;
+  .hero-carousel {
+    padding: 1.25rem;
+    min-height: 240px;
+  }
+
+  .nav {
+    width: 38px;
+    height: 38px;
   }
 
   .carousel-overlay {
-    left: 1rem;
-    right: 1rem;
-    max-width: none;
+    max-width: 100%;
   }
 }
 </style>

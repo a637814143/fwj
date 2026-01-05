@@ -1,25 +1,28 @@
 <template>
   <div class="app">
     <header class="header">
-      <div class="header-top">
-        <div class="branding">
-          <h1>{{ t('header.title') }}</h1>
-          <p>{{ t('header.subtitle') }}</p>
+      <HeroCarousel class="header-carousel">
+        <div class="header-foreground">
+          <div class="header-top">
+            <div class="branding">
+              <h1>{{ t('header.title') }}</h1>
+              <p>{{ t('header.subtitle') }}</p>
+            </div>
+            <div class="header-actions">
+              <button
+                v-if="currentUser && canUseMessaging"
+                type="button"
+                class="messages-trigger"
+                @click="openConversationPanel"
+              >
+                {{ t('header.messages') }}
+              </button>
+              <InterfaceSettings />
+            </div>
+          </div>
+          <p v-if="messages.success" class="success">{{ messages.success }}</p>
         </div>
-        <div class="header-actions">
-          <button
-            v-if="currentUser && canUseMessaging"
-            type="button"
-            class="messages-trigger"
-            @click="openConversationPanel"
-          >
-            {{ t('header.messages') }}
-          </button>
-          <InterfaceSettings />
-        </div>
-      </div>
-      <HeroCarousel class="header-carousel" />
-      <p v-if="messages.success" class="success">{{ messages.success }}</p>
+      </HeroCarousel>
     </header>
 
     <section v-if="!currentUser" class="login-section">
@@ -5222,16 +5225,19 @@ onBeforeUnmount(() => {
 }
 
 .header {
-  background: linear-gradient(135deg, rgba(132, 194, 255, 0.96), rgba(94, 149, 233, 0.9));
-  color: var(--color-text-on-emphasis);
-  padding: 2.35rem;
-  border-radius: calc(var(--radius-lg) + 0.35rem);
-  box-shadow: 0 26px 60px rgba(63, 123, 191, 0.24);
+  padding: 0;
+}
+
+.header-carousel {
+  width: 100%;
+}
+
+.header-foreground {
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
-  position: relative;
-  overflow: visible;
+  gap: 1rem;
+  height: 100%;
+  color: #fff;
 }
 
 .header-top {
@@ -5240,37 +5246,6 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 1.5rem;
   width: 100%;
-}
-
-.header::before,
-.header::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.header::before {
-  width: 320px;
-  height: 320px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.4), transparent 70%);
-  top: -160px;
-  left: -80px;
-}
-
-.header::after {
-  width: 380px;
-  height: 380px;
-  background: radial-gradient(circle at top right, rgba(144, 198, 255, 0.65), transparent 70%);
-  top: -180px;
-  right: -120px;
-}
-
-.header-carousel {
-  width: 100%;
-  margin-top: 0.2rem;
 }
 
 @media (max-width: 960px) {
@@ -5300,7 +5275,7 @@ onBeforeUnmount(() => {
   margin: 0.35rem 0 0;
   font-size: 1.06rem;
   opacity: 0.96;
-  color: rgba(10, 26, 47, 0.86);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .header-actions {
@@ -5582,12 +5557,12 @@ onBeforeUnmount(() => {
 }
 
 .success {
-  background: color-mix(in srgb, rgba(168, 192, 170, 0.4) 60%, transparent);
+  background: rgba(46, 130, 86, 0.32);
   border-radius: var(--radius-md);
-  color: color-mix(in srgb, #315942 80%, var(--color-text-strong));
+  color: rgba(233, 255, 241, 0.95);
   margin: 0;
   padding: 0.9rem 1.2rem;
-  border: 1px solid rgba(146, 174, 150, 0.35);
+  border: 1px solid rgba(146, 174, 150, 0.45);
   backdrop-filter: blur(calc(var(--glass-blur) / 3));
 }
 

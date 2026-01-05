@@ -57,6 +57,7 @@ public class UserAdminController {
         this.walletTransactionRepository = walletTransactionRepository;
     }
 
+    // 获取全量用户列表并按信誉分排序
     @GetMapping("/users")
     public List<UserAccountView> listUsers(@RequestParam("requester") String requesterUsername) {
         UserAccount requester = requireAdmin(requesterUsername);
@@ -66,6 +67,7 @@ public class UserAdminController {
                 .toList();
     }
 
+    // 更新指定用户的黑名单状态并调整信誉分
     @PatchMapping("/users/{username}/blacklist")
     public UserAccountView updateBlacklist(@PathVariable("username") String username,
                                            @Valid @RequestBody UpdateBlacklistRequest request) {
@@ -81,6 +83,7 @@ public class UserAdminController {
         return UserAccountView.fromEntity(userAccountRepository.save(account));
     }
 
+    // 获取买家、卖家信誉概览和黑名单数量
     @GetMapping("/reputations")
     public ReputationOverview reputationOverview(@RequestParam("requester") String requesterUsername) {
         requireAdmin(requesterUsername);
@@ -102,6 +105,7 @@ public class UserAdminController {
         return new ReputationOverview(sellers, buyers, blacklistedCount);
     }
 
+    // 删除非管理员用户并清理关联数据
     @DeleteMapping("/users/{username}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
@@ -138,6 +142,7 @@ public class UserAdminController {
         userAccountRepository.delete(account);
     }
 
+    // 校验请求人是否为合法管理员
     private UserAccount requireAdmin(String requesterUsername) {
         if (requesterUsername == null || requesterUsername.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请求人不能为空");

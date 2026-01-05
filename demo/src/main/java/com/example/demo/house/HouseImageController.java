@@ -30,6 +30,7 @@ public class HouseImageController {
         this.storageService = storageService;
     }
 
+    // 上传房源图片并返回文件名与可访问的 URL
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
         String filename = storageService.store(file);
@@ -44,6 +45,7 @@ public class HouseImageController {
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
+    // 上传房源权属证明等证件图片
     @PostMapping(value = "/certificates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadCertificate(@RequestParam("file") MultipartFile file) {
         String filename = storageService.storeCertificate(file);
@@ -58,6 +60,7 @@ public class HouseImageController {
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
+    // 读取房源图片资源并设置缓存策略
     @GetMapping("/{filename:.+}")
     public ResponseEntity<Resource> serve(@PathVariable String filename) {
         Resource resource = storageService.loadAsResource(filename);
@@ -68,6 +71,7 @@ public class HouseImageController {
                 .body(resource);
     }
 
+    // 读取房源证件图片资源并设置缓存策略
     @GetMapping("/certificates/{filename:.+}")
     public ResponseEntity<Resource> serveCertificate(@PathVariable String filename) {
         Resource resource = storageService.loadCertificateAsResource(filename);

@@ -18,6 +18,7 @@ public class HousePricePredictionController {
         this.predictionService = predictionService;
     }
 
+    // 提交房价预测请求并返回模型结果
     @PostMapping("/price-prediction")
     public HousePricePredictionResponse predict(@Valid @RequestBody HousePricePredictionRequest request) {
         return predictionService.predict(request);

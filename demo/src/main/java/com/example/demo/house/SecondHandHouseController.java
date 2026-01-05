@@ -28,6 +28,7 @@ public class SecondHandHouseController {
         this.service = service;
     }
 
+    // 搜索房源列表，支持关键词、价格、面积等筛选
     @GetMapping
     public List<SecondHandHouseView> list(@RequestParam(value = "keyword", required = false) String keyword,
                                           @RequestParam(value = "minPrice", required = false) java.math.BigDecimal minPrice,
@@ -38,12 +39,14 @@ public class SecondHandHouseController {
         return service.search(keyword, minPrice, maxPrice, minArea, maxArea, requesterUsername);
     }
 
+    // 按 ID 查看房源详情，可附带请求人信息控制敏感字段
     @GetMapping("/{id}")
     public SecondHandHouseView get(@PathVariable Long id,
                                    @RequestParam(value = "requester", required = false) String requesterUsername) {
         return service.viewById(id, requesterUsername);
     }
 
+    // 创建新的房源记录
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SecondHandHouseView create(@Valid @RequestBody SecondHandHouseRequest request) {
@@ -51,18 +54,21 @@ public class SecondHandHouseController {
         return SecondHandHouseView.fromEntity(house, false);
     }
 
+    // 更新指定房源的信息
     @PutMapping("/{id}")
     public SecondHandHouseView update(@PathVariable Long id, @Valid @RequestBody SecondHandHouseRequest request) {
         SecondHandHouse house = service.update(id, request.toEntity());
         return SecondHandHouseView.fromEntity(house, false);
     }
 
+    // 删除房源，需校验请求人身份
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, @RequestParam("requester") String requesterUsername) {
         service.delete(id, requesterUsername);
     }
 
+    // 审核房源，上架或驳回时保存审核意见
     @PatchMapping("/{id}/review")
     public SecondHandHouseView review(@PathVariable Long id, @Valid @RequestBody SecondHandHouseReviewRequest request) {
         return service.review(id, request.status(), request.message(), request.reviewerUsername());

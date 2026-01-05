@@ -36,9 +36,8 @@ public class AuthController {
     }
 
     @PostMapping("/register/verification-code")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void sendRegisterVerificationCode(@Valid @RequestBody SendVerificationCodeRequest request) {
-        authService.sendRegistrationVerificationCode(request.getEmail());
+    public SendVerificationCodeResponse sendRegisterVerificationCode(@Valid @RequestBody SendVerificationCodeRequest request) {
+        return authService.sendRegistrationVerificationCode(request.getEmail());
     }
 
     @GetMapping("/profile/{username}")

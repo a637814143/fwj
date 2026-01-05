@@ -3,12 +3,10 @@ package com.example.demo.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class EmailService {
@@ -24,7 +22,7 @@ public class EmailService {
         this.fromAddress = fromAddress;
     }
 
-    public void sendVerificationCode(String to, String code) {
+    public boolean sendVerificationCode(String to, String code) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(to);
@@ -33,9 +31,13 @@ public class EmailService {
                 "。验证码有效期为10分钟，请尽快完成注册。若非本人操作，请忽略此邮件。\n\n（此邮件由系统自动发送，请勿直接回复）");
         try {
             mailSender.send(message);
+            return true;
         } catch (MailException ex) {
             log.error("Failed to send verification email to {}", to, ex);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "验证码发送失败，请稍后重试。");
+            return false;
+        } catch (Exception ex) {
+            log.error("Unexpected error while sending verification email to {}", to, ex);
+            return false;
         }
     }
 }

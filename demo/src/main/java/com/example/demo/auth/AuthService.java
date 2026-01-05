@@ -114,7 +114,7 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public void sendRegistrationVerificationCode(String email) {
+    public SendVerificationCodeResponse sendRegistrationVerificationCode(String email) {
         String normalizedEmail = normalizeEmail(email);
         if (normalizedEmail == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请输入有效的邮箱地址");
@@ -123,7 +123,11 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "该邮箱已注册账号，请直接登录或更换邮箱。");
         }
         String code = verificationCodeService.createCode(normalizedEmail);
-        emailService.sendVerificationCode(normalizedEmail, code);
+        boolean emailSent = emailService.sendVerificationCode(normalizedEmail, code);
+        String message = emailSent
+                ? "验证码已发送至邮箱，请注意查收。"
+                : "邮件发送失败，已在页面展示验证码，请直接使用验证码完成注册。";
+        return new SendVerificationCodeResponse(message, code, emailSent);
     }
 
     private UserAccount createUser(UserRole role, String username, String password, String displayName, String email) {

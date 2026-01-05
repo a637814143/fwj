@@ -563,8 +563,12 @@ const requestVerificationCode = async () => {
   registerInfo.value = '';
   codeLoading.value = true;
   try {
-    await client.post('/auth/register/verification-code', { email });
-    registerInfo.value = t('auth.messages.codeSent', { email });
+    const { data } = await client.post('/auth/register/verification-code', { email });
+    const serverMessage = data?.message;
+    const codeHint = data?.code ? `（${t('auth.fields.verificationCode')}：${data.code}）` : '';
+    registerInfo.value = serverMessage
+      ? `${serverMessage}${codeHint ? ` ${codeHint}` : ''}`
+      : t('auth.messages.codeSent', { email });
     startCountdown();
   } catch (err) {
     const detail = err.response?.data;

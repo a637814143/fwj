@@ -25,11 +25,13 @@ public class AdminOrderReviewController {
         this.orderService = orderService;
     }
 
+    // 管理员查看待审核的赔付/退款申请
     @GetMapping("/pending")
     public List<HouseOrderResponse> listPending(@RequestParam("requester") String requesterUsername) {
         return orderService.listPendingAdminReviews(requesterUsername);
     }
 
+    // 管理员审核订单赔付结果
     @PatchMapping("/{orderId}/review")
     public HouseOrderResponse review(@PathVariable Long orderId,
                                      @Valid @RequestBody AdminOrderReviewRequest request) {

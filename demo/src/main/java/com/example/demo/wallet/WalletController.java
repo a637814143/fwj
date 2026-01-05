@@ -20,11 +20,13 @@ public class WalletController {
         this.walletService = walletService;
     }
 
+    // 查询指定用户的钱包余额与积分
     @GetMapping("/{username}")
     public WalletSummaryResponse getWallet(@PathVariable String username) {
         return walletService.getWalletSummary(username);
     }
 
+    // 为指定用户充值，并记录外部流水号
     @PostMapping("/{username}/top-up")
     public WalletSummaryResponse topUp(@PathVariable String username, @Valid @RequestBody TopUpRequest request) {
         return walletService.topUp(username, request.getAmount(), request.getReference());

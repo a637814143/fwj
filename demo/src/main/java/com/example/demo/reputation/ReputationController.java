@@ -18,6 +18,7 @@ public class ReputationController {
         this.userAccountRepository = userAccountRepository;
     }
 
+    // 获取推荐的买家和卖家列表，按信誉分排序
     @GetMapping("/recommended")
     public RecommendationResponse recommended() {
         var sellerRecommendations = userAccountRepository

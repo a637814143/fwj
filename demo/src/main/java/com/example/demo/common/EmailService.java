@@ -35,6 +35,9 @@ public class EmailService {
         } catch (MailException ex) {
             log.error("Failed to send verification email to {}", to, ex);
             return false;
+        } catch (Exception ex) {
+            log.error("Unexpected error while sending verification email to {}", to, ex);
+            return false;
         }
     }
 }

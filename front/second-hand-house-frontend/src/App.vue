@@ -1,21 +1,24 @@
 <template>
   <div class="app">
     <header class="header">
-      <div class="branding">
-        <h1>{{ t('header.title') }}</h1>
-        <p>{{ t('header.subtitle') }}</p>
+      <div class="header-top">
+        <div class="branding">
+          <h1>{{ t('header.title') }}</h1>
+          <p>{{ t('header.subtitle') }}</p>
+        </div>
+        <div class="header-actions">
+          <button
+            v-if="currentUser && canUseMessaging"
+            type="button"
+            class="messages-trigger"
+            @click="openConversationPanel"
+          >
+            {{ t('header.messages') }}
+          </button>
+          <InterfaceSettings />
+        </div>
       </div>
-      <div class="header-actions">
-        <button
-          v-if="currentUser && canUseMessaging"
-          type="button"
-          class="messages-trigger"
-          @click="openConversationPanel"
-        >
-          {{ t('header.messages') }}
-        </button>
-        <InterfaceSettings />
-      </div>
+      <HeroCarousel class="header-carousel" />
       <p v-if="messages.success" class="success">{{ messages.success }}</p>
     </header>
 
@@ -45,8 +48,14 @@
                     <span class="menu-user-account">@{{ currentUser.username }}</span>
                   </div>
                   <div class="menu-wallet">
-                    <span>{{ t('menu.walletBalance') }}：<strong>￥{{ walletBalanceLabel }}</strong></span>
-                    <span>{{ t('menu.walletPoints') }}：<strong>{{ walletPointsLabel }}</strong></span>
+                    <div class="wallet-line">
+                      <span class="wallet-label">{{ t('menu.walletBalance') }}</span>
+                      <strong class="wallet-value">￥{{ walletBalanceLabel }}</strong>
+                    </div>
+                    <div class="wallet-line">
+                      <span class="wallet-label">{{ t('menu.walletPoints') }}</span>
+                      <strong class="wallet-value">{{ walletPointsLabel }}</strong>
+                    </div>
                   </div>
                 </div>
                 <nav class="menu">
@@ -353,6 +362,7 @@ import AccountCenter from './components/AccountCenter.vue';
 import AIAssistant from './components/AIAssistant.vue';
 import PricePredictor from './components/PricePredictor.vue';
 import ContractAgreement from './components/ContractAgreement.vue';
+import HeroCarousel from './components/HeroCarousel.vue';
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
 const houses = ref([]);
 const loading = ref(false);
@@ -5217,12 +5227,19 @@ onBeforeUnmount(() => {
   padding: 2.35rem;
   border-radius: calc(var(--radius-lg) + 0.35rem);
   box-shadow: 0 26px 60px rgba(63, 123, 191, 0.24);
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  position: relative;
+  overflow: visible;
+}
+
+.header-top {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) auto;
   align-items: center;
   gap: 1.5rem;
-  position: relative;
-  overflow: visible;
+  width: 100%;
 }
 
 .header::before,
@@ -5249,6 +5266,22 @@ onBeforeUnmount(() => {
   background: radial-gradient(circle at top right, rgba(144, 198, 255, 0.65), transparent 70%);
   top: -180px;
   right: -120px;
+}
+
+.header-carousel {
+  width: 100%;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 960px) {
+  .header-top {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
 }
 
 .branding {
@@ -5405,16 +5438,32 @@ onBeforeUnmount(() => {
 }
 
 .menu-wallet {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: grid;
+  gap: 0.45rem;
   color: var(--color-text-muted);
   font-size: 0.95rem;
 }
 
-.menu-wallet span strong {
+.wallet-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--panel-card-bg) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-radius: calc(var(--radius-md) + 0.15rem);
+}
+
+.wallet-label {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.wallet-value {
   color: var(--color-text-strong);
-  margin-left: 0.25rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  word-break: break-all;
 }
 
 .workspace {

@@ -332,6 +332,22 @@ public class AuthService {
                 return true;
             }
         }
+
+        return containsKeyboardSequence(value);
+    }
+
+    private boolean containsKeyboardSequence(String value) {
+        String lower = value.toLowerCase(Locale.ROOT);
+        String[] rows = {"1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"};
+        for (int i = 0; i <= lower.length() - 3; i++) {
+            String slice = lower.substring(i, i + 3);
+            String reversed = new StringBuilder(slice).reverse().toString();
+            for (String row : rows) {
+                if (row.contains(slice) || row.contains(reversed)) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 

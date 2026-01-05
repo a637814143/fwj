@@ -118,8 +118,8 @@ onBeforeUnmount(() => {
   border-radius: calc(var(--radius-lg) + 0.25rem);
   background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.16), transparent 65%),
     linear-gradient(145deg, rgba(28, 69, 120, 0.35), rgba(28, 69, 120, 0.6));
-  min-height: 220px;
-  max-height: 320px;
+  aspect-ratio: 14 / 9;
+  min-height: 280px;
   box-shadow: 0 24px 48px rgba(12, 35, 68, 0.18);
 }
 

@@ -5325,11 +5325,11 @@ onBeforeUnmount(() => {
 }
 
 .workspace-shell {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid color-mix(in srgb, var(--color-border) 20%, transparent);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.35rem, 3.2vw, 2.4rem);
-  box-shadow: 0 18px 42px rgba(24, 48, 88, 0.12);
+  box-shadow: 0 14px 32px rgba(24, 48, 88, 0.08);
 }
 
 .workspace-layout {
@@ -5350,11 +5350,11 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: var(--radius-pill);
   padding: 0.45rem 1.2rem;
-  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
   color: var(--color-text-strong);
   font-size: 1.4rem;
   font-weight: 700;
-  box-shadow: 0 14px 28px rgba(120, 110, 100, 0.22);
+  box-shadow: 0 14px 26px rgba(120, 110, 100, 0.15);
   transition: transform var(--transition-base), box-shadow var(--transition-base),
     background var(--transition-base);
 }
@@ -5377,11 +5377,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.35rem 1.2rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  backdrop-filter: none;
+  border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(1.5px);
 }
 
 .menu-header {
@@ -5426,9 +5426,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.65rem 0.75rem;
-  background: color-mix(in srgb, var(--panel-card-bg) 35%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel-card-bg) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
   border-radius: calc(var(--radius-md) + 0.15rem);
+  backdrop-filter: blur(1px);
 }
 
 .wallet-label {
@@ -5450,11 +5451,11 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: none;
   margin: 0;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.028);
   border-radius: calc(var(--radius-xl) + 0.2rem);
   padding: clamp(1.2rem, 2.6vw, 2.4rem);
-  border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
-  box-shadow: 0 20px 50px rgba(73, 128, 189, 0.14);
+  border: 1px solid color-mix(in srgb, var(--color-border) 24%, transparent);
+  box-shadow: 0 16px 42px rgba(73, 128, 189, 0.1);
   overflow: hidden;
 }
 

@@ -1,6 +1,6 @@
 <template>
   <div class="hero-carousel">
-    <transition name="carousel-fade" mode="out-in">
+    <transition name="carousel-fade">
       <div
         :key="activeSlide.src"
         class="carousel-backdrop"
@@ -38,36 +38,59 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, useSlots } from 'vue';
 
+const makeSvgDataUri = (id, palette, accent) => {
+  const [c1, c2, c3] = palette;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 960">
+      <defs>
+        <linearGradient id="g-${id}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${c1}" />
+          <stop offset="55%" stop-color="${c2}" />
+          <stop offset="100%" stop-color="${c3}" />
+        </linearGradient>
+      </defs>
+      <rect width="1600" height="960" fill="url(#g-${id})" />
+      <rect x="120" y="140" width="1360" height="680" rx="64" fill="${accent}" opacity="0.24" />
+      <rect x="190" y="220" width="960" height="540" rx="44" fill="rgba(255,255,255,0.14)" />
+      <rect x="1200" y="260" width="240" height="360" rx="36" fill="rgba(0,0,0,0.08)" />
+      <circle cx="340" cy="640" r="110" fill="rgba(0,0,0,0.12)" />
+      <circle cx="520" cy="600" r="120" fill="rgba(255,255,255,0.18)" />
+      <circle cx="760" cy="620" r="90" fill="rgba(255,255,255,0.12)" />
+    </svg>
+  `;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
+
 const slides = [
   {
-    src: 'https://images.unsplash.com/photo-1523419400524-223c6f35123b?auto=format&fit=crop&w=1400&q=80',
+    src: makeSvgDataUri('warm-lounge', ['#f6e5d3', '#e5c4a5', '#d69b73'], 'rgba(126, 83, 53, 0.55)'),
+    alt: '原木风客厅与阳光',
+    title: '宽敞餐客一体',
+    caption: '明亮木色与白纱窗景，让空间自然延展。'
+  },
+  {
+    src: makeSvgDataUri('tan-sofa', ['#f4e9de', '#e2cdb2', '#c6a27b'], 'rgba(181, 137, 92, 0.52)'),
+    alt: '米色沙发与拱形窗',
+    title: '柔和拱窗起居室',
+    caption: '圆角柜体与落地窗，把阳台景致引入室内。'
+  },
+  {
+    src: makeSvgDataUri('golden-lounge', ['#f0e2cf', '#d7bf91', '#c79c63'], 'rgba(186, 142, 88, 0.54)'),
+    alt: '挑高客厅与木梁',
+    title: '挑高奢雅客厅',
+    caption: '木梁与落地窗的层次，突出空间的通透与仪式感。'
+  },
+  {
+    src: makeSvgDataUri('art-deco', ['#f1e6da', '#d0bfb1', '#9a8271'], 'rgba(122, 94, 74, 0.56)'),
+    alt: '岩板与装饰画',
+    title: '雅致会客厅',
+    caption: '深色岩板与装饰画，营造沉稳又温暖的氛围。'
+  },
+  {
+    src: makeSvgDataUri('night-city', ['#dbe9ff', '#bcd4f6', '#93b5ec'], 'rgba(58, 104, 171, 0.48)'),
     alt: '社区街景与暖色灯光',
     title: '社区街景民宿',
     caption: '街角暖光小屋，突出邻里氛围与夜色质感。'
-  },
-  {
-    src: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1400&q=80',
-    alt: '现代感别墅外立面',
-    title: '现代几何别墅',
-    caption: '大面积玻璃与悬挑结构，演绎现代生活美学。'
-  },
-  {
-    src: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80&sat=-30',
-    alt: '落地窗客厅与壁炉',
-    title: '温馨客厅一角',
-    caption: '落地窗、壁炉与舒适沙发组合，展现家的温度。'
-  },
-  {
-    src: 'https://images.unsplash.com/photo-1501183638710-841dd1904471?auto=format&fit=crop&w=1400&q=80',
-    alt: '夜色中的玻璃房屋',
-    title: '玻璃幕墙住宅',
-    caption: '通透明亮的立面设计，让夜晚同样温馨。'
-  },
-  {
-    src: 'https://images.unsplash.com/photo-1473186578172-c141e6798cf4?auto=format&fit=crop&w=1400&q=80',
-    alt: '田园老屋与树林',
-    title: '乡野田园风光',
-    caption: '静谧老屋与树林阳光，营造悠然慢生活。'
   }
 ];
 
@@ -94,6 +117,14 @@ const resetTimer = () => {
   timerId = window.setInterval(nextSlide, intervalMs);
 };
 
+const preloadImages = () => {
+  slides.forEach(({ src }) => {
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = src;
+  });
+};
+
 const setSlide = (index) => {
   activeIndex.value = index;
   resetTimer();
@@ -101,6 +132,7 @@ const setSlide = (index) => {
 
 onMounted(() => {
   resetTimer();
+  preloadImages();
 });
 
 onBeforeUnmount(() => {
@@ -133,6 +165,7 @@ onBeforeUnmount(() => {
   filter: saturate(1.02);
   transition: opacity 0.45s ease;
   pointer-events: none;
+  will-change: opacity;
 }
 
 .hero-content {

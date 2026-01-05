@@ -657,19 +657,23 @@ const requestVerificationCode = async () => {
 }
 
 .mode-toggle {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .mode-tab {
   background: rgba(240, 247, 255, 0.96);
   border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   color: var(--color-text-muted);
   cursor: pointer;
   font-weight: 600;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1.4rem;
+  min-height: 44px;
+  min-width: 140px;
   transition: all var(--transition-base);
 }
 

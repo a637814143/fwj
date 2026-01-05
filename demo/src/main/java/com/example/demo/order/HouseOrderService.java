@@ -60,6 +60,12 @@ public class HouseOrderService {
     public HouseOrderResponse reserveHouse(@Valid HouseReservationRequest request) {
         SecondHandHouse house = houseRepository.findById(request.houseId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "房源不存在"));
+        if (house.getStatus() == ListingStatus.SOLD) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该房源已售出或已下架，无法预定");
+        }
+        if (orderRepository.existsByHouse_IdAndStatus(house.getId(), OrderStatus.PAID)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该房源已完成交易，无法预定");
+        }
         ensureApprovedHouse(house);
         if (house.getPrice() == null || house.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "房源价格异常，无法预定");
@@ -305,6 +311,9 @@ public class HouseOrderService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "订单不存在"));
         if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.RETURN_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前订单状态不支持退换");
+        }
+        if (order.getProgressStage() != OrderProgressStage.FUNDS_RELEASED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "仅已完成交易的订单可申请退换");
         }
         if (!order.getBuyer().getUsername().equals(request.requesterUsername())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "仅买家本人可以申请退换");

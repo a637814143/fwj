@@ -101,8 +101,6 @@ public class SecondHandHouseService {
         existing.setAddress(updatedHouse.getAddress());
         existing.setPrice(updatedHouse.getPrice());
         existing.setDownPayment(updatedHouse.getDownPayment());
-        existing.setInstallmentMonthlyPayment(updatedHouse.getInstallmentMonthlyPayment());
-        existing.setInstallmentMonths(updatedHouse.getInstallmentMonths());
         existing.setArea(updatedHouse.getArea());
         existing.setDescription(updatedHouse.getDescription());
         existing.setLatitude(updatedHouse.getLatitude());

@@ -572,22 +572,50 @@ const requestVerificationCode = async () => {
 @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
 
 .auth-layout {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
   gap: 2rem;
   align-items: stretch;
-  width: min(100%, 960px);
+  justify-content: center;
+  width: min(100%, 1080px);
   margin: 0 auto;
-  padding: clamp(1rem, 4vw, 2.5rem);
+  padding: clamp(1.5rem, 5vw, 3rem);
   box-sizing: border-box;
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+.auth-layout::before,
+.auth-layout::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+}
+
+.auth-layout::before {
+  background: linear-gradient(180deg, rgba(12, 35, 68, 0.35) 0%, rgba(12, 35, 68, 0.45) 100%),
+    url('https://images.pexels.com/photos/460672/pexels-photo-460672.jpeg?auto=compress&cs=tinysrgb&w=1920')
+      center/cover no-repeat;
+  filter: saturate(1.08);
+}
+
+.auth-layout::after {
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.24), transparent 38%),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.18), transparent 45%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.3));
+  z-index: -1;
 }
 
 .brand-showcase {
   border-radius: var(--radius-lg);
   min-height: 420px;
-  background: linear-gradient(145deg, rgba(241, 249, 255, 0.96), rgba(214, 234, 255, 0.94));
-  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
-  box-shadow: 0 28px 45px rgba(73, 128, 189, 0.18);
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 28px 45px rgba(12, 35, 68, 0.18);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -615,16 +643,17 @@ const requestVerificationCode = async () => {
 
 .auth-panel {
   position: relative;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.7);
   border-radius: var(--radius-lg);
-  padding: 2rem;
-  box-shadow: 0 24px 50px rgba(73, 128, 189, 0.16);
-  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  padding: 1.9rem;
+  box-shadow: 0 20px 44px rgba(12, 35, 68, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   display: grid;
-  gap: 1.75rem;
+  gap: 1.65rem;
   width: 100%;
-  max-width: 500px;
+  max-width: 460px;
   margin: 0 auto;
+  backdrop-filter: blur(12px) saturate(1.05);
 }
 
 .mode-toggle {
@@ -829,19 +858,21 @@ label {
 
 input {
   border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   padding: 0.8rem 1rem;
   font-size: 1rem;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.9);
   transition: border-color var(--transition-base), box-shadow var(--transition-base),
     background var(--transition-base);
+  color: var(--color-text-strong);
+  backdrop-filter: blur(4px);
 }
 
 input:focus {
   outline: none;
-  border-color: rgba(176, 132, 99, 0.55);
-  box-shadow: 0 0 0 4px rgba(176, 132, 99, 0.18);
-  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(176, 132, 99, 0.75);
+  box-shadow: 0 0 0 4px rgba(176, 132, 99, 0.22);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .roles {

@@ -1,6 +1,5 @@
 package com.example.demo.auth;
 
-import com.example.demo.common.EmailService;
 import com.example.demo.common.MaskingUtils;
 import com.example.demo.wallet.WalletService;
 import jakarta.annotation.PostConstruct;
@@ -19,17 +18,10 @@ public class AuthService {
 
     private final UserAccountRepository userAccountRepository;
     private final WalletService walletService;
-    private final VerificationCodeService verificationCodeService;
-    private final EmailService emailService;
-
     public AuthService(UserAccountRepository userAccountRepository,
-                       WalletService walletService,
-                       VerificationCodeService verificationCodeService,
-                       EmailService emailService) {
+                       WalletService walletService) {
         this.userAccountRepository = userAccountRepository;
         this.walletService = walletService;
-        this.verificationCodeService = verificationCodeService;
-        this.emailService = emailService;
     }
 
     @PostConstruct
@@ -94,9 +86,6 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "密码不能为空");
         }
 
-        String verificationCode = normalizeVerificationCode(request.getVerificationCode());
-        verificationCodeService.verifyAndConsume(normalizedEmail, verificationCode);
-
         String displayName = normalize(request.getDisplayName());
         if (displayName == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "昵称不能为空");
@@ -111,23 +100,6 @@ public class AuthService {
         );
 
         return toResponse(account, "注册成功，已为您自动登录。");
-    }
-
-    @Transactional(readOnly = true)
-    public SendVerificationCodeResponse sendRegistrationVerificationCode(String email) {
-        String normalizedEmail = normalizeEmail(email);
-        if (normalizedEmail == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请输入有效的邮箱地址");
-        }
-        if (userAccountRepository.existsByEmail(normalizedEmail)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "该邮箱已注册账号，请直接登录或更换邮箱。");
-        }
-        String code = verificationCodeService.createCode(normalizedEmail);
-        boolean emailSent = emailService.sendVerificationCode(normalizedEmail, code);
-        String message = emailSent
-                ? "验证码已发送至邮箱，请注意查收。"
-                : "邮件发送失败，已在页面展示验证码，请直接使用验证码完成注册。";
-        return new SendVerificationCodeResponse(message, code, emailSent);
     }
 
     private UserAccount createUser(UserRole role, String username, String password, String displayName, String email) {
@@ -281,14 +253,6 @@ public class AuthService {
             return null;
         }
         return normalized.toLowerCase(Locale.ROOT);
-    }
-
-    private String normalizeVerificationCode(String value) {
-        String normalized = normalize(value);
-        if (normalized == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请输入验证码");
-        }
-        return normalized;
     }
 
     private void validatePasswordStrength(String password) {

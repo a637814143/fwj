@@ -35,11 +35,6 @@ public class AuthController {
         return authService.register(request);
     }
 
-    @PostMapping("/register/verification-code")
-    public SendVerificationCodeResponse sendRegisterVerificationCode(@Valid @RequestBody SendVerificationCodeRequest request) {
-        return authService.sendRegistrationVerificationCode(request.getEmail());
-    }
-
     @GetMapping("/profile/{username}")
     public LoginResponse profile(@PathVariable String username) {
         return authService.profile(username);

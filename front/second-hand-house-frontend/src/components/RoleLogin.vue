@@ -102,35 +102,6 @@
         </div>
 
         <div class="field">
-          <label for="register-code">{{ t('auth.fields.verificationCode') }}</label>
-          <div class="verification-field">
-            <input
-              id="register-code"
-              v-model.trim="registerForm.verificationCode"
-              type="text"
-              inputmode="numeric"
-              maxlength="6"
-              :placeholder="t('auth.placeholders.verificationCode')"
-              :disabled="loading"
-              required
-            />
-            <button
-              type="button"
-              class="code-button"
-              @click="requestVerificationCode"
-              :disabled="!canRequestCode"
-            >
-              <span v-if="verificationCountdown > 0">
-                {{ t('auth.actions.resendIn', { seconds: verificationCountdown }) }}
-              </span>
-              <span v-else>
-                {{ codeLoading ? t('auth.actions.sendingCode') : t('auth.actions.sendCode') }}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div class="field">
           <label for="register-display-name">{{ t('auth.fields.displayName') }}</label>
           <input
             id="register-display-name"
@@ -191,7 +162,6 @@
           </div>
         </div>
 
-        <p v-if="registerInfo" class="info">{{ registerInfo }}</p>
         <p v-if="registerError" class="error">{{ registerError }}</p>
 
         <button class="submit" type="submit" :disabled="loading">
@@ -230,16 +200,10 @@ const registerForm = reactive({
   confirm: '',
   displayName: '',
   email: '',
-  verificationCode: '',
   role: 'SELLER'
 });
 
 const captcha = reactive({ question: '', answer: '0' });
-
-const registerInfo = ref('');
-const codeLoading = ref(false);
-const verificationCountdown = ref(0);
-let countdownTimer = null;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -313,22 +277,6 @@ onUnmounted(() => {
     clearInterval(countdownTimer);
   }
 });
-
-const startCountdown = (seconds = 60) => {
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-  }
-  verificationCountdown.value = seconds;
-  countdownTimer = setInterval(() => {
-    if (verificationCountdown.value <= 1) {
-      verificationCountdown.value = 0;
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-    } else {
-      verificationCountdown.value -= 1;
-    }
-  }, 1000);
-};
 
 const containsSequentialPattern = (value) => {
   if (!value) {
@@ -406,8 +354,6 @@ const evaluatePasswordStrength = (value) => {
 
 const passwordStrength = computed(() => evaluatePasswordStrength(registerForm.password));
 
-const canRequestCode = computed(() => verificationCountdown.value === 0 && !codeLoading.value && !loading.value);
-
 const resetForms = () => {
   loginForm.username = '';
   loginForm.password = '';
@@ -417,9 +363,7 @@ const resetForms = () => {
   registerForm.confirm = '';
   registerForm.displayName = '';
   registerForm.email = '';
-  registerForm.verificationCode = '';
   registerForm.role = 'SELLER';
-  registerInfo.value = '';
 };
 
 const switchMode = (value) => {
@@ -427,12 +371,6 @@ const switchMode = (value) => {
   loading.value = false;
   loginError.value = '';
   registerError.value = '';
-  registerInfo.value = '';
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
-  }
-  verificationCountdown.value = 0;
   resetForms();
   refreshCaptcha();
 };
@@ -479,7 +417,7 @@ const submitLogin = async () => {
 };
 
 const submitRegister = async () => {
-  if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName || !registerForm.email || !registerForm.verificationCode) {
+  if (!registerForm.username || !registerForm.password || !registerForm.confirm || !registerForm.displayName || !registerForm.email) {
     registerError.value = t('auth.errors.registerRequired');
     return;
   }
@@ -505,15 +443,8 @@ const submitRegister = async () => {
     return;
   }
 
-  const code = (registerForm.verificationCode ?? '').trim();
-  if (!/^[0-9]{6}$/.test(code)) {
-    registerError.value = t('auth.errors.verificationFormat');
-    return;
-  }
-
   loading.value = true;
   registerError.value = '';
-  registerInfo.value = '';
 
   try {
     const { data } = await client.post('/auth/register', {
@@ -521,17 +452,11 @@ const submitRegister = async () => {
       password: registerForm.password,
       displayName: registerForm.displayName,
       role: registerForm.role,
-      email,
-      verificationCode: code
+      email
     });
     emit('login-success', data);
     resetForms();
     switchMode('login');
-    verificationCountdown.value = 0;
-    if (countdownTimer) {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-    }
   } catch (err) {
     const detail = err.response?.data;
     if (detail?.errors) {
@@ -545,43 +470,6 @@ const submitRegister = async () => {
   }
 };
 
-const requestVerificationCode = async () => {
-  if (!canRequestCode.value) {
-    return;
-  }
-  const email = (registerForm.email ?? '').trim();
-  if (!email) {
-    registerError.value = t('auth.errors.emailRequired');
-    return;
-  }
-  if (!emailPattern.test(email)) {
-    registerError.value = t('auth.errors.emailInvalid');
-    return;
-  }
-
-  registerError.value = '';
-  registerInfo.value = '';
-  codeLoading.value = true;
-  try {
-    const { data } = await client.post('/auth/register/verification-code', { email });
-    const serverMessage = data?.message;
-    const codeHint = data?.code ? `（${t('auth.fields.verificationCode')}：${data.code}）` : '';
-    registerInfo.value = serverMessage
-      ? `${serverMessage}${codeHint ? ` ${codeHint}` : ''}`
-      : t('auth.messages.codeSent', { email });
-    startCountdown();
-  } catch (err) {
-    const detail = err.response?.data;
-    if (detail?.errors) {
-      const firstError = Object.values(detail.errors)[0];
-      registerError.value = Array.isArray(firstError) ? firstError[0] : firstError;
-    } else {
-      registerError.value = detail?.detail ?? t('auth.errors.sendCodeFailed');
-    }
-  } finally {
-    codeLoading.value = false;
-  }
-};
 </script>
 
 <style scoped>

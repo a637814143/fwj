@@ -4,7 +4,7 @@
       <div
         :key="activeSlide.src"
         class="carousel-backdrop"
-        :style="{ backgroundImage: `linear-gradient(135deg, rgba(9, 24, 44, 0.55), rgba(9, 24, 44, 0.35)), url(${activeSlide.src})` }"
+        :style="{ backgroundImage: `linear-gradient(135deg, rgba(9, 24, 44, 0.35), rgba(9, 24, 44, 0.18)), url(${activeSlide.src})` }"
         aria-hidden="true"
       ></div>
     </transition>
@@ -146,8 +146,8 @@ onBeforeUnmount(() => {
 
 .carousel-overlay {
   align-self: flex-start;
-  background: rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(1px);
   padding: 0.85rem 1rem;
   border-radius: calc(var(--radius-md) + 0.2rem);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);

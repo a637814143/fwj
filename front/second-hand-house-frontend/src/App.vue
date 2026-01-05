@@ -5193,39 +5193,18 @@ onBeforeUnmount(() => {
   max-width: none;
   padding: clamp(2rem, 4vw, 3.5rem);
   gap: 2rem;
-  background: var(--gradient-surface);
+  background: transparent;
   border-radius: 0;
   border: none;
   box-shadow: none;
-  backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: none;
   position: relative;
   overflow: hidden;
 }
 
 .app::before,
 .app::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.app::before {
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, rgba(152, 200, 255, 0.42), rgba(152, 200, 255, 0));
-  top: -160px;
-  right: -110px;
-}
-
-.app::after {
-  width: 360px;
-  height: 360px;
-  background: radial-gradient(circle, rgba(120, 176, 255, 0.35), rgba(120, 176, 255, 0));
-  bottom: -140px;
-  left: -100px;
+  display: none;
 }
 
 .header {
@@ -5237,8 +5216,8 @@ onBeforeUnmount(() => {
 }
 
 .hero-surface {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(2px);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.5rem, 3vw, 2.4rem);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 44px rgba(8, 28, 68, 0.12);
@@ -5346,11 +5325,11 @@ onBeforeUnmount(() => {
 }
 
 .workspace-shell {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
   border-radius: calc(var(--radius-lg) + 0.35rem);
   padding: clamp(1.35rem, 3.2vw, 2.4rem);
-  box-shadow: 0 26px 58px rgba(24, 48, 88, 0.13);
+  box-shadow: 0 18px 42px rgba(24, 48, 88, 0.12);
 }
 
 .workspace-layout {
@@ -5398,11 +5377,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.35rem 1.2rem;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(6px);
+  border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  backdrop-filter: none;
 }
 
 .menu-header {
@@ -5447,8 +5426,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.65rem 0.75rem;
-  background: color-mix(in srgb, var(--panel-card-bg) 65%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: color-mix(in srgb, var(--panel-card-bg) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   border-radius: calc(var(--radius-md) + 0.15rem);
 }
 
@@ -5471,11 +5450,11 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: none;
   margin: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: calc(var(--radius-xl) + 0.2rem);
   padding: clamp(1.2rem, 2.6vw, 2.4rem);
-  border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
-  box-shadow: 0 30px 65px rgba(73, 128, 189, 0.18);
+  border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
+  box-shadow: 0 20px 50px rgba(73, 128, 189, 0.14);
   overflow: hidden;
 }
 
@@ -5571,22 +5550,22 @@ onBeforeUnmount(() => {
 }
 
 .alert {
-  background: color-mix(in srgb, rgba(198, 106, 96, 0.32) 65%, transparent);
+  background: color-mix(in srgb, rgba(198, 106, 96, 0.22) 60%, transparent);
   border-radius: var(--radius-md);
   color: color-mix(in srgb, #7b3730 75%, var(--color-text-strong));
   padding: 1.05rem 1.45rem;
-  border: 1px solid rgba(198, 106, 96, 0.28);
-  backdrop-filter: blur(calc(var(--glass-blur) / 3));
+  border: 1px solid rgba(198, 106, 96, 0.24);
+  backdrop-filter: none;
 }
 
 .success {
-  background: rgba(46, 130, 86, 0.32);
+  background: rgba(46, 130, 86, 0.18);
   border-radius: var(--radius-md);
   color: rgba(233, 255, 241, 0.95);
   margin: 0;
   padding: 0.9rem 1.2rem;
-  border: 1px solid rgba(146, 174, 150, 0.45);
-  backdrop-filter: blur(calc(var(--glass-blur) / 3));
+  border: 1px solid rgba(146, 174, 150, 0.35);
+  backdrop-filter: none;
 }
 
 .contract-download {

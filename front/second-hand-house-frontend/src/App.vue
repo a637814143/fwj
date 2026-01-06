@@ -977,26 +977,6 @@ const translations = {
         reject: '驳回充值'
       }
     },
-    adminTopUps: {
-      title: 'Top-up approval',
-      subtitle: 'Approve buyer and seller wallet top-ups so balances update only after review.',
-      refresh: 'Refresh pending list',
-      loading: 'Loading top-up requests…',
-      empty: 'No top-up requests require review.',
-      columns: {
-        id: 'Request ID',
-        user: 'Account',
-        role: 'Role',
-        amount: 'Amount',
-        reference: 'Reference',
-        createdAt: 'Submitted at',
-        actions: 'Actions'
-      },
-      actions: {
-        approve: 'Approve',
-        reject: 'Reject'
-      }
-    },
     adminReputation: {
       title: '信誉数据面板',
       subtitle: '系统会根据交易行为动态调整买卖双方信誉分，管理员可以拉黑或恢复账号。',
@@ -5194,7 +5174,7 @@ const loadAdminTopUps = async ({ silent = false } = {}) => {
     });
     adminPendingTopUps.value = Array.isArray(data) ? data : [];
   } catch (error) {
-    messages.error = resolveError(error, 'errors.loadAdminTopUps');
+    console.warn('Failed to load admin top-ups', error);
   } finally {
     if (!silent) {
       adminTopUpsLoading.value = false;

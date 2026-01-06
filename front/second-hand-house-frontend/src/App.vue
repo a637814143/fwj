@@ -89,6 +89,7 @@
 
                   <section v-if="contractDownload" class="contract-download">
                     <div>
+                      <p class="contract-download__status">{{ t('contracts.generated.successNotice') }}</p>
                       <h3>{{ t('contracts.generated.downloadTitle') }}</h3>
                       <p class="contract-download__meta">
                         {{ t('contracts.generated.summary', {
@@ -663,6 +664,7 @@ const translations = {
         }
       },
       generated: {
+        successNotice: '支付成功！合同已生成，可在此下载。',
         downloadTitle: '电子购房合同已生成',
         summary: '《{title}》签署双方：甲方（卖方）{seller} / 乙方（买方）{buyer}，交易金额 {amount}。',
         downloadBuyer: '下载乙方签署版',
@@ -1900,6 +1902,7 @@ const translations = {
         }
       },
       generated: {
+        successNotice: 'Payment successful! Download your digital contract below.',
         downloadTitle: 'Digital purchase contract ready',
         summary: 'Contract for “{title}”: Seller (Party A) {seller} / Buyer (Party B) {buyer}, amount {amount}.',
         downloadBuyer: 'Download buyer copy',
@@ -4537,6 +4540,7 @@ const executePurchase = async ({ house, paymentMethod }) => {
       amount: payment
     });
     buildContractDownload({ house, amount: payment });
+    activeTab.value = 'home';
     await fetchWallet({ silent: true });
     await fetchOrders({ silent: true });
     await refreshCurrentUser({ silent: true });
@@ -5769,6 +5773,12 @@ onBeforeUnmount(() => {
 .contract-download__meta {
   margin: 0.2rem 0 0;
   color: var(--color-text-soft);
+}
+
+.contract-download__status {
+  margin: 0 0 0.2rem;
+  color: var(--color-positive-strong);
+  font-weight: 700;
 }
 
 .contract-download__actions {

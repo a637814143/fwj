@@ -265,8 +265,10 @@ public class HouseOrderService {
             }
         }
 
-        orderRepository.findFirstByHouse_IdAndStatusOrderByCreatedAtDesc(house.getId(), OrderStatus.RESERVED)
-                .ifPresent(reservation -> handleExistingReservation(reservation, buyer, seller));
+        BigDecimal reservationCredit = orderRepository
+                .findFirstByHouse_IdAndStatusOrderByCreatedAtDesc(house.getId(), OrderStatus.RESERVED)
+                .map(reservation -> handleExistingReservation(reservation, buyer, seller))
+                .orElse(BigDecimal.ZERO);
 
         UserAccount adminAccount = requireAdminAccount();
 
@@ -283,7 +285,8 @@ public class HouseOrderService {
         String description = paymentMethod == PaymentMethod.INSTALLMENT
                 ? String.format("房源《%s》分期付款（首期，卡尾号%s）", house.getTitle(), sanitizedCardNumber.substring(15))
                 : String.format("房源《%s》购房全款支付", house.getTitle());
-        walletService.processEscrowPayment(order, reference, description, adminAccount);
+        BigDecimal payable = amount.subtract(reservationCredit).max(BigDecimal.ZERO);
+        walletService.processEscrowPayment(order, payable, reference, description, adminAccount);
         order.markPaid();
         order.setProgressStage(OrderProgressStage.HANDOVER_COMPLETED);
         order.setAdminHoldAmount(amount);
@@ -588,32 +591,30 @@ public class HouseOrderService {
         return trimmed.isEmpty() ? "" : trimmed;
     }
 
-    private void handleExistingReservation(HouseOrder reservation, UserAccount currentBuyer, UserAccount seller) {
+    private BigDecimal handleExistingReservation(HouseOrder reservation, UserAccount currentBuyer, UserAccount seller) {
         if (reservation.getStatus() != OrderStatus.RESERVED) {
-            return;
+            return BigDecimal.ZERO;
         }
 
         UserAccount adminAccount = requireAdminAccount();
         BigDecimal holdAmount = resolveHoldAmount(reservation);
+        if (reservation.getBuyer().getUsername().equals(currentBuyer.getUsername())) {
+            reservation.markCancelled("买家完成购房，预付定金合并至正式订单");
+            reservation.setAdminHoldAmount(BigDecimal.ZERO);
+            reservation.setReleasedAmount(BigDecimal.ZERO);
+            reservation.setPlatformFee(BigDecimal.ZERO);
+            reservation.setFundsReleasedTo(null);
+            reservation.clearSellerRepayment();
+            orderRepository.save(reservation);
+            return holdAmount;
+        }
+
         BigDecimal platformFee = calculatePlatformFee(holdAmount);
         BigDecimal releaseAmount = holdAmount.subtract(platformFee);
         if (releaseAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预定定金金额异常，无法退回");
         }
         String reference = "RESERVE-" + reservation.getId();
-        if (reservation.getBuyer().getUsername().equals(currentBuyer.getUsername())) {
-            String message = "购房成功，系统自动退回预付定金";
-            walletService.releaseEscrow(reservation, reference, message, adminAccount, reservation.getBuyer(), releaseAmount, platformFee, WalletTransactionType.REFUND);
-            reservation.markReturned(message);
-            reservation.markAdminReviewCompleted(adminAccount.getUsername(), releaseAmount, platformFee, PayoutRecipient.BUYER);
-            orderRepository.save(reservation);
-            seller.increaseReputation(2);
-            currentBuyer.increaseReputation(2);
-            userAccountRepository.save(seller);
-            userAccountRepository.save(currentBuyer);
-            return;
-        }
-
         String message = "卖家未履行预定，系统自动退回定金";
         walletService.releaseEscrow(reservation, reference, message, adminAccount, reservation.getBuyer(), releaseAmount, platformFee, WalletTransactionType.REFUND);
         reservation.markReturned(message);
@@ -628,6 +629,7 @@ public class HouseOrderService {
         UserAccount reservedBuyer = reservation.getBuyer();
         reservedBuyer.increaseReputation(1);
         userAccountRepository.save(reservedBuyer);
+        return BigDecimal.ZERO;
     }
 
     private BigDecimal resolveHoldAmount(HouseOrder order) {

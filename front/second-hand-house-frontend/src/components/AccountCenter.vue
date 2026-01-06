@@ -318,7 +318,7 @@ const submit = () => {
   const trimmedCurrent = form.currentPassword?.trim() ?? '';
   const trimmedPassword = form.password?.trim() ?? '';
   const trimmedConfirm = form.confirm?.trim() ?? '';
-  const wantsPasswordChange = Boolean(trimmedPassword || trimmedConfirm);
+  const wantsPasswordChange = Boolean(trimmedCurrent || trimmedPassword || trimmedConfirm);
   if (wantsPasswordChange) {
     if (!trimmedPassword || !trimmedConfirm) {
       localError.value = t('accountCenter.errors.passwordRequired');
